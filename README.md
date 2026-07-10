@@ -10,9 +10,10 @@ compliance product and not production ready.
 
 ## Current status
 
-Phase 0 establishes the typed Python project, a minimal liveness endpoint, local container
-skeleton, security scanning, and CI. Application workflow logic begins only after this gate is
-green. See [PROGRESS.md](PROGRESS.md) for verified progress and limitations.
+Phase 1 provides a verified local backend platform: dependency-aware FastAPI health checks,
+PostgreSQL with pgvector, Temporal and its UI, an initial worker process, Prometheus, Grafana, and
+Tempo. Application persistence and workflow logic begin in the next phases. See
+[PROGRESS.md](PROGRESS.md) for verified progress and limitations.
 
 ## Quick start
 
@@ -21,11 +22,14 @@ Prerequisites: Python 3.12, [uv](https://docs.astral.sh/uv/), Docker, and Docker
 ```bash
 make setup
 make verify
-make dev
+make up
 curl http://127.0.0.1:8000/health/live
+curl http://127.0.0.1:8000/health/ready
 ```
 
-`make up` builds and starts the Phase 0 API and PostgreSQL skeleton; `make down` stops it.
+`make up` builds and starts the local platform. The API is at port 8000, Temporal UI at 8080,
+Prometheus at 9090, Grafana at 3000, and Tempo at 3200. `make down` stops it without deleting local
+volumes. See the [local development runbook](docs/runbooks/local-development.md).
 
 ## NVIDIA configuration
 
@@ -44,9 +48,9 @@ compatible API. CI never uses a live key and never silently falls back to anothe
 
 ## Developer commands
 
-Run `make help` for the current command set. `make verify` is the complete local Phase 0 gate:
-format and lint checks, strict type checking, tests with at least 80% coverage, Compose validation,
-and a redacted Gitleaks scan. Phase-specific commands will be added with their implementations.
+Run `make help` for the current command set. `make verify` is the complete local Phase 1 gate:
+format and lint checks, strict type checking, unit tests with at least 80% coverage, Compose
+validation, a redacted Gitleaks scan, and an isolated live infrastructure smoke test.
 
 ## License
 

@@ -7,8 +7,19 @@ requires-python = ">=3.12,<3.13"
 license = "Apache-2.0"
 authors = [{ name = "Kabir Sokhi" }]
 dependencies = [
+  "asyncpg==0.31.0",
   "fastapi==0.116.1",
+  "opentelemetry-api==1.39.1",
+  "opentelemetry-exporter-otlp-proto-grpc==1.39.1",
+  "opentelemetry-instrumentation-fastapi==0.60b1",
+  "opentelemetry-instrumentation-sqlalchemy==0.60b1",
+  "opentelemetry-sdk==1.39.1",
+  "prometheus-client==0.23.1",
   "pydantic==2.11.7",
+  "pydantic-settings==2.12.0",
+  "sqlalchemy[asyncio]==2.0.45",
+  "structlog==25.5.0",
+  "temporalio==1.30.0",
   "uvicorn[standard]==0.35.0",
 ]
 
@@ -48,6 +59,7 @@ venv = ".venv"
 addopts = "--strict-config --strict-markers"
 testpaths = ["tests"]
 asyncio_mode = "strict"
+markers = ["integration: requires the local Docker Compose stack"]
 
 [tool.coverage.run]
 branch = true

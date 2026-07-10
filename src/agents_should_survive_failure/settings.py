@@ -1,0 +1,31 @@
+"""Environment-backed application settings."""
+
+from functools import lru_cache
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Runtime settings shared by API and worker processes."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=False,
+    )
+
+    app_env: str = "development"
+    log_level: str = "INFO"
+    database_url: str = "postgresql+asyncpg://agents:local-development-only@postgres:5432/agents"
+    temporal_address: str = "temporal:7233"
+    temporal_namespace: str = "default"
+    dependency_timeout_seconds: float = Field(default=3.0, gt=0, le=30)
+    otel_exporter_otlp_endpoint: str | None = None
+    otel_service_name: str = "agents-control-plane-api"
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

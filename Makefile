@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup format lint typecheck test test-unit verify dev up down compose-check secret-scan
+.PHONY: help setup format lint typecheck test test-unit test-integration verify dev up down compose-check secret-scan
 
 help:
 	@printf '%s\n' 'setup         Install locked development dependencies' \
@@ -9,7 +9,8 @@ help:
 	  'format        Format Python source' \
 	  'lint          Check formatting and lint rules' \
 	  'typecheck     Run strict Pyright checks' \
-	  'test          Run tests with coverage' \
+	  'test          Run unit tests with coverage' \
+	  'test-integration Run the isolated Compose smoke gate' \
 	  'secret-scan   Scan tracked content with Gitleaks (Docker)' \
 	  'verify        Run the complete Phase 0 quality gate'
 
@@ -34,13 +35,16 @@ test test-unit:
 	uv run coverage run -m pytest tests/unit
 	uv run coverage report
 
+test-integration:
+	bash scripts/compose_smoke.sh
+
 compose-check:
 	docker compose config --quiet
 
 secret-scan:
 	docker run --rm -v "$(CURDIR):/repo" ghcr.io/gitleaks/gitleaks:v8.28.0 detect --source=/repo --no-git --redact
 
-verify: lint typecheck test compose-check secret-scan
+verify: lint typecheck test compose-check secret-scan test-integration
 
 up:
 	docker compose up --build -d

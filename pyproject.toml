@@ -1,0 +1,59 @@
+[project]
+name = "agents-should-survive-failure"
+version = "0.1.0"
+description = "A durable, observable and secure control plane for long-running AI agents."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = "Apache-2.0"
+authors = [{ name = "Kabir Sokhi" }]
+dependencies = [
+  "fastapi==0.116.1",
+  "pydantic==2.11.7",
+  "uvicorn[standard]==0.35.0",
+]
+
+[dependency-groups]
+dev = [
+  "coverage[toml]==7.10.2",
+  "httpx==0.28.1",
+  "pre-commit==4.3.0",
+  "pyright==1.1.403",
+  "pytest==8.4.1",
+  "pytest-asyncio==1.1.0",
+  "ruff==0.12.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agents_should_survive_failure"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "ASYNC", "RUF"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+include = ["src", "tests"]
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers"
+testpaths = ["tests"]
+asyncio_mode = "strict"
+
+[tool.coverage.run]
+branch = true
+source = ["agents_should_survive_failure"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_covered = true

@@ -107,6 +107,13 @@ class InvocationStatus(enum.StrEnum):
     DENIED = "denied"
 
 
+class ToolRiskClass(enum.StrEnum):
+    READ_ONLY = "read_only"
+    REVERSIBLE_WRITE = "reversible_write"
+    SENSITIVE_WRITE = "sensitive_write"
+    IRREVERSIBLE = "irreversible"
+
+
 class EvaluationStatus(enum.StrEnum):
     PENDING = "pending"
     RUNNING = "running"
@@ -367,7 +374,20 @@ class ToolDefinition(IdMixin, TimestampMixin, Base):
     version: Mapped[str] = mapped_column(String(40), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     input_schema: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    output_schema: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     permissions: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    risk_class: Mapped[ToolRiskClass] = mapped_column(
+        Enum(ToolRiskClass, name="tool_risk_class"),
+        nullable=False,
+        default=ToolRiskClass.READ_ONLY,
+        server_default="READ_ONLY",
+    )
+    timeout_seconds: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=10, server_default="10"
+    )
+    approval_required: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
     )
@@ -391,6 +411,7 @@ class ToolInvocation(IdMixin, TimestampMixin, Base):
         Enum(InvocationStatus, name="invocation_status"), nullable=False
     )
     arguments: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    argument_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, default="legacy")
     result_summary: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     error_category: Mapped[str | None] = mapped_column(String(80))
 

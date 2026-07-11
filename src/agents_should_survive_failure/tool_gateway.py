@@ -1,5 +1,7 @@
 """Capability-negotiated, deterministic tools with durable invocation evidence."""
 
+import hashlib
+import json
 import re
 from dataclasses import dataclass
 from typing import Any, cast
@@ -42,6 +44,11 @@ class ToolCapability:
 
 
 _EXTERNAL_REFERENCE = re.compile(r"^[A-Za-z0-9._:-]{1,120}$")
+
+
+def canonical_argument_fingerprint(arguments: dict[str, Any]) -> str:
+    encoded = json.dumps(arguments, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _agent_tool_permissions(agent: Agent) -> set[str]:
@@ -102,8 +109,12 @@ class ToolGateway:
                 ToolInvocation.idempotency_key == idempotency_key,
             )
         )
+        arguments = {"external_reference": external_reference}
+        fingerprint = canonical_argument_fingerprint(arguments)
         if existing is not None:
-            if existing.arguments != {"external_reference": external_reference}:
+            if existing.arguments != arguments or (
+                existing.argument_fingerprint not in {"legacy", fingerprint}
+            ):
                 raise ToolInvocationConflictError(
                     "idempotency key was reused with different tool arguments"
                 )
@@ -113,7 +124,8 @@ class ToolGateway:
             tool_definition_id=tool.id,
             idempotency_key=idempotency_key,
             status=InvocationStatus.RUNNING,
-            arguments={"external_reference": external_reference},
+            arguments=arguments,
+            argument_fingerprint=fingerprint,
         )
         session.add(invocation)
         await session.flush()

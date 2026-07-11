@@ -107,6 +107,7 @@ async def test_tool_gateway_denies_and_reuses_idempotent_invocation() -> None:
     existing = SimpleNamespace(id=uuid.uuid4(), result_summary={"found": False})
     tool = SimpleNamespace(id=uuid.uuid4(), enabled=True, permissions=["vendors:read"])
     existing.arguments = {"external_reference": "vendor"}
+    existing.argument_fingerprint = "legacy"
     agent = SimpleNamespace(configuration={"tool_permissions": ["vendors:read"]})
     reused = FakeSession([tool, existing], agent=agent)
     result = await gateway.invoke_vendor_lookup(
@@ -155,7 +156,10 @@ async def test_tool_gateway_validates_inputs_and_idempotency_arguments() -> None
 
     tool = SimpleNamespace(id=uuid.uuid4(), enabled=True, permissions=["vendors:read"])
     existing = SimpleNamespace(
-        id=uuid.uuid4(), result_summary={"found": False}, arguments={"external_reference": "other"}
+        id=uuid.uuid4(),
+        result_summary={"found": False},
+        arguments={"external_reference": "other"},
+        argument_fingerprint="legacy",
     )
     with pytest.raises(ToolInvocationConflictError):
         await gateway.invoke_vendor_lookup(

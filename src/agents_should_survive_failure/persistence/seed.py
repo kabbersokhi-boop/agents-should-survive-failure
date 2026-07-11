@@ -15,6 +15,7 @@ from agents_should_survive_failure.persistence.models import (
     PrincipalStatus,
     PrincipalType,
     ToolDefinition,
+    ToolRiskClass,
     User,
     UserStatus,
 )
@@ -81,6 +82,19 @@ def seed_rows() -> Sequence[
                     "additionalProperties": False,
                 },
                 "permissions": ["vendors:read"],
+                "output_schema": {
+                    "type": "object",
+                    "properties": {
+                        "found": {"type": "boolean"},
+                        "vendor_id": {"type": "string"},
+                        "status": {"type": "string"},
+                    },
+                    "required": ["found"],
+                    "additionalProperties": False,
+                },
+                "risk_class": ToolRiskClass.READ_ONLY,
+                "timeout_seconds": 10,
+                "approval_required": False,
                 "enabled": True,
             },
         ),

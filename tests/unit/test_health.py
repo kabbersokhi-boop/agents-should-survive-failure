@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -88,13 +89,21 @@ async def test_readiness_fails_closed_without_leaking_error_text() -> None:
 
 @pytest.mark.asyncio
 async def test_prometheus_metrics_are_exposed() -> None:
-    app = create_app()
+    app = create_app(Settings(metrics_enabled=True))
     await request(app, "/health/live")
 
     response = await request(app, "/metrics")
 
     assert response.status_code == 200
     assert "agents_http_requests_total" in response.text
+
+
+@pytest.mark.asyncio
+async def test_prometheus_metrics_are_disabled_by_default() -> None:
+    response = await request(create_app(), "/metrics")
+
+    assert response.status_code == 404
+    assert response.json()["code"] == "not_found"
 
 
 @pytest.mark.asyncio
@@ -222,7 +231,9 @@ async def test_auth_dependency_returns_generic_401_for_missing_or_invalid_keys(
 
     monkeypatch.setattr("agents_should_survive_failure.api.resolve_api_key", resolve)
     request = authenticated_request("Bearer invalid")
-    request.state.resources = type("Resources", (), {"engine": object()})()
+    request.scope["app"] = SimpleNamespace(
+        state=SimpleNamespace(resources=SimpleNamespace(engine=object()))
+    )
 
     def database_factory(engine: object) -> FakeAuthDatabase:
         del engine

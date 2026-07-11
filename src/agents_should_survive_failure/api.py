@@ -312,7 +312,11 @@ async def readiness(
     )
 
 
-async def metrics() -> Response:
+async def metrics(
+    settings: Annotated[Settings, Depends(get_app_settings)],
+) -> Response:
+    if not settings.metrics_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="metrics not found")
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 

@@ -25,6 +25,17 @@ class ReadyEvent:
         return True
 
 
+class FakeWorker:
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        pass
+
+    async def __aenter__(self) -> "FakeWorker":
+        return self
+
+    async def __aexit__(self, *args: object) -> None:
+        return None
+
+
 @pytest.mark.asyncio
 async def test_worker_checks_temporal_before_becoming_ready(
     monkeypatch: pytest.MonkeyPatch,
@@ -33,6 +44,7 @@ async def test_worker_checks_temporal_before_becoming_ready(
         return cast(Client, FakeTemporalClient())
 
     monkeypatch.setattr(worker.Client, "connect", connect)
+    monkeypatch.setattr(worker, "Worker", FakeWorker)
     monkeypatch.setattr(worker.asyncio, "Event", ReadyEvent)
 
     await worker.run_worker()

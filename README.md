@@ -10,10 +10,10 @@ compliance product and not production ready.
 
 ## Current status
 
-Phase 2 adds the complete application schema, asynchronous repositories, reversible Alembic
-migrations, deterministic development seeds, optimistic concurrency, and tested pgvector
-similarity search to the verified local platform. Durable workflow logic begins in Phase 3. See
-[PROGRESS.md](PROGRESS.md) for verified progress and limitations.
+Phase 3 adds a durable vendor-onboarding workflow: deterministic risk assessment, a human approval
+pause, approval/rejection and cancellation signals, queryable workflow status, retry-safe database
+activities, and worker-restart verification. See [PROGRESS.md](PROGRESS.md) for verified progress
+and limitations.
 
 ## Quick start
 
@@ -32,6 +32,10 @@ Alembic head and loads idempotent development seeds. The API is at port 8000, Te
 Prometheus at 9090, Grafana at 3000, and Tempo at 3200. `make down` stops it without deleting local
 volumes. See the [local development runbook](docs/runbooks/local-development.md).
 
+To exercise the workflow, create a vendor, start onboarding, then submit the human decision using
+the returned IDs. `GET /workflow-runs/{run_id}` exposes the durable phase, and `DELETE` on that path
+cancels a pending review. The API schema at `/docs` contains the precise request contracts.
+
 ## NVIDIA configuration
 
 Later phases will use NVIDIA NIM through a provider-independent interface. Copy the safe names
@@ -49,7 +53,7 @@ compatible API. CI never uses a live key and never silently falls back to anothe
 
 ## Developer commands
 
-Run `make help` for the current command set. `make verify` is the complete local Phase 2 gate:
+Run `make help` for the current command set. `make verify` is the complete local Phase 3 gate:
 format and lint checks, strict type checking, unit tests with at least 80% coverage, Compose
 validation, a redacted Gitleaks scan, reversible database migrations, and live persistence and
 infrastructure tests. Use `make migrate`, `make downgrade`, and `make seed` for database lifecycle

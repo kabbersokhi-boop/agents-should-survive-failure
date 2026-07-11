@@ -1,0 +1,291 @@
+"""Transaction-owning activities for the vendor-onboarding workflow."""
+
+import uuid
+from dataclasses import asdict
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from temporalio import activity
+
+from agents_should_survive_failure.persistence.models import (
+    ApprovalDecision,
+    ApprovalRequest,
+    ApprovalStatus,
+    ApprovedVendor,
+    AuditEvent,
+    RunStatus,
+    VendorStatus,
+    WorkflowEvent,
+)
+from agents_should_survive_failure.persistence.repositories import (
+    AuditEventRepository,
+    VendorRepository,
+    WorkflowRunRepository,
+)
+from agents_should_survive_failure.persistence.session import Database
+from agents_should_survive_failure.workflows.contracts import (
+    ApprovalDecisionInput,
+    ApprovalDecisionType,
+    RiskAssessment,
+    VendorOnboardingInput,
+)
+
+
+class VendorOnboardingActivities:
+    """Persist workflow effects atomically and make retries harmless."""
+
+    def __init__(self, database: Database) -> None:
+        self._database = database
+
+    @staticmethod
+    def _id(value: str) -> uuid.UUID:
+        return uuid.UUID(value)
+
+    @activity.defn(name="vendor_onboarding.begin_review")
+    async def begin_review(self, input: VendorOnboardingInput) -> None:
+        run_id = self._id(input.run_id)
+        vendor_id = self._id(input.vendor_id)
+        async with self._database.session() as session:
+            runs = WorkflowRunRepository(session)
+            vendors = VendorRepository(session)
+            run = await runs.get(run_id)
+            vendor = await vendors.get(vendor_id, for_update=True)
+            if run is None or vendor is None:
+                raise ValueError("workflow run or vendor does not exist")
+            if run.status is RunStatus.PENDING:
+                run.status = RunStatus.RUNNING
+                run.started_at = activity.info().started_time
+            if vendor.status is VendorStatus.SUBMITTED:
+                vendor.status = VendorStatus.UNDER_REVIEW
+            await self._append_event(
+                runs,
+                run_id,
+                "review.started",
+                "Vendor review started.",
+                {"vendor_id": input.vendor_id},
+                sequence=10,
+            )
+            await self._audit(
+                session,
+                run_id,
+                "vendor.review.start",
+                "vendor",
+                vendor_id,
+                "Vendor review started.",
+            )
+
+    @activity.defn(name="vendor_onboarding.assess_risk")
+    async def assess_risk(self, input: VendorOnboardingInput) -> RiskAssessment:
+        vendor_id = self._id(input.vendor_id)
+        run_id = self._id(input.run_id)
+        async with self._database.session() as session:
+            vendor = await VendorRepository(session).get(vendor_id, for_update=True)
+            if vendor is None:
+                raise ValueError("vendor does not exist")
+            score = 25 if vendor.jurisdiction in {"US", "GB", "CA"} else 65
+            vendor.risk_score = score
+            assessment = RiskAssessment(
+                score=score,
+                summary=f"Deterministic jurisdiction risk score: {score}.",
+            )
+            await self._append_event(
+                WorkflowRunRepository(session),
+                run_id,
+                "risk.assessed",
+                assessment.summary,
+                asdict(assessment),
+                sequence=20,
+            )
+            await self._audit(
+                session, run_id, "vendor.risk.assess", "vendor", vendor_id, assessment.summary
+            )
+            return assessment
+
+    @activity.defn(name="vendor_onboarding.request_approval")
+    async def request_approval(
+        self, input: VendorOnboardingInput, assessment: RiskAssessment
+    ) -> str:
+        run_id = self._id(input.run_id)
+        async with self._database.session() as session:
+            request = await session.scalar(
+                select(ApprovalRequest).where(
+                    ApprovalRequest.workflow_run_id == run_id,
+                    ApprovalRequest.request_key == "final-decision",
+                )
+            )
+            if request is None:
+                request = ApprovalRequest(
+                    workflow_run_id=run_id,
+                    request_key="final-decision",
+                    status=ApprovalStatus.PENDING,
+                    summary=(
+                        f"Approve vendor after deterministic risk assessment ({assessment.score})."
+                    ),
+                )
+                session.add(request)
+                await session.flush()
+            run = await WorkflowRunRepository(session).get(run_id)
+            if run is None:
+                raise ValueError("workflow run does not exist")
+            run.status = RunStatus.WAITING
+            await self._append_event(
+                WorkflowRunRepository(session),
+                run_id,
+                "approval.requested",
+                "Human approval requested.",
+                {"approval_request_id": str(request.id), "risk_score": assessment.score},
+                sequence=30,
+            )
+            await self._audit(
+                session,
+                run_id,
+                "approval.request.create",
+                "approval_request",
+                request.id,
+                "Human approval requested.",
+            )
+            return str(request.id)
+
+    @activity.defn(name="vendor_onboarding.record_decision")
+    async def record_decision(
+        self, input: VendorOnboardingInput, decision: ApprovalDecisionInput
+    ) -> None:
+        run_id = self._id(input.run_id)
+        vendor_id = self._id(input.vendor_id)
+        approver_id = self._id(decision.decided_by_id)
+        async with self._database.session() as session:
+            request = await session.scalar(
+                select(ApprovalRequest)
+                .where(ApprovalRequest.workflow_run_id == run_id)
+                .with_for_update()
+            )
+            run = await WorkflowRunRepository(session).get(run_id)
+            vendor = await VendorRepository(session).get(vendor_id, for_update=True)
+            if request is None or run is None or vendor is None:
+                raise ValueError("workflow state does not exist")
+            existing = await session.scalar(
+                select(ApprovalDecision).where(
+                    ApprovalDecision.approval_request_id == request.id,
+                    ApprovalDecision.idempotency_key == decision.idempotency_key,
+                )
+            )
+            approved = decision.decision is ApprovalDecisionType.APPROVED
+            status = ApprovalStatus.APPROVED if approved else ApprovalStatus.REJECTED
+            if existing is None:
+                session.add(
+                    ApprovalDecision(
+                        approval_request_id=request.id,
+                        decided_by_id=approver_id,
+                        decision=status,
+                        rationale=decision.rationale,
+                        idempotency_key=decision.idempotency_key,
+                    )
+                )
+            request.status = status
+            vendor.status = VendorStatus.APPROVED if approved else VendorStatus.REJECTED
+            run.status = RunStatus.SUCCEEDED if approved else RunStatus.REJECTED
+            run.result_summary = {
+                "decision": decision.decision.value,
+                "risk_score": vendor.risk_score,
+            }
+            run.completed_at = activity.info().started_time
+            if approved:
+                approved_vendor = await session.scalar(
+                    select(ApprovedVendor).where(ApprovedVendor.vendor_id == vendor_id)
+                )
+                if approved_vendor is None:
+                    session.add(
+                        ApprovedVendor(
+                            vendor_id=vendor_id,
+                            workflow_run_id=run_id,
+                            approval_request_id=request.id,
+                        )
+                    )
+            await self._append_event(
+                WorkflowRunRepository(session),
+                run_id,
+                "approval.decided",
+                f"Vendor {decision.decision.value} by human approver.",
+                {"decision": decision.decision.value, "approval_request_id": str(request.id)},
+                sequence=40,
+            )
+            await self._audit(
+                session,
+                run_id,
+                "approval.decision.record",
+                "approval_request",
+                request.id,
+                f"Vendor {decision.decision.value} by human approver.",
+            )
+
+    @activity.defn(name="vendor_onboarding.cancel_review")
+    async def cancel_review(self, input: VendorOnboardingInput) -> None:
+        run_id = self._id(input.run_id)
+        async with self._database.session() as session:
+            run = await WorkflowRunRepository(session).get(run_id)
+            if run is None:
+                raise ValueError("workflow run does not exist")
+            if run.status in {RunStatus.SUCCEEDED, RunStatus.REJECTED, RunStatus.CANCELLED}:
+                return
+            run.status = RunStatus.CANCELLED
+            run.completed_at = activity.info().started_time
+            await self._append_event(
+                WorkflowRunRepository(session),
+                run_id,
+                "review.cancelled",
+                "Review cancelled.",
+                {},
+                sequence=50,
+            )
+            await self._audit(
+                session, run_id, "workflow.cancel", "workflow_run", run_id, "Review cancelled."
+            )
+
+    async def _append_event(
+        self,
+        runs: WorkflowRunRepository,
+        run_id: uuid.UUID,
+        event_type: str,
+        summary: str,
+        payload: dict[str, object],
+        *,
+        sequence: int,
+    ) -> None:
+        existing = await runs.events(run_id)
+        if any(event.sequence == sequence for event in existing):
+            return
+        await runs.append_event(
+            WorkflowEvent(
+                workflow_run_id=run_id,
+                sequence=sequence,
+                event_type=event_type,
+                summary=summary,
+                payload=payload,
+            )
+        )
+
+    async def _audit(
+        self,
+        session: AsyncSession,
+        run_id: uuid.UUID,
+        action: str,
+        resource_type: str,
+        resource_id: uuid.UUID,
+        summary: str,
+    ) -> None:
+        # Activity attempts can repeat, so audit identity is deterministic per durable transition.
+        repository = AuditEventRepository(session)
+        key = f"{run_id}:{action}"
+        if await repository.get_by_idempotency_key(key) is None:
+            await repository.append(
+                AuditEvent(
+                    workflow_run_id=run_id,
+                    actor_id=None,
+                    action=action,
+                    resource_type=resource_type,
+                    resource_id=resource_id,
+                    idempotency_key=key,
+                    summary=summary,
+                    evidence={},
+                )
+            )

@@ -86,6 +86,8 @@ class RuntimeResources:
 async def create_resources(
     settings: Settings,
     temporal_connect: Callable[..., Awaitable[Client]] = Client.connect,
+    *,
+    lazy_temporal_client: bool = True,
 ) -> RuntimeResources:
     engine = create_async_engine(settings.database_url, pool_pre_ping=True)
     SQLAlchemyInstrumentor().instrument(engine=engine.sync_engine)
@@ -93,7 +95,7 @@ async def create_resources(
         temporal_client = await temporal_connect(
             settings.temporal_address,
             namespace=settings.temporal_namespace,
-            lazy=True,
+            lazy=lazy_temporal_client,
         )
     except BaseException:
         await engine.dispose()

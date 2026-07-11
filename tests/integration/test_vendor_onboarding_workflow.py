@@ -1,0 +1,197 @@
+import asyncio
+import os
+import subprocess
+import uuid
+from collections.abc import Awaitable, Callable
+
+import httpx
+import pytest
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+from agents_should_survive_failure.persistence.models import (
+    ApprovalRequest,
+    ApprovalStatus,
+    ApprovedVendor,
+    AuditEvent,
+    RunStatus,
+    Vendor,
+    VendorStatus,
+    WorkflowEvent,
+    WorkflowRun,
+)
+
+
+async def eventually[T](operation: Callable[[], Awaitable[T]], attempts: int = 45) -> T:
+    last_error: BaseException | None = None
+    for _ in range(attempts):
+        try:
+            return await operation()
+        except (AssertionError, httpx.HTTPError) as error:
+            last_error = error
+            await asyncio.sleep(1)
+    raise AssertionError("workflow did not reach expected state") from last_error
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_vendor_onboarding_survives_worker_restart_and_records_approval() -> None:
+    reference = f"workflow-{uuid.uuid4()}"
+    idempotency_key = f"onboarding-{uuid.uuid4()}"
+    async with httpx.AsyncClient(base_url="http://127.0.0.1:8000", timeout=5) as client:
+        created = await client.post(
+            "/vendors",
+            json={
+                "external_reference": reference,
+                "legal_name": "Durable Workflow Vendor",
+                "jurisdiction": "US",
+                "contact_email": "durable@example.invalid",
+            },
+        )
+        created.raise_for_status()
+        vendor_id = created.json()["id"]
+        started = await client.post(
+            f"/vendors/{vendor_id}/onboarding", json={"idempotency_key": idempotency_key}
+        )
+        started.raise_for_status()
+        run_id = started.json()["id"]
+
+        async def waiting_for_approval() -> None:
+            response = await client.get(f"/workflow-runs/{run_id}")
+            response.raise_for_status()
+            assert response.json()["phase"] == "waiting_for_approval"
+
+        await eventually(waiting_for_approval)
+
+        await asyncio.to_thread(
+            subprocess.run,
+            ["docker", "compose", "restart", "worker"],
+            check=True,
+            env=os.environ.copy(),
+        )
+        decision = await client.post(
+            f"/workflow-runs/{run_id}/approval",
+            json={
+                "decision": "approved",
+                "rationale": "Synthetic vendor accepted after review.",
+                "idempotency_key": f"decision-{uuid.uuid4()}",
+            },
+        )
+        assert decision.status_code == 202
+
+        async def workflow_completed() -> None:
+            response = await client.get(f"/workflow-runs/{run_id}")
+            response.raise_for_status()
+            assert response.json()["phase"] == "completed"
+
+        await eventually(workflow_completed)
+
+    engine = create_async_engine(
+        os.getenv(
+            "INTEGRATION_DATABASE_URL",
+            "postgresql+asyncpg://agents:local-development-only@127.0.0.1:5432/agents",
+        )
+    )
+    try:
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+        async with sessions() as session:
+            run = await session.scalar(select(WorkflowRun).where(WorkflowRun.id == run_id))
+            vendor = await session.scalar(select(Vendor).where(Vendor.id == vendor_id))
+            approval = await session.scalar(
+                select(ApprovalRequest).where(ApprovalRequest.workflow_run_id == run_id)
+            )
+            events = (
+                await session.scalars(
+                    select(WorkflowEvent)
+                    .where(WorkflowEvent.workflow_run_id == run_id)
+                    .order_by(WorkflowEvent.sequence)
+                )
+            ).all()
+            audit_events = (
+                await session.scalars(
+                    select(AuditEvent).where(AuditEvent.workflow_run_id == run_id)
+                )
+            ).all()
+            approved_vendor = await session.scalar(
+                select(ApprovedVendor).where(ApprovedVendor.workflow_run_id == run_id)
+            )
+    finally:
+        await engine.dispose()
+
+    assert run is not None and run.status is RunStatus.SUCCEEDED
+    assert vendor is not None and vendor.status is VendorStatus.APPROVED and vendor.risk_score == 25
+    assert approval is not None and approval.status is ApprovalStatus.APPROVED
+    assert approved_vendor is not None
+    assert [event.event_type for event in events] == [
+        "review.started",
+        "risk.assessed",
+        "approval.requested",
+        "approval.decided",
+    ]
+    assert {event.action for event in audit_events} == {
+        "vendor.review.start",
+        "vendor.risk.assess",
+        "approval.request.create",
+        "approval.decision.record",
+    }
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_vendor_onboarding_cancellation_is_durable() -> None:
+    async with httpx.AsyncClient(base_url="http://127.0.0.1:8000", timeout=5) as client:
+        created = await client.post(
+            "/vendors",
+            json={
+                "external_reference": f"cancel-{uuid.uuid4()}",
+                "legal_name": "Cancelled Workflow Vendor",
+                "jurisdiction": "CA",
+                "contact_email": "cancel@example.invalid",
+            },
+        )
+        created.raise_for_status()
+        vendor_id = created.json()["id"]
+        started = await client.post(
+            f"/vendors/{vendor_id}/onboarding", json={"idempotency_key": f"cancel-{uuid.uuid4()}"}
+        )
+        started.raise_for_status()
+        run_id = started.json()["id"]
+
+        async def waiting_for_approval() -> None:
+            response = await client.get(f"/workflow-runs/{run_id}")
+            response.raise_for_status()
+            assert response.json()["phase"] == "waiting_for_approval"
+
+        await eventually(waiting_for_approval)
+        cancelled = await client.delete(f"/workflow-runs/{run_id}")
+        assert cancelled.status_code == 202
+
+        async def workflow_cancelled() -> None:
+            response = await client.get(f"/workflow-runs/{run_id}")
+            response.raise_for_status()
+            assert response.json()["phase"] == "cancelled"
+
+        await eventually(workflow_cancelled)
+
+    engine = create_async_engine(
+        os.getenv(
+            "INTEGRATION_DATABASE_URL",
+            "postgresql+asyncpg://agents:local-development-only@127.0.0.1:5432/agents",
+        )
+    )
+    try:
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+        async with sessions() as session:
+            run = await session.scalar(select(WorkflowRun).where(WorkflowRun.id == run_id))
+            events = (
+                await session.scalars(
+                    select(WorkflowEvent)
+                    .where(WorkflowEvent.workflow_run_id == run_id)
+                    .order_by(WorkflowEvent.sequence)
+                )
+            ).all()
+    finally:
+        await engine.dispose()
+
+    assert run is not None and run.status is RunStatus.CANCELLED
+    assert [event.event_type for event in events][-1] == "review.cancelled"

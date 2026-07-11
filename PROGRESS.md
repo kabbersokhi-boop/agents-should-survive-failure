@@ -2,7 +2,7 @@
 
 ## Current phase
 
-Phase 2: database and persistence complete. Phase 3 is next.
+Phase 3: durable vendor-onboarding workflow complete. Phase 4 is next.
 
 ## Completed work
 
@@ -21,6 +21,11 @@ Phase 2: database and persistence complete. Phase 3 is next.
 - Added a reversible initial Alembic revision and idempotent development seed data.
 - Added an eight-dimensional deterministic test embedding and HNSW cosine index; production
   embedding dimensions will be introduced with the selected embedding provider in Phase 5.
+- Added a Temporal vendor-onboarding workflow with deterministic risk assessment, durable human
+  approval signals, status queries, cancellation, retries, and idempotent database activities.
+- Replaced the connectivity-only worker with a real Temporal worker on the vendor-onboarding queue.
+- Added API routes to create synthetic vendors, start idempotent runs, query workflow state, submit
+  approval decisions, and cancel pending onboarding.
 
 ## Commands and test results
 
@@ -39,6 +44,7 @@ Phase 2: database and persistence complete. Phase 3 is next.
 - Phase 2 unit suite: 11 tests passed with 89% branch coverage.
 - Phase 2 migration lifecycle: clean upgrade, downgrade to base, and re-upgrade passed.
 - Phase 2 integration suite: 6 tests passed against PostgreSQL and the complete Compose stack.
+- Phase 3 workflow integration suite: approval after worker restart and cancellation both passed.
 
 ## Architecture decisions
 
@@ -52,18 +58,18 @@ Phase 2: database and persistence complete. Phase 3 is next.
   deterministic seeds with conflict-safe inserts.
 - PostgreSQL status transitions remain explicit enum values, while Temporal alone owns durable
   workflow execution history.
+- Temporal workflows coordinate intent and waits; retry-safe activities own PostgreSQL transitions
+  and append-only evidence.
 
 ## Known limitations
 
-- The Phase 1 worker checks Temporal connectivity but does not poll until Phase 3.
 - Compose credentials and anonymous Grafana access are development-only.
 - Policy embeddings use eight dimensions only for deterministic Phase 2 verification; Phase 5
   will select and migrate to the live embedding model's documented dimension.
 
 ## Next phase
 
-Phase 3 durable vendor-onboarding workflow, activities, approval signals, queries, retry policy,
-cancellation, and worker-restart tests using the deterministic mock provider.
+Phase 4 policy retrieval, permissioned tool gateway, and deterministic evaluation harness.
 
 ## Manual action required
 

@@ -6,7 +6,7 @@ from typing import Annotated, Any
 from uuid import UUID, uuid4
 
 import structlog
-from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, generate_latest
@@ -22,10 +22,13 @@ from agents_should_survive_failure.dependencies import (
 )
 from agents_should_survive_failure.observability import configure_logging, configure_tracing
 from agents_should_survive_failure.persistence.models import (
+    Agent,
+    ApprovalRequest,
     EvaluationResult,
     EvaluationRun,
     ModelCall,
     RunStatus,
+    ToolInvocation,
     Vendor,
     VendorStatus,
     WorkflowEvent,
@@ -139,6 +142,52 @@ class WorkflowRunResponse(BaseModel):
     temporal_workflow_id: str
 
 
+class WorkflowRunDetailResponse(WorkflowRunResponse):
+    workflow_type: str
+    vendor_id: UUID | None
+    input_summary: dict[str, object]
+    result_summary: dict[str, object] | None
+
+
+class WorkflowRunPage(BaseModel):
+    items: list[WorkflowRunDetailResponse]
+    limit: int
+    offset: int
+
+
+class AgentResponse(BaseModel):
+    id: UUID
+    name: str
+    version: str
+    workflow_type: str
+    status: str
+    configuration: dict[str, object]
+
+
+class AgentPage(BaseModel):
+    items: list[AgentResponse]
+    limit: int
+    offset: int
+
+
+class ApprovalResponse(BaseModel):
+    id: UUID
+    workflow_run_id: UUID
+    request_key: str
+    status: str
+    summary: str
+    version: int
+
+
+class ToolInvocationResponse(BaseModel):
+    id: UUID
+    workflow_run_id: UUID
+    tool_definition_id: UUID
+    status: str
+    result_summary: dict[str, object] | None
+    error_category: str | None
+
+
 class WorkflowEventEvidence(BaseModel):
     sequence: int
     event_type: str
@@ -156,6 +205,11 @@ class ModelCallEvidence(BaseModel):
     latency_ms: int | None
     error_category: str | None
     explanation_summary: str | None
+
+
+class ModelCallResponse(ModelCallEvidence):
+    id: UUID
+    workflow_run_id: UUID
 
 
 class WorkflowEvidenceResponse(BaseModel):
@@ -367,6 +421,177 @@ async def onboarding_status(run_id: UUID, request: Request) -> WorkflowStatus:
     )
 
 
+def workflow_run_response(run: WorkflowRun) -> WorkflowRunDetailResponse:
+    return WorkflowRunDetailResponse(
+        id=run.id,
+        status=run.status.value,
+        temporal_workflow_id=run.temporal_workflow_id,
+        workflow_type=run.workflow_type,
+        vendor_id=run.vendor_id,
+        input_summary=run.input_summary,
+        result_summary=run.result_summary,
+    )
+
+
+async def list_workflow_runs(
+    database: Annotated[Database, Depends(get_database)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0, le=10_000)] = 0,
+) -> WorkflowRunPage:
+    async with database.session() as session:
+        runs = (
+            await session.scalars(
+                select(WorkflowRun)
+                .order_by(WorkflowRun.created_at.desc(), WorkflowRun.id.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+        ).all()
+    return WorkflowRunPage(
+        items=[workflow_run_response(run) for run in runs], limit=limit, offset=offset
+    )
+
+
+async def workflow_run_detail(
+    run_id: UUID,
+    database: Annotated[Database, Depends(get_database)],
+) -> WorkflowRunDetailResponse:
+    async with database.session() as session:
+        run = await WorkflowRunRepository(session).get(run_id)
+    if run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="workflow run not found")
+    return workflow_run_response(run)
+
+
+async def list_run_events(
+    run_id: UUID,
+    database: Annotated[Database, Depends(get_database)],
+) -> list[WorkflowEventEvidence]:
+    async with database.session() as session:
+        if await WorkflowRunRepository(session).get(run_id) is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="workflow run not found"
+            )
+        events = await WorkflowRunRepository(session).events(run_id)
+    return [
+        WorkflowEventEvidence(
+            sequence=event.sequence,
+            event_type=event.event_type,
+            summary=event.summary,
+            payload=event.payload,
+        )
+        for event in events
+    ]
+
+
+async def list_agents(
+    database: Annotated[Database, Depends(get_database)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0, le=10_000)] = 0,
+) -> AgentPage:
+    async with database.session() as session:
+        agents = (
+            await session.scalars(
+                select(Agent).order_by(Agent.name, Agent.version).limit(limit).offset(offset)
+            )
+        ).all()
+    return AgentPage(
+        items=[
+            AgentResponse(
+                id=agent.id,
+                name=agent.name,
+                version=agent.version,
+                workflow_type=agent.workflow_type,
+                status=agent.status.value,
+                configuration=agent.configuration,
+            )
+            for agent in agents
+        ],
+        limit=limit,
+        offset=offset,
+    )
+
+
+async def list_run_approvals(
+    run_id: UUID,
+    database: Annotated[Database, Depends(get_database)],
+) -> list[ApprovalResponse]:
+    async with database.session() as session:
+        approvals = (
+            await session.scalars(
+                select(ApprovalRequest)
+                .where(ApprovalRequest.workflow_run_id == run_id)
+                .order_by(ApprovalRequest.created_at)
+            )
+        ).all()
+    return [
+        ApprovalResponse(
+            id=approval.id,
+            workflow_run_id=approval.workflow_run_id,
+            request_key=approval.request_key,
+            status=approval.status.value,
+            summary=approval.summary,
+            version=approval.version,
+        )
+        for approval in approvals
+    ]
+
+
+async def list_run_model_calls(
+    run_id: UUID,
+    database: Annotated[Database, Depends(get_database)],
+) -> list[ModelCallResponse]:
+    async with database.session() as session:
+        calls = (
+            await session.scalars(
+                select(ModelCall)
+                .where(ModelCall.workflow_run_id == run_id)
+                .order_by(ModelCall.created_at)
+            )
+        ).all()
+    return [
+        ModelCallResponse(
+            id=call.id,
+            workflow_run_id=call.workflow_run_id,
+            provider=call.provider,
+            model=call.model,
+            correlation_id=call.correlation_id,
+            status=call.status.value,
+            input_tokens=call.input_tokens,
+            output_tokens=call.output_tokens,
+            latency_ms=call.latency_ms,
+            error_category=call.error_category,
+            explanation_summary=call.decision_summary,
+        )
+        for call in calls
+    ]
+
+
+async def list_run_tool_calls(
+    run_id: UUID,
+    database: Annotated[Database, Depends(get_database)],
+) -> list[ToolInvocationResponse]:
+    async with database.session() as session:
+        calls = (
+            await session.scalars(
+                select(ToolInvocation)
+                .where(ToolInvocation.workflow_run_id == run_id)
+                .order_by(ToolInvocation.created_at)
+            )
+        ).all()
+    return [
+        ToolInvocationResponse(
+            id=call.id,
+            workflow_run_id=call.workflow_run_id,
+            tool_definition_id=call.tool_definition_id,
+            status=call.status.value,
+            result_summary=call.result_summary,
+            error_category=call.error_category,
+        )
+        for call in calls
+    ]
+
+
 async def onboarding_evidence(
     run_id: UUID,
     database: Annotated[Database, Depends(get_database)],
@@ -532,9 +757,56 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         methods=["POST"],
         status_code=status.HTTP_202_ACCEPTED,
     )
-    add_v1_route(
-        "/workflow-runs/{run_id}", onboarding_status, methods=["GET"], response_model=WorkflowStatus
+    app.add_api_route(
+        "/workflow-runs/{run_id}",
+        onboarding_status,
+        methods=["GET"],
+        response_model=WorkflowStatus,
+        deprecated=True,
     )
+    app.add_api_route(
+        "/api/v1/workflow-runs/{run_id}/status",
+        onboarding_status,
+        methods=["GET"],
+        response_model=WorkflowStatus,
+    )
+    app.add_api_route(
+        "/api/v1/workflow-runs",
+        list_workflow_runs,
+        methods=["GET"],
+        response_model=WorkflowRunPage,
+    )
+    app.add_api_route(
+        "/api/v1/workflow-runs/{run_id}",
+        workflow_run_detail,
+        methods=["GET"],
+        response_model=WorkflowRunDetailResponse,
+    )
+    app.add_api_route(
+        "/api/v1/workflow-runs/{run_id}/events",
+        list_run_events,
+        methods=["GET"],
+        response_model=list[WorkflowEventEvidence],
+    )
+    app.add_api_route(
+        "/api/v1/workflow-runs/{run_id}/approvals",
+        list_run_approvals,
+        methods=["GET"],
+        response_model=list[ApprovalResponse],
+    )
+    app.add_api_route(
+        "/api/v1/workflow-runs/{run_id}/model-calls",
+        list_run_model_calls,
+        methods=["GET"],
+        response_model=list[ModelCallResponse],
+    )
+    app.add_api_route(
+        "/api/v1/workflow-runs/{run_id}/tool-calls",
+        list_run_tool_calls,
+        methods=["GET"],
+        response_model=list[ToolInvocationResponse],
+    )
+    app.add_api_route("/api/v1/agents", list_agents, methods=["GET"], response_model=AgentPage)
     add_v1_route(
         "/workflow-runs/{run_id}/evidence",
         onboarding_evidence,

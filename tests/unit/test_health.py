@@ -124,3 +124,15 @@ async def test_versioned_vendor_contract_rejects_oversized_payload() -> None:
 
     assert response.status_code == 413
     assert response.json()["code"] == "payload_too_large"
+
+
+def test_versioned_read_contracts_are_exposed_with_deprecated_status_alias() -> None:
+    schema = create_app().openapi()
+
+    assert "/api/v1/workflow-runs" in schema["paths"]
+    assert "/api/v1/workflow-runs/{run_id}/events" in schema["paths"]
+    assert "/api/v1/workflow-runs/{run_id}/approvals" in schema["paths"]
+    assert "/api/v1/workflow-runs/{run_id}/model-calls" in schema["paths"]
+    assert "/api/v1/workflow-runs/{run_id}/tool-calls" in schema["paths"]
+    assert "/api/v1/agents" in schema["paths"]
+    assert schema["paths"]["/workflow-runs/{run_id}"]["get"]["deprecated"] is True

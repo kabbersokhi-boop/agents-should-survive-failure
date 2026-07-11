@@ -10,7 +10,7 @@ help:
 	  'lint          Check formatting and lint rules' \
 	  'typecheck     Run strict Pyright checks' \
 	  'test          Run unit tests with coverage' \
-	  'test-integration Run the isolated Compose smoke gate' \
+	  'test-integration Run the isolated integration and evaluation release gate' \
 	  'migrate       Upgrade the application database to head' \
 	  'downgrade     Downgrade the application database by one revision' \
 	  'seed          Load idempotent local demonstration records' \

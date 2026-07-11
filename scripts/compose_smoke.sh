@@ -29,3 +29,4 @@ export INTEGRATION_API_KEY="$(uv run python -c 'from agents_should_survive_failu
 uv run alembic check
 docker compose up --build --detach
 uv run pytest -m integration tests/integration
+docker compose exec -T api /app/.venv/bin/python -c 'from agents_should_survive_failure.persistence.cli import evaluate_main; evaluate_main("release-gate-v1")'

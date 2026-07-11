@@ -24,3 +24,7 @@ Repeated operator invocations with the same key reuse the original run. Local ev
 does not add a new unauthenticated HTTP mutation endpoint. A deployed operator interface must add
 authenticated authorization before exposing equivalent remote execution. The command exits nonzero
 when the persisted run has failed behavior contracts, making the result usable in a release job.
+
+The isolated Compose release gate invokes the same command after its integration tests with a fixed
+per-clean-database idempotency key. A failed behavioral contract therefore fails `make verify`; this
+does not claim that credentialed model-provider behavior has been evaluated.

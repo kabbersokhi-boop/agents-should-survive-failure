@@ -22,4 +22,5 @@ API.
 
 Repeated operator invocations with the same key reuse the original run. Local evaluation execution
 does not add a new unauthenticated HTTP mutation endpoint. A deployed operator interface must add
-authenticated authorization before exposing equivalent remote execution.
+authenticated authorization before exposing equivalent remote execution. The command exits nonzero
+when the persisted run has failed behavior contracts, making the result usable in a release job.

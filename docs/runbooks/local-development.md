@@ -59,7 +59,8 @@ EVALUATION_IDEMPOTENCY_KEY=release-2026-07-11 make evaluate
 
 The key is required and makes a repeated invocation return the original persisted run rather than
 creating duplicate evidence. It runs inside the local API container and prints the run ID; retrieve
-its bounded result report at `GET /evaluation-runs/{evaluation_run_id}`.
+its bounded result report at `GET /evaluation-runs/{evaluation_run_id}`. The command exits nonzero
+when any enabled behavior contract fails.
 
 ## Isolated smoke gate
 

@@ -40,6 +40,7 @@ class EvaluationRunner:
                 EvaluationCase.enabled.is_(True),
             )
         )
+        all_cases_passed = True
         for case in cases:
             jurisdiction = str(case.input_data.get("jurisdiction", ""))
             actual_band = "low" if jurisdiction in {"US", "GB", "CA"} else "high"
@@ -48,6 +49,7 @@ class EvaluationRunner:
                 actual_band == expected_band
                 and case.expected_outcome.get("requires_approval") is True
             )
+            all_cases_passed = all_cases_passed and passed
             session.add(
                 EvaluationResult(
                     evaluation_run_id=run.id,
@@ -62,6 +64,6 @@ class EvaluationRunner:
                     else "Deterministic vendor-onboarding expectation did not match.",
                 )
             )
-        run.status = EvaluationStatus.SUCCEEDED
+        run.status = EvaluationStatus.SUCCEEDED if all_cases_passed else EvaluationStatus.FAILED
         run.completed_at = datetime.now(UTC)
         return run

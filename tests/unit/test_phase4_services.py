@@ -57,7 +57,7 @@ async def test_evaluation_runner_records_passing_and_failing_cases() -> None:
         cast(AsyncSession, session), requested_by_id=str(uuid.uuid4()), idempotency_key="evaluation"
     )
 
-    assert run.status is EvaluationStatus.SUCCEEDED
+    assert run.status is EvaluationStatus.FAILED
     assert len(session.added) == 3
 
 

@@ -59,7 +59,7 @@ EVALUATION_IDEMPOTENCY_KEY=release-2026-07-11 make evaluate
 ```
 
 The command returns an evaluation run ID. Inspect its bounded outcome report through
-`GET /evaluation-runs/{evaluation_run_id}`.
+`GET /evaluation-runs/{evaluation_run_id}`. It exits nonzero when any behavior contract fails.
 
 ## Model Configuration
 

@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from agents_should_survive_failure.evaluation import EvaluationRunner
+from agents_should_survive_failure.persistence.models import EvaluationStatus
 from agents_should_survive_failure.persistence.seed import seed_database, seed_id
 from agents_should_survive_failure.policy import PolicyEmbeddingService
 from agents_should_survive_failure.provider_factory import build_embedding_provider
@@ -39,7 +40,7 @@ async def _reindex_policies() -> None:
         await engine.dispose()
 
 
-async def _evaluate_vendor_onboarding(idempotency_key: str) -> UUID:
+async def _evaluate_vendor_onboarding(idempotency_key: str) -> tuple[UUID, EvaluationStatus]:
     settings = get_settings()
     engine = create_async_engine(settings.database_url)
     sessions = async_sessionmaker(engine, expire_on_commit=False)
@@ -51,7 +52,7 @@ async def _evaluate_vendor_onboarding(idempotency_key: str) -> UUID:
                 idempotency_key=idempotency_key,
             )
         print(f"Evaluation run {run.id} completed with status {run.status.value}.")
-        return run.id
+        return run.id, run.status
     finally:
         await engine.dispose()
 
@@ -65,7 +66,9 @@ def reindex_main() -> None:
 
 
 def evaluate_main(idempotency_key: str) -> None:
-    asyncio.run(_evaluate_vendor_onboarding(idempotency_key))
+    run_id, status = asyncio.run(_evaluate_vendor_onboarding(idempotency_key))
+    if status is EvaluationStatus.FAILED:
+        raise SystemExit(f"Evaluation run {run_id} contains failed behavior contracts.")
 
 
 if __name__ == "__main__":

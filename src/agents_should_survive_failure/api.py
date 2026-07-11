@@ -424,7 +424,7 @@ async def onboarding_status(run_id: UUID, request: Request) -> WorkflowStatus:
 def workflow_run_response(run: WorkflowRun) -> WorkflowRunDetailResponse:
     return WorkflowRunDetailResponse(
         id=run.id,
-        status=run.status.value,
+        status=run.status,
         temporal_workflow_id=run.temporal_workflow_id,
         workflow_type=run.workflow_type,
         vendor_id=run.vendor_id,

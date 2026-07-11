@@ -213,7 +213,9 @@ class Vendor(IdMixin, TimestampMixin, Base):
 class WorkflowRun(IdMixin, TimestampMixin, Base):
     __tablename__ = "workflow_runs"
     __table_args__ = (
-        UniqueConstraint("idempotency_key", name="uq_workflow_run_idempotency_key"),
+        UniqueConstraint(
+            "requested_by_id", "idempotency_key", name="uq_workflow_run_principal_idempotency_key"
+        ),
         UniqueConstraint("temporal_workflow_id", name="uq_workflow_run_temporal_id"),
         Index("ix_workflow_runs_type_status_created", "workflow_type", "status", "created_at"),
     )
@@ -253,6 +255,9 @@ class WorkflowStartAttempt(IdMixin, TimestampMixin, Base):
     )
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     error_category: Mapped[str | None] = mapped_column(String(80))
+    attempt_token: Mapped[uuid.UUID | None] = mapped_column(Uuid)
+    last_attempted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 

@@ -42,12 +42,14 @@ from agents_should_survive_failure.persistence.repositories import (
 from agents_should_survive_failure.persistence.seed import seed_id
 from agents_should_survive_failure.persistence.session import Database
 from agents_should_survive_failure.settings import Settings, get_settings
+from agents_should_survive_failure.workflow_starts import (
+    RequestFingerprintConflict,
+    WorkflowStartCoordinator,
+    WorkflowStartUnavailable,
+)
 from agents_should_survive_failure.workflows.contracts import (
-    TASK_QUEUE,
-    WORKFLOW_TYPE,
     ApprovalDecisionInput,
     ApprovalDecisionType,
-    VendorOnboardingInput,
     WorkflowStatus,
 )
 from agents_should_survive_failure.workflows.vendor_onboarding import VendorOnboardingWorkflow
@@ -384,36 +386,30 @@ async def start_onboarding(
 ) -> WorkflowRunResponse:
     async with database.session() as session:
         vendors = VendorRepository(session)
-        runs = WorkflowRunRepository(session)
         vendor = await vendors.get(vendor_id)
         if vendor is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="vendor not found")
-        existing = await runs.get_by_idempotency_key(payload.idempotency_key)
-        if existing is not None:
-            return WorkflowRunResponse(
-                id=existing.id,
-                status=existing.status,
-                temporal_workflow_id=existing.temporal_workflow_id,
-            )
-        run = WorkflowRun(
-            agent_id=seed_id("agent:vendor-onboarding:v1"),
-            vendor_id=vendor.id,
-            requested_by_id=principal.id,
-            workflow_type=WORKFLOW_TYPE,
-            temporal_workflow_id=f"vendor-onboarding-{uuid4()}",
-            idempotency_key=payload.idempotency_key,
-            status=RunStatus.PENDING,
-            input_summary={"vendor_id": str(vendor.id)},
-        )
-        await runs.add(run)
-
     resources: RuntimeResources = request.app.state.resources
-    await resources.temporal_client.start_workflow(
-        VendorOnboardingWorkflow.run,
-        VendorOnboardingInput(run_id=str(run.id), vendor_id=str(vendor_id)),
-        id=run.temporal_workflow_id,
-        task_queue=TASK_QUEUE,
-    )
+    coordinator = WorkflowStartCoordinator(database, resources.temporal_client)
+    try:
+        run = await coordinator.create_or_get(
+            vendor_id=vendor_id,
+            requested_by_id=principal.id,
+            agent_id=seed_id("agent:vendor-onboarding:v1"),
+            idempotency_key=payload.idempotency_key,
+        )
+        await coordinator.start(run.id)
+    except RequestFingerprintConflict:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="idempotency key was reused for a different onboarding request",
+        ) from None
+    except WorkflowStartUnavailable as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="workflow start is pending recovery",
+            headers={"Retry-After": "1"},
+        ) from error
     return WorkflowRunResponse(
         id=run.id, status=run.status, temporal_workflow_id=run.temporal_workflow_id
     )

@@ -8,17 +8,23 @@ from sqlalchemy import inspect, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlalchemy.orm.exc import StaleDataError
+from temporalio.exceptions import WorkflowAlreadyStartedError
 
 from agents_should_survive_failure.persistence.models import (
     Agent,
     AuditEvent,
+    AuthPrincipal,
     PolicyDocument,
+    PrincipalStatus,
+    PrincipalType,
     RunStatus,
     User,
     Vendor,
     VendorStatus,
     WorkflowEvent,
     WorkflowRun,
+    WorkflowStartAttempt,
+    WorkflowStartStatus,
 )
 from agents_should_survive_failure.persistence.repositories import (
     AuditEventRepository,
@@ -27,6 +33,11 @@ from agents_should_survive_failure.persistence.repositories import (
 )
 from agents_should_survive_failure.persistence.seed import seed_id
 from agents_should_survive_failure.persistence.session import Database
+from agents_should_survive_failure.workflow_starts import (
+    RequestFingerprintConflict,
+    WorkflowStartCoordinator,
+    WorkflowStartUnavailable,
+)
 
 EXPECTED_TABLES = {
     "agents",
@@ -46,7 +57,23 @@ EXPECTED_TABLES = {
     "vendors",
     "workflow_events",
     "workflow_runs",
+    "workflow_start_attempts",
 }
+
+
+class ScriptedTemporalClient:
+    def __init__(self, outcomes: list[Exception | None]) -> None:
+        self._outcomes = outcomes
+        self.calls: list[str] = []
+
+    async def start_workflow(
+        self, workflow: object, arg: object, *, id: str, task_queue: str
+    ) -> None:
+        del workflow, arg, task_queue
+        self.calls.append(id)
+        outcome = self._outcomes.pop(0)
+        if outcome is not None:
+            raise outcome
 
 
 @pytest_asyncio.fixture
@@ -221,6 +248,100 @@ async def test_vendor_updates_use_optimistic_concurrency(engine: AsyncEngine) ->
     finally:
         await first.close()
         await second.close()
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_workflow_start_is_recoverable_and_scoped_to_the_principal(
+    engine: AsyncEngine,
+) -> None:
+    database = Database(engine)
+    async with database.session() as session:
+        first_vendor = Vendor(
+            external_reference=f"start-first-{uuid.uuid4()}",
+            legal_name="First Start Vendor",
+            jurisdiction="US",
+            contact_email="first-start@example.invalid",
+            status=VendorStatus.SUBMITTED,
+        )
+        second_vendor = Vendor(
+            external_reference=f"start-second-{uuid.uuid4()}",
+            legal_name="Second Start Vendor",
+            jurisdiction="US",
+            contact_email="second-start@example.invalid",
+            status=VendorStatus.SUBMITTED,
+        )
+        second_principal = AuthPrincipal(
+            principal_type=PrincipalType.SERVICE,
+            display_name="Start coordinator integration principal",
+            status=PrincipalStatus.ACTIVE,
+            user_id=None,
+            agent_id=None,
+        )
+        session.add_all([first_vendor, second_vendor, second_principal])
+        await session.flush()
+
+    temporal = ScriptedTemporalClient(
+        [
+            TimeoutError("simulated ambiguous start"),
+            WorkflowAlreadyStartedError("unused", "vendor_onboarding"),
+        ]
+    )
+    coordinator = WorkflowStartCoordinator(database, temporal)
+    key = f"start-{uuid.uuid4()}"
+    run = await coordinator.create_or_get(
+        vendor_id=first_vendor.id,
+        requested_by_id=seed_id("user:demo-operator"),
+        agent_id=seed_id("agent:vendor-onboarding:v1"),
+        idempotency_key=key,
+    )
+    replay = await coordinator.create_or_get(
+        vendor_id=first_vendor.id,
+        requested_by_id=seed_id("user:demo-operator"),
+        agent_id=seed_id("agent:vendor-onboarding:v1"),
+        idempotency_key=key,
+    )
+    assert replay.id == run.id
+    assert run.temporal_workflow_id == f"vendor-onboarding-{run.id}"
+
+    with pytest.raises(WorkflowStartUnavailable) as unavailable:
+        await coordinator.start(run.id)
+    assert unavailable.value.category == "timeout"
+
+    async with database.session() as session:
+        attempt = await session.scalar(
+            select(WorkflowStartAttempt).where(WorkflowStartAttempt.workflow_run_id == run.id)
+        )
+    assert attempt is not None
+    assert attempt.status is WorkflowStartStatus.FAILED
+    assert attempt.attempts == 1
+    assert attempt.error_category == "timeout"
+
+    await coordinator.start(run.id)
+    async with database.session() as session:
+        recovered = await session.scalar(
+            select(WorkflowStartAttempt).where(WorkflowStartAttempt.workflow_run_id == run.id)
+        )
+    assert recovered is not None
+    assert recovered.status is WorkflowStartStatus.STARTED
+    assert recovered.attempts == 2
+    assert temporal.calls == [run.temporal_workflow_id, run.temporal_workflow_id]
+
+    with pytest.raises(RequestFingerprintConflict):
+        await coordinator.create_or_get(
+            vendor_id=second_vendor.id,
+            requested_by_id=seed_id("user:demo-operator"),
+            agent_id=seed_id("agent:vendor-onboarding:v1"),
+            idempotency_key=key,
+        )
+
+    separately_scoped = await coordinator.create_or_get(
+        vendor_id=second_vendor.id,
+        requested_by_id=second_principal.id,
+        agent_id=seed_id("agent:vendor-onboarding:v1"),
+        idempotency_key=key,
+    )
+    assert separately_scoped.id != run.id
 
 
 @pytest.mark.integration

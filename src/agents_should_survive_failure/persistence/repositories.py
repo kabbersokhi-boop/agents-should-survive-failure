@@ -63,6 +63,16 @@ class WorkflowRunRepository:
             select(WorkflowRun).where(WorkflowRun.idempotency_key == key)
         )
 
+    async def get_by_principal_and_idempotency_key(
+        self, *, requested_by_id: uuid.UUID, key: str
+    ) -> WorkflowRun | None:
+        return await self._session.scalar(
+            select(WorkflowRun).where(
+                WorkflowRun.requested_by_id == requested_by_id,
+                WorkflowRun.idempotency_key == key,
+            )
+        )
+
     async def list(
         self,
         *,

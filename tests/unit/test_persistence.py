@@ -117,6 +117,12 @@ async def test_workflow_repository_crud_filters_and_events() -> None:
     assert await repository.add(run) is run
     assert await repository.get(run_id) is run
     assert await repository.get_by_idempotency_key("unit-run") is run
+    assert (
+        await repository.get_by_principal_and_idempotency_key(
+            requested_by_id=run.requested_by_id, key="unit-run"
+        )
+        is run
+    )
     assert await repository.list(
         status=RunStatus.PENDING, workflow_type="vendor_onboarding", limit=5
     ) == [run]

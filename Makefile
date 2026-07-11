@@ -81,7 +81,7 @@ compose-check:
 	docker compose config --quiet
 
 secret-scan:
-	docker run --rm -v "$(CURDIR):/repo" ghcr.io/gitleaks/gitleaks:v8.28.0 detect --config=/repo/.gitleaks.toml --source=/repo --no-git --redact
+	docker run --rm -v "$(CURDIR):/repo" ghcr.io/gitleaks/gitleaks:v8.28.0 detect --config=/repo/.gitleaks.toml --source=/repo --redact
 
 verify: lint typecheck test compose-check secret-scan test-integration
 

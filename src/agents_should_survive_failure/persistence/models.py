@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from pgvector.sqlalchemy import VECTOR  # pyright: ignore[reportMissingTypeStubs]
+from pgvector.sqlalchemy import HALFVEC  # pyright: ignore[reportMissingTypeStubs]
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -335,7 +335,7 @@ class PolicyDocument(IdMixin, TimestampMixin, Base):
             "ix_policy_documents_embedding_hnsw",
             "embedding",
             postgresql_using="hnsw",
-            postgresql_ops={"embedding": "vector_cosine_ops"},
+            postgresql_ops={"embedding": "halfvec_cosine_ops"},
         ),
     )
 
@@ -345,7 +345,7 @@ class PolicyDocument(IdMixin, TimestampMixin, Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     content_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     embedding_model: Mapped[str] = mapped_column(String(160), nullable=False)
-    embedding: Mapped[list[float]] = mapped_column(VECTOR(8), nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(HALFVEC(2048), nullable=False)
     metadata_: Mapped[dict[str, Any]] = mapped_column(
         "metadata", JSONB, nullable=False, default=dict
     )

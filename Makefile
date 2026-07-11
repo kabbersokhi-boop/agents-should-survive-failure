@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup format lint typecheck test test-unit test-integration verify dev up down compose-check secret-scan migrate downgrade seed
+.PHONY: help setup format lint typecheck test test-unit test-integration verify dev up down compose-check secret-scan migrate downgrade seed reindex-policies
 
 help:
 	@printf '%s\n' 'setup         Install locked development dependencies' \
@@ -14,6 +14,7 @@ help:
 	  'migrate       Upgrade the application database to head' \
 	  'downgrade     Downgrade the application database by one revision' \
 	  'seed          Load idempotent local demonstration records' \
+	  'reindex-policies Generate configured-provider embeddings for policy documents' \
 	  'secret-scan   Scan tracked content with Gitleaks (Docker)' \
 	  'verify        Run the complete Phase 0 quality gate'
 
@@ -50,11 +51,14 @@ downgrade:
 seed:
 	uv run python -m agents_should_survive_failure.persistence.cli
 
+reindex-policies:
+	uv run python -c 'from agents_should_survive_failure.persistence.cli import reindex_main; reindex_main()'
+
 compose-check:
 	docker compose config --quiet
 
 secret-scan:
-	docker run --rm -v "$(CURDIR):/repo" ghcr.io/gitleaks/gitleaks:v8.28.0 detect --source=/repo --no-git --redact
+	docker run --rm -v "$(CURDIR):/repo" ghcr.io/gitleaks/gitleaks:v8.28.0 detect --config=/repo/.gitleaks.toml --source=/repo --no-git --redact
 
 verify: lint typecheck test compose-check secret-scan test-integration
 

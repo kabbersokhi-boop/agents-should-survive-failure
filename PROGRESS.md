@@ -2,7 +2,8 @@
 
 ## Current phase
 
-Phase 4: policy retrieval, permissioned tools, and deterministic evaluations complete. Phase 5 is next.
+Phase 5: provider contracts, NVIDIA NIM adapters, policy embedding migration, and model-call
+evidence complete.
 
 ## Completed work
 
@@ -28,6 +29,12 @@ Phase 4: policy retrieval, permissioned tools, and deterministic evaluations com
   approval decisions, and cancel pending onboarding.
 - Added deterministic pgvector policy retrieval with citations, a fail-closed read-only vendor lookup
   gateway with idempotent invocation evidence, and persisted deterministic evaluation results.
+- Added explicit chat and embedding provider contracts with deterministic CI implementations and
+  NVIDIA NIM adapters.
+- Added durable model-call evidence for the vendor risk explanation; models remain unable to
+  approve vendors or alter deterministic risk scores.
+- Migrated policy vectors from the temporary 8-dimensional test format to NVIDIA's 2,048-
+  dimensional embedding contract, with reversible HNSW-index migration and a reindex command.
 
 ## Commands and test results
 
@@ -49,6 +56,8 @@ Phase 4: policy retrieval, permissioned tools, and deterministic evaluations com
 - Phase 3 workflow integration suite: approval after worker restart and cancellation both passed.
 - Phase 4 service integration suite: policy retrieval, permitted and denied tool paths, idempotency,
   and evaluation result persistence passed.
+- Phase 5 local model checks: Mistral Medium 3.5 128B chat and Nemotron Embed 1B v2 embeddings
+  both returned successful NVIDIA NIM responses.
 
 ## Architecture decisions
 
@@ -70,12 +79,13 @@ Phase 4: policy retrieval, permissioned tools, and deterministic evaluations com
 ## Known limitations
 
 - Compose credentials and anonymous Grafana access are development-only.
-- Policy embeddings use eight dimensions only for deterministic Phase 2 verification; Phase 5
-  will select and migrate to the live embedding model's documented dimension.
+- Existing policy records need `make reindex-policies` after migration when `MODEL_PROVIDER=nvidia_nim`
+  is enabled; the migration intentionally invalidates previous test vectors rather than treating
+  them as semantically compatible.
 
 ## Next phase
 
-Phase 5 provider abstraction, NVIDIA NIM integration, live embedding migration, and model-call evidence.
+The next phase is not yet defined in the repository roadmap.
 
 ## Manual action required
 

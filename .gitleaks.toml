@@ -2,3 +2,6 @@ title = "Agents Should Survive Failure secret scanning"
 
 [extend]
 useDefault = true
+
+[allowlist]
+paths = ["(^|/)\\.env$"]

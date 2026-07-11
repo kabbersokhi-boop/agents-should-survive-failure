@@ -10,9 +10,9 @@ compliance product and not production ready.
 
 ## Current status
 
-Phase 4 adds deterministic pgvector policy retrieval with citations, a fail-closed permissioned
-vendor lookup gateway with invocation evidence, and persisted evaluation results. See
-[PROGRESS.md](PROGRESS.md) for verified progress and limitations.
+Phase 5 adds explicit provider contracts, NVIDIA NIM adapters, durable model-call evidence, and
+2,048-dimensional policy embeddings. See [PROGRESS.md](PROGRESS.md) for verified progress and
+limitations.
 
 ## Quick start
 
@@ -35,12 +35,15 @@ To exercise the workflow, create a vendor, start onboarding, then submit the hum
 the returned IDs. `GET /workflow-runs/{run_id}` exposes the durable phase, and `DELETE` on that path
 cancels a pending review. The API schema at `/docs` contains the precise request contracts.
 
-## NVIDIA configuration
+## Model configuration
 
-Later phases will use NVIDIA NIM through a provider-independent interface. Copy the safe names
-from `.env.example` into an untracked `.env` and set `NVIDIA_API_KEY`, `NVIDIA_BASE_URL`, and
-`NVIDIA_MODEL`. The planned demonstration model is `z-ai/glm-5.2` through NVIDIA's OpenAI-
-compatible API. CI never uses a live key and never silently falls back to another live provider.
+Copy the safe names from `.env.example` into an untracked `.env`. To use NVIDIA NIM locally, set
+`MODEL_PROVIDER=nvidia_nim`, `NVIDIA_API_KEY`, `NVIDIA_BASE_URL`,
+`NVIDIA_MODEL=mistralai/mistral-medium-3.5-128b`, and
+`NVIDIA_EMBEDDING_MODEL=nvidia/llama-nemotron-embed-1b-v2`. The worker then records only bounded
+model summaries and usage data; it never grants approvals. Run `make reindex-policies` after a
+migration to generate live policy embeddings. CI requires no credentials and uses the explicit
+deterministic provider.
 
 ## Engineering constraints
 
@@ -52,7 +55,7 @@ compatible API. CI never uses a live key and never silently falls back to anothe
 
 ## Developer commands
 
-Run `make help` for the current command set. `make verify` is the complete local Phase 4 gate:
+Run `make help` for the current command set. `make verify` is the complete local Phase 5 gate:
 format and lint checks, strict type checking, unit tests with at least 80% coverage, Compose
 validation, a redacted Gitleaks scan, reversible database migrations, and live persistence and
 infrastructure tests. Use `make migrate`, `make downgrade`, and `make seed` for database lifecycle

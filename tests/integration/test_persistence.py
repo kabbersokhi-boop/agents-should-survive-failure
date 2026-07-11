@@ -235,8 +235,8 @@ async def test_pgvector_cosine_similarity_orders_policy_chunks(engine: AsyncEngi
             chunk_index=0,
             content="Near vector",
             content_sha256="a" * 64,
-            embedding_model="deterministic-test-8d",
-            embedding=[1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            embedding_model="deterministic-embedding-2048d-v1",
+            embedding=[1.0] + [0.0] * 2047,
             metadata_={},
         )
         far = PolicyDocument(
@@ -245,8 +245,8 @@ async def test_pgvector_cosine_similarity_orders_policy_chunks(engine: AsyncEngi
             chunk_index=0,
             content="Far vector",
             content_sha256="b" * 64,
-            embedding_model="deterministic-test-8d",
-            embedding=[0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            embedding_model="deterministic-embedding-2048d-v1",
+            embedding=[0.0, 1.0] + [0.0] * 2046,
             metadata_={},
         )
         session.add_all([near, far])
@@ -255,9 +255,7 @@ async def test_pgvector_cosine_similarity_orders_policy_chunks(engine: AsyncEngi
         result = await session.scalars(
             select(PolicyDocument)
             .where(PolicyDocument.source_uri.like(f"seed://{marker}/%"))
-            .order_by(
-                PolicyDocument.embedding.cosine_distance([1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-            )
+            .order_by(PolicyDocument.embedding.cosine_distance([1.0] + [0.0] * 2047))
         )
         ordered = result.all()
 

@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     nvidia_api_key: str | None = None
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
     nvidia_model: str = "z-ai/glm-5.2"
+    nvidia_embedding_model: str = "nvidia/llama-nemotron-embed-1b-v2"
+    model_provider: str = "deterministic"
 
 
 @lru_cache

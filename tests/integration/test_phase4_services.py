@@ -6,9 +6,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from agents_should_survive_failure.evaluation import EvaluationRunner
+from agents_should_survive_failure.model_evidence import ModelEvidenceService
 from agents_should_survive_failure.persistence.models import (
     EvaluationResult,
     EvaluationStatus,
+    ModelCall,
     RunStatus,
     Vendor,
     VendorStatus,
@@ -16,6 +18,7 @@ from agents_should_survive_failure.persistence.models import (
 )
 from agents_should_survive_failure.persistence.seed import seed_id
 from agents_should_survive_failure.policy import PolicyRetriever
+from agents_should_survive_failure.providers import DeterministicModelProvider
 from agents_should_survive_failure.tool_gateway import ToolDeniedError, ToolGateway
 
 
@@ -54,6 +57,12 @@ async def test_policy_tool_and_evaluation_services_persist_evidence() -> None:
             session.add(workflow_run)
             await session.flush()
             citations = await PolicyRetriever().retrieve(session, "vendor approval", limit=10)
+            await ModelEvidenceService(DeterministicModelProvider()).explain(
+                session,
+                workflow_run_id=workflow_run.id,
+                prompt="Explain the vendor's deterministic risk score.",
+                correlation_id=f"{workflow_run.id}:model-evidence",
+            )
             first = await ToolGateway().invoke_vendor_lookup(
                 session,
                 workflow_run_id=str(workflow_run.id),
@@ -80,7 +89,11 @@ async def test_policy_tool_and_evaluation_services_persist_evidence() -> None:
             results = await session.scalars(
                 select(EvaluationResult).where(EvaluationResult.evaluation_run_id == evaluation.id)
             )
+            model_calls = await session.scalars(
+                select(ModelCall).where(ModelCall.workflow_run_id == workflow_run.id)
+            )
             assert len(results.all()) == 1
+            assert len(model_calls.all()) == 1
     finally:
         await engine.dispose()
 

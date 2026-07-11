@@ -11,6 +11,7 @@ from temporalio.worker import Worker
 from agents_should_survive_failure.dependencies import create_resources
 from agents_should_survive_failure.observability import configure_logging
 from agents_should_survive_failure.persistence.session import Database
+from agents_should_survive_failure.provider_factory import build_model_provider
 from agents_should_survive_failure.settings import get_settings
 from agents_should_survive_failure.workflows.activities import VendorOnboardingActivities
 from agents_should_survive_failure.workflows.contracts import TASK_QUEUE
@@ -27,7 +28,9 @@ async def run_worker() -> None:
     try:
         if not await resources.temporal_client.service_client.check_health():
             raise RuntimeError("Temporal workflow service reported unavailable")
-        activities = VendorOnboardingActivities(Database(resources.engine))
+        activities = VendorOnboardingActivities(
+            Database(resources.engine), build_model_provider(settings)
+        )
         worker = Worker(
             resources.temporal_client,
             task_queue=TASK_QUEUE,

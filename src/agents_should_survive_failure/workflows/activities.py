@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from temporalio import activity
 
+from agents_should_survive_failure.model_evidence import ModelEvidenceService
 from agents_should_survive_failure.persistence.models import (
     ApprovalDecision,
     ApprovalRequest,
@@ -23,6 +24,7 @@ from agents_should_survive_failure.persistence.repositories import (
     WorkflowRunRepository,
 )
 from agents_should_survive_failure.persistence.session import Database
+from agents_should_survive_failure.providers import DeterministicModelProvider, ModelProvider
 from agents_should_survive_failure.workflows.contracts import (
     ApprovalDecisionInput,
     ApprovalDecisionType,
@@ -34,8 +36,9 @@ from agents_should_survive_failure.workflows.contracts import (
 class VendorOnboardingActivities:
     """Persist workflow effects atomically and make retries harmless."""
 
-    def __init__(self, database: Database) -> None:
+    def __init__(self, database: Database, model_provider: ModelProvider | None = None) -> None:
         self._database = database
+        self._model_provider = model_provider or DeterministicModelProvider()
 
     @staticmethod
     def _id(value: str) -> uuid.UUID:
@@ -87,6 +90,15 @@ class VendorOnboardingActivities:
             assessment = RiskAssessment(
                 score=score,
                 summary=f"Deterministic jurisdiction risk score: {score}.",
+            )
+            await ModelEvidenceService(self._model_provider).explain(
+                session,
+                workflow_run_id=run_id,
+                prompt=(
+                    "Explain the deterministic vendor risk score using only the jurisdiction: "
+                    f"{vendor.jurisdiction}."
+                ),
+                correlation_id=f"{run_id}:risk-assessment",
             )
             await self._append_event(
                 WorkflowRunRepository(session),

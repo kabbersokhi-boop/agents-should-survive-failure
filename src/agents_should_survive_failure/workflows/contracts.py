@@ -26,6 +26,8 @@ class RiskAssessment:
 
 @dataclass(frozen=True)
 class ApprovalDecisionInput:
+    approval_request_id: str
+    expected_version: int
     decision: ApprovalDecisionType
     decided_by_id: str
     rationale: str

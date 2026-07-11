@@ -209,10 +209,14 @@ class VendorOnboardingActivities:
         run_id = self._id(input.run_id)
         vendor_id = self._id(input.vendor_id)
         approver_id = self._id(decision.decided_by_id)
+        approval_request_id = self._id(decision.approval_request_id)
         async with self._database.session() as session:
             request = await session.scalar(
                 select(ApprovalRequest)
-                .where(ApprovalRequest.workflow_run_id == run_id)
+                .where(
+                    ApprovalRequest.id == approval_request_id,
+                    ApprovalRequest.workflow_run_id == run_id,
+                )
                 .with_for_update()
             )
             run = await WorkflowRunRepository(session).get(run_id)
@@ -227,16 +231,30 @@ class VendorOnboardingActivities:
             )
             approved = decision.decision is ApprovalDecisionType.APPROVED
             status = ApprovalStatus.APPROVED if approved else ApprovalStatus.REJECTED
-            if existing is None:
-                session.add(
-                    ApprovalDecision(
-                        approval_request_id=request.id,
-                        decided_by_id=approver_id,
-                        decision=status,
-                        rationale=decision.rationale,
-                        idempotency_key=decision.idempotency_key,
+            if existing is not None:
+                if (
+                    existing.decided_by_id != approver_id
+                    or existing.decision is not status
+                    or existing.rationale != decision.rationale
+                ):
+                    raise ValueError(
+                        "approval idempotency key conflicts with the persisted decision"
                     )
+                return
+            if (
+                request.status is not ApprovalStatus.PENDING
+                or request.version != decision.expected_version
+            ):
+                raise ValueError("approval request is no longer pending at the expected version")
+            session.add(
+                ApprovalDecision(
+                    approval_request_id=request.id,
+                    decided_by_id=approver_id,
+                    decision=status,
+                    rationale=decision.rationale,
+                    idempotency_key=decision.idempotency_key,
                 )
+            )
             request.status = status
             vendor.status = VendorStatus.APPROVED if approved else VendorStatus.REJECTED
             run.status = RunStatus.SUCCEEDED if approved else RunStatus.REJECTED
@@ -283,6 +301,13 @@ class VendorOnboardingActivities:
                 raise ValueError("workflow run does not exist")
             if run.status in {RunStatus.SUCCEEDED, RunStatus.REJECTED, RunStatus.CANCELLED}:
                 return
+            approval = await session.scalar(
+                select(ApprovalRequest)
+                .where(ApprovalRequest.workflow_run_id == run_id)
+                .with_for_update()
+            )
+            if approval is not None and approval.status is ApprovalStatus.PENDING:
+                approval.status = ApprovalStatus.CANCELLED
             run.status = RunStatus.CANCELLED
             run.completed_at = activity.info().started_time
             await self._append_event(

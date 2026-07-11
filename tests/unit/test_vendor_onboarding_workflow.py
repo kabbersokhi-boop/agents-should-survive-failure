@@ -33,6 +33,8 @@ async def test_workflow_records_approved_signal_after_durable_pause(
     instance = vendor_onboarding.VendorOnboardingWorkflow()
     instance.decide(
         ApprovalDecisionInput(
+            approval_request_id="00000000-0000-0000-0000-000000000010",
+            expected_version=1,
             decision=ApprovalDecisionType.APPROVED,
             decided_by_id="00000000-0000-0000-0000-000000000001",
             rationale="approved",
@@ -85,6 +87,8 @@ def test_workflow_ignores_decision_after_cancellation() -> None:
     instance.cancel()
     instance.decide(
         ApprovalDecisionInput(
+            approval_request_id="00000000-0000-0000-0000-000000000010",
+            expected_version=1,
             decision=ApprovalDecisionType.REJECTED,
             decided_by_id="00000000-0000-0000-0000-000000000001",
             rationale="rejected",

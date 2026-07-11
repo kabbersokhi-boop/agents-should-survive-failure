@@ -70,6 +70,10 @@ async def test_vendor_onboarding_survives_worker_restart_and_records_approval() 
 
         await eventually(waiting_for_approval)
 
+        approvals = await client.get(f"/api/v1/workflow-runs/{run_id}/approvals")
+        approvals.raise_for_status()
+        pending_approval = approvals.json()[0]
+
         await asyncio.to_thread(
             subprocess.run,
             ["docker", "compose", "restart", "worker"],
@@ -79,6 +83,8 @@ async def test_vendor_onboarding_survives_worker_restart_and_records_approval() 
         decision = await client.post(
             f"/workflow-runs/{run_id}/approval",
             json={
+                "approval_request_id": pending_approval["id"],
+                "expected_version": pending_approval["version"],
                 "decision": "approved",
                 "rationale": "Synthetic vendor accepted after review.",
                 "idempotency_key": f"decision-{uuid.uuid4()}",

@@ -24,7 +24,9 @@ from agents_should_survive_failure.dependencies import (
 from agents_should_survive_failure.observability import configure_logging, configure_tracing
 from agents_should_survive_failure.persistence.models import (
     Agent,
+    ApprovalDecision,
     ApprovalRequest,
+    ApprovalStatus,
     EvaluationResult,
     EvaluationRun,
     ModelCall,
@@ -236,6 +238,8 @@ class EvaluationReportResponse(BaseModel):
 
 
 class ApprovalRequestBody(StrictRequestModel):
+    approval_request_id: UUID
+    expected_version: int = Field(ge=1)
     decision: ApprovalDecisionType
     rationale: str = Field(min_length=1, max_length=1_000)
     idempotency_key: str = Field(min_length=1, max_length=240, pattern=r"^[A-Za-z0-9._:-]+$")
@@ -428,12 +432,54 @@ async def decide_onboarding(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="workflow run not found"
             )
+        approval = await session.scalar(
+            select(ApprovalRequest).where(
+                ApprovalRequest.id == payload.approval_request_id,
+                ApprovalRequest.workflow_run_id == run_id,
+            )
+        )
+        if approval is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="approval request not found"
+            )
+        existing = await session.scalar(
+            select(ApprovalDecision).where(
+                ApprovalDecision.approval_request_id == approval.id,
+                ApprovalDecision.idempotency_key == payload.idempotency_key,
+            )
+        )
+        decision_status = (
+            ApprovalStatus.APPROVED
+            if payload.decision is ApprovalDecisionType.APPROVED
+            else ApprovalStatus.REJECTED
+        )
+        if existing is not None:
+            if (
+                existing.decided_by_id != principal.id
+                or existing.decision is not decision_status
+                or existing.rationale != payload.rationale
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="idempotency key was reused for a different approval decision",
+                )
+            return Response(status_code=status.HTTP_202_ACCEPTED)
+        if (
+            approval.status is not ApprovalStatus.PENDING
+            or approval.version != payload.expected_version
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="approval request is no longer pending at the expected version",
+            )
         temporal_workflow_id = run.temporal_workflow_id
     resources: RuntimeResources = request.app.state.resources
     handle = resources.temporal_client.get_workflow_handle(temporal_workflow_id)
     await handle.signal(
         VendorOnboardingWorkflow.decide,
         ApprovalDecisionInput(
+            approval_request_id=str(payload.approval_request_id),
+            expected_version=payload.expected_version,
             decision=payload.decision,
             decided_by_id=str(principal.id),
             rationale=payload.rationale,

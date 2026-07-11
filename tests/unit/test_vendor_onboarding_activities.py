@@ -5,6 +5,7 @@ from typing import cast
 import pytest
 
 from agents_should_survive_failure.persistence.models import (
+    ApprovalStatus,
     InvocationStatus,
     ModelCall,
     RunStatus,
@@ -13,12 +14,17 @@ from agents_should_survive_failure.persistence.models import (
 from agents_should_survive_failure.persistence.repositories import WorkflowRunRepository
 from agents_should_survive_failure.persistence.session import Database
 from agents_should_survive_failure.workflows import activities as activity_module
-from agents_should_survive_failure.workflows.contracts import VendorOnboardingInput
+from agents_should_survive_failure.workflows.contracts import (
+    ApprovalDecisionInput,
+    ApprovalDecisionType,
+    VendorOnboardingInput,
+)
 
 
 class FakeSession:
     def __init__(self) -> None:
         self.added: list[object] = []
+        self.scalar_values: list[object | None] = []
 
     async def __aenter__(self) -> "FakeSession":
         return self
@@ -31,6 +37,10 @@ class FakeSession:
 
     async def flush(self) -> None:
         return None
+
+    async def scalar(self, statement: object) -> object | None:
+        del statement
+        return self.scalar_values.pop(0) if self.scalar_values else None
 
 
 class FakeDatabase:
@@ -270,6 +280,62 @@ async def test_cancel_review_is_idempotent_for_terminal_run(
     )
 
     assert run.status is RunStatus.CANCELLED
+
+
+@pytest.mark.asyncio
+async def test_record_decision_rejects_a_stale_or_cancelled_approval(
+    monkeypatch: pytest.MonkeyPatch, activity_info: None
+) -> None:
+    session = FakeSession()
+    request = SimpleNamespace(
+        id="00000000-0000-0000-0000-000000000030",
+        status=ApprovalStatus.CANCELLED,
+        version=2,
+    )
+    session.scalar_values = [request, None]
+    run = SimpleNamespace(status=RunStatus.WAITING, completed_at=None, result_summary=None)
+    vendor = SimpleNamespace(status=VendorStatus.UNDER_REVIEW, risk_score=25)
+
+    class Runs:
+        async def get(self, run_id: object) -> object:
+            del run_id
+            return run
+
+    class Vendors:
+        async def get(self, vendor_id: object, *, for_update: bool = False) -> object:
+            del vendor_id
+            assert for_update
+            return vendor
+
+    def make_runs(_: object) -> Runs:
+        return Runs()
+
+    def make_vendors(_: object) -> Vendors:
+        return Vendors()
+
+    monkeypatch.setattr(activity_module, "WorkflowRunRepository", make_runs)
+    monkeypatch.setattr(activity_module, "VendorRepository", make_vendors)
+    onboarding = activity_module.VendorOnboardingActivities(cast(Database, FakeDatabase(session)))
+
+    with pytest.raises(ValueError, match="no longer pending"):
+        await onboarding.record_decision(
+            VendorOnboardingInput(
+                run_id="00000000-0000-0000-0000-000000000010",
+                vendor_id="00000000-0000-0000-0000-000000000020",
+            ),
+            ApprovalDecisionInput(
+                approval_request_id="00000000-0000-0000-0000-000000000030",
+                expected_version=1,
+                decision=ApprovalDecisionType.APPROVED,
+                decided_by_id="00000000-0000-0000-0000-000000000040",
+                rationale="Stale approval must not apply.",
+                idempotency_key="stale-decision",
+            ),
+        )
+
+    assert session.added == []
+    assert run.status is RunStatus.WAITING
+    assert vendor.status is VendorStatus.UNDER_REVIEW
 
 
 @pytest.mark.asyncio

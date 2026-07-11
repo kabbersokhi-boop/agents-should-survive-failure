@@ -30,6 +30,7 @@ def test_model_metadata_and_seeds_cover_required_schema() -> None:
         "api_keys",
         "agents",
         "workflow_runs",
+        "workflow_start_attempts",
         "workflow_events",
         "vendors",
         "vendor_documents",

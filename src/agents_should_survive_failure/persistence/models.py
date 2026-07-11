@@ -78,6 +78,12 @@ class RunStatus(enum.StrEnum):
     REJECTED = "rejected"
 
 
+class WorkflowStartStatus(enum.StrEnum):
+    PENDING = "pending"
+    STARTED = "started"
+    FAILED = "failed"
+
+
 class VendorStatus(enum.StrEnum):
     SUBMITTED = "submitted"
     UNDER_REVIEW = "under_review"
@@ -222,6 +228,9 @@ class WorkflowRun(IdMixin, TimestampMixin, Base):
     workflow_type: Mapped[str] = mapped_column(String(120), nullable=False)
     temporal_workflow_id: Mapped[str] = mapped_column(String(240), nullable=False)
     idempotency_key: Mapped[str] = mapped_column(String(240), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(
+        String(64), nullable=False, default="legacy", server_default="legacy"
+    )
     status: Mapped[RunStatus] = mapped_column(Enum(RunStatus, name="run_status"), nullable=False)
     input_summary: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     result_summary: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
@@ -230,6 +239,21 @@ class WorkflowRun(IdMixin, TimestampMixin, Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
     __mapper_args__: dict[str, Any] = {"version_id_col": version}  # noqa: RUF012
+
+
+class WorkflowStartAttempt(IdMixin, TimestampMixin, Base):
+    __tablename__ = "workflow_start_attempts"
+    __table_args__ = (UniqueConstraint("workflow_run_id", name="uq_workflow_start_attempt_run"),)
+
+    workflow_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[WorkflowStartStatus] = mapped_column(
+        Enum(WorkflowStartStatus, name="workflow_start_status"), nullable=False
+    )
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    error_category: Mapped[str | None] = mapped_column(String(80))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class WorkflowEvent(IdMixin, Base):

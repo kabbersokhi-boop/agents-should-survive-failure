@@ -48,3 +48,24 @@ fingerprint differs, and records retry ownership with a short lease. Timeout and
 
 This is a hardening checkpoint, not the backend release gate. Approval concurrency, tool isolation,
 evaluation breadth, API completion, and SDK work remain open.
+
+## 2026-07-12 Backend Release Gate (Phase 9)
+
+Checked-out revision: `cfe207c ci: require evaluation in isolated release gate`.
+
+| Gate evidence | Result |
+| --- | --- |
+| `make verify` | Passed |
+| Unit suite | Passed: 71 tests, 81% coverage |
+| Static checks | Ruff formatting/lint and Pyright passed |
+| Configuration and secrets | Compose validation and Gitleaks scan passed |
+| Database lifecycle | Isolated PostgreSQL migration upgrade, downgrade to base, and re-upgrade passed |
+| Integration suite | Passed against the isolated Compose API, worker, PostgreSQL, and Temporal stack |
+| Evaluator | Passed and persisted a `release-gate-v1` evaluation run inside the isolated stack |
+| Local restoration | Normal API readiness reported PostgreSQL and Temporal `ok` after the gate |
+
+The Phase 9 release gate covers the backend repository as it exists at this revision: strict API
+contracts, scoped API-key authentication, recoverable Temporal starts, versioned approvals,
+agent-owned tool capabilities, migration lifecycle checks, deterministic behavior evaluation, and
+secret scanning. It does not evaluate a credentialed NVIDIA model call and does not authorize SDK
+work as complete. SDK implementation is intentionally outside the current requested scope.

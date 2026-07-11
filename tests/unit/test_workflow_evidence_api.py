@@ -129,3 +129,20 @@ async def test_evaluation_report_returns_bounded_results(monkeypatch: pytest.Mon
 
     assert response.status == "succeeded"
     assert response.results[0].score == 1.0
+
+
+@pytest.mark.asyncio
+async def test_evaluation_report_returns_not_found_for_unknown_run() -> None:
+    session = FakeSession([])
+
+    async def get(model: object, identifier: UUID) -> None:
+        del model
+        assert identifier == RUN_ID
+        return None
+
+    session.get = get  # type: ignore[attr-defined]
+
+    with pytest.raises(HTTPException, match="evaluation run not found") as error:
+        await api.evaluation_report(RUN_ID, cast(Database, FakeDatabase(session)))
+
+    assert error.value.status_code == 404

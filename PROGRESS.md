@@ -2,7 +2,7 @@
 
 ## Current phase
 
-Phase 3: durable vendor-onboarding workflow complete. Phase 4 is next.
+Phase 4: policy retrieval, permissioned tools, and deterministic evaluations complete. Phase 5 is next.
 
 ## Completed work
 
@@ -26,6 +26,8 @@ Phase 3: durable vendor-onboarding workflow complete. Phase 4 is next.
 - Replaced the connectivity-only worker with a real Temporal worker on the vendor-onboarding queue.
 - Added API routes to create synthetic vendors, start idempotent runs, query workflow state, submit
   approval decisions, and cancel pending onboarding.
+- Added deterministic pgvector policy retrieval with citations, a fail-closed read-only vendor lookup
+  gateway with idempotent invocation evidence, and persisted deterministic evaluation results.
 
 ## Commands and test results
 
@@ -45,6 +47,8 @@ Phase 3: durable vendor-onboarding workflow complete. Phase 4 is next.
 - Phase 2 migration lifecycle: clean upgrade, downgrade to base, and re-upgrade passed.
 - Phase 2 integration suite: 6 tests passed against PostgreSQL and the complete Compose stack.
 - Phase 3 workflow integration suite: approval after worker restart and cancellation both passed.
+- Phase 4 service integration suite: policy retrieval, permitted and denied tool paths, idempotency,
+  and evaluation result persistence passed.
 
 ## Architecture decisions
 
@@ -60,6 +64,8 @@ Phase 3: durable vendor-onboarding workflow complete. Phase 4 is next.
   workflow execution history.
 - Temporal workflows coordinate intent and waits; retry-safe activities own PostgreSQL transitions
   and append-only evidence.
+- Tool calls require explicit permissions and write invocation evidence; policy retrieval preserves
+  citations until the provider phase.
 
 ## Known limitations
 
@@ -69,7 +75,7 @@ Phase 3: durable vendor-onboarding workflow complete. Phase 4 is next.
 
 ## Next phase
 
-Phase 4 policy retrieval, permissioned tool gateway, and deterministic evaluation harness.
+Phase 5 provider abstraction, NVIDIA NIM integration, live embedding migration, and model-call evidence.
 
 ## Manual action required
 

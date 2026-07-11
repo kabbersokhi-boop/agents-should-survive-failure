@@ -45,7 +45,7 @@ def test_model_metadata_and_seeds_cover_required_schema() -> None:
     }
 
     assert set(Base.metadata.tables) == expected_tables
-    assert len(seed_rows()) == 4
+    assert len(seed_rows()) == 5
     assert seed_id("stable") == seed_id("stable")
     assert utc_now().tzinfo is not None
 

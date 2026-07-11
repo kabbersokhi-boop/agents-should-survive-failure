@@ -10,6 +10,7 @@ from agents_should_survive_failure.persistence.models import (
     Agent,
     AgentStatus,
     EvaluationCase,
+    PolicyDocument,
     ToolDefinition,
     User,
     UserStatus,
@@ -23,7 +24,7 @@ def seed_id(name: str) -> uuid.UUID:
 
 
 def seed_rows() -> Sequence[
-    tuple[type[User | Agent | ToolDefinition | EvaluationCase], dict[str, object]]
+    tuple[type[User | Agent | ToolDefinition | EvaluationCase | PolicyDocument], dict[str, object]]
 ]:
     return (
         (
@@ -76,6 +77,20 @@ def seed_rows() -> Sequence[
                 },
                 "expected_outcome": {"requires_approval": True, "risk_band": "low"},
                 "enabled": True,
+            },
+        ),
+        (
+            PolicyDocument,
+            {
+                "id": seed_id("policy:vendor-approval:0"),
+                "title": "Vendor Approval Policy",
+                "source_uri": "seed://policy/vendor-approval",
+                "chunk_index": 0,
+                "content": "All vendors require a human approval after deterministic risk review.",
+                "content_sha256": "c" * 64,
+                "embedding_model": "deterministic-test-8d",
+                "embedding": [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "metadata_": {"category": "vendor_onboarding"},
             },
         ),
     )

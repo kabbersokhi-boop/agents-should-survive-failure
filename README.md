@@ -10,10 +10,9 @@ compliance product and not production ready.
 
 ## Current status
 
-Phase 3 adds a durable vendor-onboarding workflow: deterministic risk assessment, a human approval
-pause, approval/rejection and cancellation signals, queryable workflow status, retry-safe database
-activities, and worker-restart verification. See [PROGRESS.md](PROGRESS.md) for verified progress
-and limitations.
+Phase 4 adds deterministic pgvector policy retrieval with citations, a fail-closed permissioned
+vendor lookup gateway with invocation evidence, and persisted evaluation results. See
+[PROGRESS.md](PROGRESS.md) for verified progress and limitations.
 
 ## Quick start
 
@@ -53,7 +52,7 @@ compatible API. CI never uses a live key and never silently falls back to anothe
 
 ## Developer commands
 
-Run `make help` for the current command set. `make verify` is the complete local Phase 3 gate:
+Run `make help` for the current command set. `make verify` is the complete local Phase 4 gate:
 format and lint checks, strict type checking, unit tests with at least 80% coverage, Compose
 validation, a redacted Gitleaks scan, reversible database migrations, and live persistence and
 infrastructure tests. Use `make migrate`, `make downgrade`, and `make seed` for database lifecycle

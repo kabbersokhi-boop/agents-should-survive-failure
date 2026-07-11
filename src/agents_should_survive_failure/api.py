@@ -21,6 +21,8 @@ from agents_should_survive_failure.dependencies import (
 )
 from agents_should_survive_failure.observability import configure_logging, configure_tracing
 from agents_should_survive_failure.persistence.models import (
+    EvaluationResult,
+    EvaluationRun,
     ModelCall,
     RunStatus,
     Vendor,
@@ -127,6 +129,20 @@ class WorkflowEvidenceResponse(BaseModel):
     workflow_run_id: UUID
     events: list[WorkflowEventEvidence]
     model_calls: list[ModelCallEvidence]
+
+
+class EvaluationResultReport(BaseModel):
+    status: str
+    score: float
+    metrics: dict[str, object]
+    summary: str
+
+
+class EvaluationReportResponse(BaseModel):
+    evaluation_run_id: UUID
+    status: str
+    configuration: dict[str, object]
+    results: list[EvaluationResultReport]
 
 
 class ApprovalRequestBody(BaseModel):
@@ -332,6 +348,37 @@ async def onboarding_evidence(
     )
 
 
+async def evaluation_report(
+    evaluation_run_id: UUID,
+    database: Annotated[Database, Depends(get_database)],
+) -> EvaluationReportResponse:
+    async with database.session() as session:
+        run = await session.get(EvaluationRun, evaluation_run_id)
+        if run is None:
+            raise HTTPException(status_code=404, detail="evaluation run not found")
+        results = (
+            await session.scalars(
+                select(EvaluationResult)
+                .where(EvaluationResult.evaluation_run_id == evaluation_run_id)
+                .order_by(EvaluationResult.created_at)
+            )
+        ).all()
+    return EvaluationReportResponse(
+        evaluation_run_id=evaluation_run_id,
+        status=run.status.value,
+        configuration=run.configuration,
+        results=[
+            EvaluationResultReport(
+                status=result.status.value,
+                score=float(result.score),
+                metrics=result.metrics,
+                summary=result.summary,
+            )
+            for result in results
+        ],
+    )
+
+
 async def cancel_onboarding(
     run_id: UUID,
     request: Request,
@@ -410,6 +457,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         onboarding_evidence,
         methods=["GET"],
         response_model=WorkflowEvidenceResponse,
+    )
+    app.add_api_route(
+        "/evaluation-runs/{evaluation_run_id}",
+        evaluation_report,
+        methods=["GET"],
+        response_model=EvaluationReportResponse,
     )
     app.add_api_route(
         "/workflow-runs/{run_id}", cancel_onboarding, methods=["DELETE"], status_code=202

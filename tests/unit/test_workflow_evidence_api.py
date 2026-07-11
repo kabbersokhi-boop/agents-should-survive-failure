@@ -103,3 +103,29 @@ async def test_workflow_evidence_returns_not_found_for_unknown_run(
         await api.onboarding_evidence(RUN_ID, cast(Database, FakeDatabase(session)))
 
     assert error.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_evaluation_report_returns_bounded_results(monkeypatch: pytest.MonkeyPatch) -> None:
+    del monkeypatch
+    run = SimpleNamespace(
+        status=SimpleNamespace(value="succeeded"), configuration={"provider": "test"}
+    )
+    result = SimpleNamespace(
+        status=SimpleNamespace(value="passed"),
+        score=1,
+        metrics={"actual_risk_band": "low"},
+        summary="Expected outcome matched.",
+    )
+    session = FakeSession([FakeScalarResult([result])])
+
+    async def get(model: object, identifier: UUID) -> object:
+        del model
+        assert identifier == RUN_ID
+        return run
+
+    session.get = get  # type: ignore[attr-defined]
+    response = await api.evaluation_report(RUN_ID, cast(Database, FakeDatabase(session)))
+
+    assert response.status == "succeeded"
+    assert response.results[0].score == 1.0

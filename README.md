@@ -18,6 +18,7 @@ bounded evidence.
 - Structured logs, request IDs, Prometheus metrics, OpenTelemetry traces, and readiness checks.
 - Read-only workflow evidence API for ordered state changes, policy citations, and model-call
   metadata.
+- Read-only evaluation reports for persisted behavioral-contract outcomes.
 - Reproducible local infrastructure: API, worker, PostgreSQL/pgvector, Temporal, Grafana,
   Prometheus, and Tempo.
 

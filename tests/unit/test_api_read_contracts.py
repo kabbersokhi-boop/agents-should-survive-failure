@@ -6,6 +6,7 @@ from uuid import UUID
 import pytest
 
 from agents_should_survive_failure import api
+from agents_should_survive_failure.persistence.models import RunStatus
 from agents_should_survive_failure.persistence.session import Database
 
 RUN_ID = UUID("00000000-0000-0000-0000-000000000020")
@@ -47,7 +48,7 @@ class FakeDatabase:
 def workflow_run() -> SimpleNamespace:
     return SimpleNamespace(
         id=RUN_ID,
-        status=SimpleNamespace(value="waiting"),
+        status=RunStatus.WAITING,
         temporal_workflow_id="workflow-1",
         workflow_type="vendor_onboarding",
         vendor_id=ITEM_ID,

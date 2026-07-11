@@ -26,6 +26,8 @@ from agents_should_survive_failure.persistence.seed import seed_id, seed_rows
 def test_model_metadata_and_seeds_cover_required_schema() -> None:
     expected_tables = {
         "users",
+        "auth_principals",
+        "api_keys",
         "agents",
         "workflow_runs",
         "workflow_events",
@@ -45,7 +47,7 @@ def test_model_metadata_and_seeds_cover_required_schema() -> None:
     }
 
     assert set(Base.metadata.tables) == expected_tables
-    assert len(seed_rows()) == 5
+    assert len(seed_rows()) == 6
     assert seed_id("stable") == seed_id("stable")
     assert utc_now().tzinfo is not None
 

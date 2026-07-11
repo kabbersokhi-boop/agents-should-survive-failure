@@ -9,8 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from agents_should_survive_failure.persistence.models import (
     Agent,
     AgentStatus,
+    AuthPrincipal,
     EvaluationCase,
     PolicyDocument,
+    PrincipalStatus,
+    PrincipalType,
     ToolDefinition,
     User,
     UserStatus,
@@ -24,7 +27,10 @@ def seed_id(name: str) -> uuid.UUID:
 
 
 def seed_rows() -> Sequence[
-    tuple[type[User | Agent | ToolDefinition | EvaluationCase | PolicyDocument], dict[str, object]]
+    tuple[
+        type[User | Agent | AuthPrincipal | ToolDefinition | EvaluationCase | PolicyDocument],
+        dict[str, object],
+    ]
 ]:
     return (
         (
@@ -34,6 +40,17 @@ def seed_rows() -> Sequence[
                 "email": "operator@example.invalid",
                 "display_name": "Demo Operator",
                 "status": UserStatus.ACTIVE,
+            },
+        ),
+        (
+            AuthPrincipal,
+            {
+                "id": seed_id("user:demo-operator"),
+                "principal_type": PrincipalType.USER,
+                "display_name": "Demo Operator",
+                "status": PrincipalStatus.ACTIVE,
+                "user_id": seed_id("user:demo-operator"),
+                "agent_id": None,
             },
         ),
         (

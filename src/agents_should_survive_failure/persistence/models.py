@@ -52,6 +52,17 @@ class UserStatus(enum.StrEnum):
     DISABLED = "disabled"
 
 
+class PrincipalType(enum.StrEnum):
+    USER = "user"
+    SERVICE = "service"
+    AGENT = "agent"
+
+
+class PrincipalStatus(enum.StrEnum):
+    ACTIVE = "active"
+    DISABLED = "disabled"
+
+
 class AgentStatus(enum.StrEnum):
     ACTIVE = "active"
     DISABLED = "disabled"
@@ -109,6 +120,53 @@ class User(IdMixin, TimestampMixin, Base):
     email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True)
     display_name: Mapped[str] = mapped_column(String(200), nullable=False)
     status: Mapped[UserStatus] = mapped_column(Enum(UserStatus, name="user_status"), nullable=False)
+
+
+class AuthPrincipal(IdMixin, TimestampMixin, Base):
+    __tablename__ = "auth_principals"
+    __table_args__ = (
+        CheckConstraint(
+            "(principal_type = 'USER' AND user_id IS NOT NULL AND agent_id IS NULL) OR "
+            "(principal_type = 'AGENT' AND user_id IS NULL AND agent_id IS NOT NULL) OR "
+            "(principal_type = 'SERVICE' AND user_id IS NULL AND agent_id IS NULL)",
+            name="ck_auth_principal_identity",
+        ),
+    )
+
+    principal_type: Mapped[PrincipalType] = mapped_column(
+        Enum(PrincipalType, name="principal_type"), nullable=False
+    )
+    display_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    status: Mapped[PrincipalStatus] = mapped_column(
+        Enum(PrincipalStatus, name="principal_status"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), unique=True
+    )
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("agents.id", ondelete="RESTRICT"), unique=True
+    )
+
+
+class APIKey(IdMixin, TimestampMixin, Base):
+    __tablename__ = "api_keys"
+    __table_args__ = (
+        UniqueConstraint("key_identifier", name="uq_api_key_identifier"),
+        Index("ix_api_keys_principal", "principal_id"),
+    )
+
+    principal_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("auth_principals.id", ondelete="RESTRICT"), nullable=False
+    )
+    key_identifier: Mapped[str] = mapped_column(String(32), nullable=False)
+    key_prefix: Mapped[str] = mapped_column(String(20), nullable=False)
+    last_four: Mapped[str] = mapped_column(String(4), nullable=False)
+    secret_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    label: Mapped[str] = mapped_column(String(120), nullable=False)
+    scopes: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Agent(IdMixin, TimestampMixin, Base):

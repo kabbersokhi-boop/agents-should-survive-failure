@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup format lint typecheck test test-unit test-integration verify dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate
+.PHONY: help setup format lint typecheck test test-unit test-integration verify dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate nim-smoke-test nim-embedding-smoke-test
 
 help:
 	@printf '%s\n' 'setup         Install locked development dependencies' \
@@ -16,6 +16,8 @@ help:
 	  'seed          Load idempotent local demonstration records' \
 	  'reindex-policies Generate configured-provider embeddings for policy documents' \
 	  'evaluate      Run deterministic vendor-onboarding behavior evaluations' \
+	  'nim-smoke-test Run a manual credential-gated NVIDIA NIM model smoke test' \
+	  'nim-embedding-smoke-test Run a manual credential-gated NVIDIA NIM embedding smoke test' \
 	  'secret-scan   Scan tracked content with Gitleaks (Docker)' \
 	  'verify        Run the complete Phase 0 quality gate'
 
@@ -58,6 +60,12 @@ reindex-policies:
 evaluate:
 	@test -n "$(EVALUATION_IDEMPOTENCY_KEY)" || (echo 'Set EVALUATION_IDEMPOTENCY_KEY to run evaluations.' >&2; exit 2)
 	docker compose exec -T api /app/.venv/bin/python -c 'from agents_should_survive_failure.persistence.cli import evaluate_main; evaluate_main("$(EVALUATION_IDEMPOTENCY_KEY)")'
+
+nim-smoke-test:
+	uv run python -c 'from agents_should_survive_failure.nim_smoke import model_main; model_main()'
+
+nim-embedding-smoke-test:
+	uv run python -c 'from agents_should_survive_failure.nim_smoke import embedding_main; embedding_main()'
 
 compose-check:
 	docker compose config --quiet

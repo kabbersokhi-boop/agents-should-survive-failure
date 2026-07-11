@@ -1,0 +1,34 @@
+name: Manual NVIDIA NIM Smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      MODEL_PROVIDER: nvidia_nim
+      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+      NVIDIA_BASE_URL: https://integrate.api.nvidia.com/v1
+      NVIDIA_MODEL: mistralai/mistral-medium-3.5-128b
+      NVIDIA_EMBEDDING_MODEL: nvidia/llama-nemotron-embed-1b-v2
+      NVIDIA_TIMEOUT_SECONDS: "30"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.11.16"
+      - run: uv python install 3.12
+      - run: uv sync --frozen --all-groups
+      - name: Skip when NVIDIA_API_KEY is absent
+        if: ${{ env.NVIDIA_API_KEY == '' }}
+        run: echo "NVIDIA_API_KEY is not configured; live smoke tests skipped."
+      - name: Model smoke
+        if: ${{ env.NVIDIA_API_KEY != '' }}
+        run: make nim-smoke-test
+      - name: Embedding smoke
+        if: ${{ env.NVIDIA_API_KEY != '' }}
+        run: make nim-embedding-smoke-test

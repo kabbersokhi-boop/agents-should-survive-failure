@@ -6,7 +6,12 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agents_should_survive_failure.persistence.models import InvocationStatus, ModelCall
-from agents_should_survive_failure.providers import ModelProvider, ModelRequest, ModelResponse
+from agents_should_survive_failure.providers import (
+    ModelProvider,
+    ModelRequest,
+    ModelResponse,
+    ProviderError,
+)
 
 
 class ModelEvidenceService:
@@ -20,7 +25,7 @@ class ModelEvidenceService:
         started = time.perf_counter()
         try:
             response = await self._provider.explain(ModelRequest(correlation_id, prompt))
-        except Exception:
+        except Exception as error:
             session.add(
                 ModelCall(
                     workflow_run_id=workflow_run_id,
@@ -29,7 +34,9 @@ class ModelEvidenceService:
                     correlation_id=correlation_id,
                     status=InvocationStatus.FAILED,
                     latency_ms=int((time.perf_counter() - started) * 1000),
-                    error_category="provider_error",
+                    error_category=(
+                        error.category if isinstance(error, ProviderError) else "provider_error"
+                    ),
                 )
             )
             raise

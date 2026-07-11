@@ -20,6 +20,7 @@ def build_model_provider(settings: Settings) -> ModelProvider:
             base_url=settings.nvidia_base_url,
             model=settings.nvidia_model,
             max_output_tokens=settings.model_max_output_tokens,
+            timeout_seconds=settings.nvidia_timeout_seconds,
         )
     raise ValueError(f"Unsupported MODEL_PROVIDER: {settings.model_provider}")
 
@@ -32,5 +33,6 @@ def build_embedding_provider(settings: Settings) -> EmbeddingProvider:
             api_key=settings.nvidia_api_key,
             base_url=settings.nvidia_base_url,
             model=settings.nvidia_embedding_model,
+            timeout_seconds=settings.nvidia_timeout_seconds,
         )
     raise ValueError(f"Unsupported MODEL_PROVIDER: {settings.model_provider}")

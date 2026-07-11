@@ -26,8 +26,9 @@ class Settings(BaseSettings):
     otel_service_name: str = "agents-control-plane-api"
     nvidia_api_key: str | None = None
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
-    nvidia_model: str = "z-ai/glm-5.2"
+    nvidia_model: str = "mistralai/mistral-medium-3.5-128b"
     nvidia_embedding_model: str = "nvidia/llama-nemotron-embed-1b-v2"
+    nvidia_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
     model_max_output_tokens: int = Field(default=256, ge=1, le=2048)
     model_provider: str = "deterministic"
 

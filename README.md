@@ -66,10 +66,15 @@ The command returns an evaluation run ID. Inspect its bounded outcome report thr
 Copy the safe names from `.env.example` into an untracked `.env`. To use NVIDIA NIM locally, set
 `MODEL_PROVIDER=nvidia_nim`, `NVIDIA_API_KEY`, `NVIDIA_BASE_URL`,
 `NVIDIA_MODEL=mistralai/mistral-medium-3.5-128b`, and
-`NVIDIA_EMBEDDING_MODEL=nvidia/llama-nemotron-embed-1b-v2`. The worker then records only bounded
+`NVIDIA_EMBEDDING_MODEL=nvidia/llama-nemotron-embed-1b-v2`, plus an optional
+`NVIDIA_TIMEOUT_SECONDS`. The worker then records only bounded
 model summaries and usage data; it never grants approvals. Run `make reindex-policies` after a
 migration to generate live policy embeddings. CI requires no credentials and uses the explicit
 deterministic provider.
+
+For a local credential check, set those variables in an untracked `.env`, then run
+`make nim-smoke-test` and `make nim-embedding-smoke-test`. These manual commands do not run in
+public pull requests and print metadata only, never the credential or model response body.
 
 ## Governance Boundaries
 

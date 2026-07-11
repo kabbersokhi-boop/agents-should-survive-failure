@@ -20,6 +20,10 @@ def test_factory_selects_deterministic_providers_by_default() -> None:
     assert isinstance(build_embedding_provider(settings), DeterministicEmbeddingProvider)
 
 
+def test_nvidia_model_default_matches_documented_configuration() -> None:
+    assert Settings().nvidia_model == "mistralai/mistral-medium-3.5-128b"
+
+
 def test_factory_selects_nvidia_providers_with_explicit_configuration() -> None:
     settings = Settings(model_provider="nvidia_nim", nvidia_api_key="test-key")
 

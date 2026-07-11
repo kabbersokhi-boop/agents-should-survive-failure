@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 import json
+import socket
 from dataclasses import dataclass
 from typing import Literal, Protocol, cast
 from urllib.error import HTTPError, URLError
@@ -29,6 +30,34 @@ class ModelProvider(Protocol):
 
 
 EmbeddingInputType = Literal["query", "passage"]
+
+
+class ProviderError(RuntimeError):
+    """Safe, stable categorization for provider failures."""
+
+    def __init__(self, category: str, message: str) -> None:
+        super().__init__(message)
+        self.category = category
+
+
+def classify_provider_error(error: Exception) -> ProviderError:
+    if isinstance(error, HTTPError):
+        if error.code in {401, 403}:
+            return ProviderError("authentication", "provider authentication failed")
+        if error.code == 429:
+            return ProviderError("rate_limit", "provider rate limit exceeded")
+        if error.code == 404:
+            return ProviderError("unavailable_model", "provider model is unavailable")
+        if error.code == 408 or error.code >= 500:
+            return ProviderError("timeout", "provider request timed out")
+        return ProviderError("unexpected_response", "provider returned an unexpected response")
+    if isinstance(error, TimeoutError | socket.timeout):
+        return ProviderError("timeout", "provider request timed out")
+    if isinstance(error, URLError):
+        return ProviderError("connection", "provider connection failed")
+    if isinstance(error, json.JSONDecodeError):
+        return ProviderError("malformed_response", "provider returned malformed JSON")
+    return ProviderError("unexpected_response", "provider returned an unexpected response")
 
 
 @dataclass(frozen=True)
@@ -82,16 +111,25 @@ class NVIDIAModelProvider:
     """NVIDIA's OpenAI-compatible chat-completions adapter."""
 
     def __init__(
-        self, *, api_key: str | None, base_url: str, model: str, max_output_tokens: int = 256
+        self,
+        *,
+        api_key: str | None,
+        base_url: str,
+        model: str,
+        max_output_tokens: int = 256,
+        timeout_seconds: float = 30,
     ) -> None:
         if not api_key:
             raise ValueError("NVIDIA_API_KEY is required for the NVIDIA provider")
         if max_output_tokens < 1:
             raise ValueError("max_output_tokens must be positive")
+        if timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be positive")
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._max_output_tokens = max_output_tokens
+        self._timeout_seconds = timeout_seconds
 
     async def explain(self, request: ModelRequest) -> ModelResponse:
         payload: dict[str, object] = {
@@ -102,8 +140,8 @@ class NVIDIAModelProvider:
         }
         try:
             response = await asyncio.to_thread(self._post, payload)
-        except (HTTPError, URLError) as error:
-            raise RuntimeError("NVIDIA provider request failed") from error
+        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as error:
+            raise classify_provider_error(error) from error
         choices = response.get("choices", [])
         if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
             raise RuntimeError("NVIDIA provider returned no completion")
@@ -135,7 +173,7 @@ class NVIDIAModelProvider:
             },
             method="POST",
         )
-        with urlopen(request, timeout=30) as response:
+        with urlopen(request, timeout=self._timeout_seconds) as response:
             decoded: object = json.load(response)
         if not isinstance(decoded, dict):
             raise RuntimeError("NVIDIA provider returned invalid JSON")
@@ -151,12 +189,17 @@ class NVIDIAEmbeddingProvider:
 
     dimensions = 2048
 
-    def __init__(self, *, api_key: str | None, base_url: str, model: str) -> None:
+    def __init__(
+        self, *, api_key: str | None, base_url: str, model: str, timeout_seconds: float = 30
+    ) -> None:
         if not api_key:
             raise ValueError("NVIDIA_API_KEY is required for the NVIDIA provider")
+        if timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be positive")
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
         self._model = model
+        self._timeout_seconds = timeout_seconds
 
     async def embed(self, text: str, *, input_type: EmbeddingInputType) -> EmbeddingResponse:
         payload: dict[str, object] = {
@@ -166,8 +209,8 @@ class NVIDIAEmbeddingProvider:
         }
         try:
             response = await asyncio.to_thread(self._post, payload)
-        except (HTTPError, URLError) as error:
-            raise RuntimeError("NVIDIA embedding provider request failed") from error
+        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as error:
+            raise classify_provider_error(error) from error
         data = response.get("data", [])
         if not isinstance(data, list) or not data or not isinstance(data[0], dict):
             raise RuntimeError("NVIDIA embedding provider returned no vector")
@@ -198,7 +241,7 @@ class NVIDIAEmbeddingProvider:
             },
             method="POST",
         )
-        with urlopen(request, timeout=30) as response:
+        with urlopen(request, timeout=self._timeout_seconds) as response:
             decoded: object = json.load(response)
         if not isinstance(decoded, dict):
             raise RuntimeError("NVIDIA embedding provider returned invalid JSON")

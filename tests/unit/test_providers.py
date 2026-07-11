@@ -1,3 +1,6 @@
+from email.message import Message
+from urllib.error import HTTPError
+
 import pytest
 
 from agents_should_survive_failure.providers import (
@@ -5,6 +8,8 @@ from agents_should_survive_failure.providers import (
     ModelRequest,
     NVIDIAEmbeddingProvider,
     NVIDIAModelProvider,
+    ProviderError,
+    classify_provider_error,
 )
 
 
@@ -66,3 +71,16 @@ async def test_nvidia_model_provider_parses_completion(monkeypatch: pytest.Monke
 
     assert response.summary == "OK"
     assert response.input_tokens == 2
+
+
+@pytest.mark.parametrize(
+    ("status_code", "category"),
+    [(401, "authentication"), (429, "rate_limit"), (404, "unavailable_model"), (500, "timeout")],
+)
+def test_nvidia_http_errors_have_safe_categories(status_code: int, category: str) -> None:
+    error = HTTPError("https://example.invalid", status_code, "failure", Message(), None)
+
+    classified = classify_provider_error(error)
+
+    assert isinstance(classified, ProviderError)
+    assert classified.category == category

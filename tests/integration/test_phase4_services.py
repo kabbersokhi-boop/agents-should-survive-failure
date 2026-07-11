@@ -66,14 +66,14 @@ async def test_policy_tool_and_evaluation_services_persist_evidence() -> None:
             first = await ToolGateway().invoke_vendor_lookup(
                 session,
                 workflow_run_id=str(workflow_run.id),
-                permissions={"vendors:read"},
+                agent_id=str(seed_id("agent:vendor-onboarding:v1")),
                 external_reference=reference,
                 idempotency_key="lookup-1",
             )
             second = await ToolGateway().invoke_vendor_lookup(
                 session,
                 workflow_run_id=str(workflow_run.id),
-                permissions={"vendors:read"},
+                agent_id=str(seed_id("agent:vendor-onboarding:v1")),
                 external_reference=reference,
                 idempotency_key="lookup-1",
             )
@@ -114,7 +114,7 @@ async def test_tool_gateway_denies_missing_permission() -> None:
                 await ToolGateway().invoke_vendor_lookup(
                     session,
                     workflow_run_id=str(uuid.uuid4()),
-                    permissions=set(),
+                    agent_id=str(uuid.uuid4()),
                     external_reference="not-used",
                     idempotency_key="denied",
                 )

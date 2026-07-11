@@ -7,7 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agents_should_survive_failure.evaluation import EvaluationRunner
 from agents_should_survive_failure.persistence.models import EvaluationStatus, VendorStatus
-from agents_should_survive_failure.tool_gateway import ToolDeniedError, ToolGateway
+from agents_should_survive_failure.tool_gateway import (
+    ToolDeniedError,
+    ToolGateway,
+    ToolInputError,
+    ToolInvocationConflictError,
+)
 
 
 class FakeScalars:
@@ -17,13 +22,20 @@ class FakeScalars:
     def __iter__(self):  # type: ignore[no-untyped-def]
         return iter(self._values)
 
+    def all(self) -> list[object]:
+        return self._values
+
 
 class FakeSession:
     def __init__(
-        self, scalar_values: list[object | None], cases: list[object] | None = None
+        self,
+        scalar_values: list[object | None],
+        cases: list[object] | None = None,
+        agent: object | None = None,
     ) -> None:
         self._scalar_values = scalar_values
         self._cases = cases or []
+        self._agent = agent
         self.added: list[object] = []
 
     async def scalar(self, statement: object) -> object | None:
@@ -31,6 +43,10 @@ class FakeSession:
 
     async def scalars(self, statement: object) -> FakeScalars:
         return FakeScalars(self._cases)
+
+    async def get(self, model: object, identifier: object) -> object | None:
+        del model, identifier
+        return self._agent
 
     def add(self, item: object) -> None:
         self.added.append(item)
@@ -77,23 +93,26 @@ async def test_evaluation_runner_reuses_an_idempotent_run() -> None:
 @pytest.mark.asyncio
 async def test_tool_gateway_denies_and_reuses_idempotent_invocation() -> None:
     gateway = ToolGateway()
-    denied = FakeSession([None])
+    agent_id = uuid.uuid4()
+    denied = FakeSession([], agent=None)
     with pytest.raises(ToolDeniedError):
         await gateway.invoke_vendor_lookup(
             cast(AsyncSession, denied),
             workflow_run_id=str(uuid.uuid4()),
-            permissions=set(),
+            agent_id=str(agent_id),
             external_reference="vendor",
             idempotency_key="lookup",
         )
 
     existing = SimpleNamespace(id=uuid.uuid4(), result_summary={"found": False})
     tool = SimpleNamespace(id=uuid.uuid4(), enabled=True, permissions=["vendors:read"])
-    reused = FakeSession([tool, existing])
+    existing.arguments = {"external_reference": "vendor"}
+    agent = SimpleNamespace(configuration={"tool_permissions": ["vendors:read"]})
+    reused = FakeSession([tool, existing], agent=agent)
     result = await gateway.invoke_vendor_lookup(
         cast(AsyncSession, reused),
         workflow_run_id=str(uuid.uuid4()),
-        permissions={"vendors:read"},
+        agent_id=str(agent_id),
         external_reference="vendor",
         idempotency_key="lookup",
     )
@@ -106,15 +125,61 @@ async def test_tool_gateway_denies_and_reuses_idempotent_invocation() -> None:
 async def test_tool_gateway_records_found_vendor() -> None:
     tool = SimpleNamespace(id=uuid.uuid4(), enabled=True, permissions=["vendors:read"])
     vendor = SimpleNamespace(id=uuid.uuid4(), status=VendorStatus.SUBMITTED)
-    session = FakeSession([tool, None, vendor])
+    agent = SimpleNamespace(configuration={"tool_permissions": ["vendors:read"]})
+    session = FakeSession([tool, None, vendor], agent=agent)
 
     result = await ToolGateway().invoke_vendor_lookup(
         cast(AsyncSession, session),
         workflow_run_id=str(uuid.uuid4()),
-        permissions={"vendors:read"},
+        agent_id=str(uuid.uuid4()),
         external_reference="vendor",
         idempotency_key="lookup",
     )
 
     assert result.result["found"] is True
     assert len(session.added) == 1
+
+
+@pytest.mark.asyncio
+async def test_tool_gateway_validates_inputs_and_idempotency_arguments() -> None:
+    gateway = ToolGateway()
+    agent = SimpleNamespace(configuration={"tool_permissions": ["vendors:read"]})
+    with pytest.raises(ToolInputError):
+        await gateway.invoke_vendor_lookup(
+            cast(AsyncSession, FakeSession([], agent=agent)),
+            workflow_run_id=str(uuid.uuid4()),
+            agent_id=str(uuid.uuid4()),
+            external_reference="invalid reference with spaces",
+            idempotency_key="lookup",
+        )
+
+    tool = SimpleNamespace(id=uuid.uuid4(), enabled=True, permissions=["vendors:read"])
+    existing = SimpleNamespace(
+        id=uuid.uuid4(), result_summary={"found": False}, arguments={"external_reference": "other"}
+    )
+    with pytest.raises(ToolInvocationConflictError):
+        await gateway.invoke_vendor_lookup(
+            cast(AsyncSession, FakeSession([tool, existing], agent=agent)),
+            workflow_run_id=str(uuid.uuid4()),
+            agent_id=str(uuid.uuid4()),
+            external_reference="vendor",
+            idempotency_key="lookup",
+        )
+
+
+@pytest.mark.asyncio
+async def test_tool_capabilities_are_negotiated_from_agent_configuration() -> None:
+    permitted = SimpleNamespace(
+        name="vendor_database_query", version="v1", enabled=True, permissions=["vendors:read"]
+    )
+    denied = SimpleNamespace(name="other", version="v1", enabled=True, permissions=["other:read"])
+    agent = SimpleNamespace(configuration={"tool_permissions": ["vendors:read"]})
+
+    capabilities = await ToolGateway().capabilities(
+        cast(AsyncSession, FakeSession([], [permitted, denied], agent=agent)),
+        agent_id=str(uuid.uuid4()),
+    )
+
+    assert [(item.name, item.permissions) for item in capabilities] == [
+        ("vendor_database_query", ("vendors:read",))
+    ]

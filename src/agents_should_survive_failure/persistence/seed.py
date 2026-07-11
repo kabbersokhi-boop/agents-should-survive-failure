@@ -61,7 +61,10 @@ def seed_rows() -> Sequence[
                 "version": "1",
                 "workflow_type": "vendor_onboarding",
                 "status": AgentStatus.ACTIVE,
-                "configuration": {"model_provider": "deterministic_mock"},
+                "configuration": {
+                    "model_provider": "deterministic_mock",
+                    "tool_permissions": ["vendors:read"],
+                },
             },
         ),
         (

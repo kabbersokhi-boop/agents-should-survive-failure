@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup format lint typecheck test test-unit test-integration verify dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate nim-smoke-test nim-embedding-smoke-test
+.PHONY: help setup format lint typecheck test test-unit test-integration verify dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate nim-smoke-test nim-embedding-smoke-test bootstrap-api-key
 
 help:
 	@printf '%s\n' 'setup         Install locked development dependencies' \
@@ -18,6 +18,7 @@ help:
 	  'evaluate      Run deterministic vendor-onboarding behavior evaluations' \
 	  'nim-smoke-test Run a manual credential-gated NVIDIA NIM model smoke test' \
 	  'nim-embedding-smoke-test Run a manual credential-gated NVIDIA NIM embedding smoke test' \
+	  'bootstrap-api-key Create a scoped local API key and print it once' \
 	  'secret-scan   Scan tracked content with Gitleaks (Docker)' \
 	  'verify        Run the complete Phase 0 quality gate'
 
@@ -66,6 +67,11 @@ nim-smoke-test:
 
 nim-embedding-smoke-test:
 	uv run python -c 'from agents_should_survive_failure.nim_smoke import embedding_main; embedding_main()'
+
+bootstrap-api-key:
+	@test -n "$(API_KEY_BOOTSTRAP_EMAIL)" || (echo 'Set API_KEY_BOOTSTRAP_EMAIL.' >&2; exit 2)
+	@test -n "$(API_KEY_BOOTSTRAP_SCOPES)" || (echo 'Set API_KEY_BOOTSTRAP_SCOPES.' >&2; exit 2)
+	docker compose exec -T api /app/.venv/bin/python -c 'from agents_should_survive_failure.auth_cli import bootstrap_main; bootstrap_main("$(API_KEY_BOOTSTRAP_EMAIL)", "$(API_KEY_BOOTSTRAP_NAME)", "$(API_KEY_BOOTSTRAP_SCOPES)")'
 
 compose-check:
 	docker compose config --quiet

@@ -85,6 +85,9 @@ async def test_vendor_onboarding_survives_worker_restart_and_records_approval() 
             assert response.json()["phase"] == "completed"
 
         await eventually(workflow_completed)
+        evidence_response = await client.get(f"/workflow-runs/{run_id}/evidence")
+        evidence_response.raise_for_status()
+        evidence = evidence_response.json()
 
     engine = create_async_engine(
         os.getenv(
@@ -131,6 +134,16 @@ async def test_vendor_onboarding_survives_worker_restart_and_records_approval() 
     ]
     assert events[2].payload["model_explanation_available"] is True
     assert events[2].payload["citations"]
+    assert [event["event_type"] for event in evidence["events"]] == [
+        "review.started",
+        "risk.assessed",
+        "risk.policy_context",
+        "approval.requested",
+        "approval.decided",
+    ]
+    assert evidence["events"][2]["payload"]["citations"]
+    assert evidence["model_calls"][0]["status"] == "succeeded"
+    assert "prompt" not in evidence["model_calls"][0]
     assert {event.action for event in audit_events} == {
         "vendor.review.start",
         "vendor.risk.assess",

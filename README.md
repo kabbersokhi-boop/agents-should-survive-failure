@@ -15,6 +15,8 @@ bounded evidence.
 - Policy retrieval with cited source material and 2,048-dimensional semantic embeddings.
 - NVIDIA NIM adapters for Mistral Medium 3.5 128B explanations and Nemotron embeddings.
 - Structured logs, request IDs, Prometheus metrics, OpenTelemetry traces, and readiness checks.
+- Read-only workflow evidence API for ordered state changes, policy citations, and model-call
+  metadata.
 - Reproducible local infrastructure: API, worker, PostgreSQL/pgvector, Temporal, Grafana,
   Prometheus, and Tempo.
 

@@ -10,6 +10,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, generate_latest
 from pydantic import BaseModel
+from sqlalchemy import select
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
 from agents_should_survive_failure.dependencies import (
@@ -20,9 +21,11 @@ from agents_should_survive_failure.dependencies import (
 )
 from agents_should_survive_failure.observability import configure_logging, configure_tracing
 from agents_should_survive_failure.persistence.models import (
+    ModelCall,
     RunStatus,
     Vendor,
     VendorStatus,
+    WorkflowEvent,
     WorkflowRun,
 )
 from agents_should_survive_failure.persistence.repositories import (
@@ -99,6 +102,31 @@ class WorkflowRunResponse(BaseModel):
     id: UUID
     status: RunStatus
     temporal_workflow_id: str
+
+
+class WorkflowEventEvidence(BaseModel):
+    sequence: int
+    event_type: str
+    summary: str
+    payload: dict[str, object]
+
+
+class ModelCallEvidence(BaseModel):
+    provider: str
+    model: str
+    correlation_id: str
+    status: str
+    input_tokens: int | None
+    output_tokens: int | None
+    latency_ms: int | None
+    error_category: str | None
+    explanation_summary: str | None
+
+
+class WorkflowEvidenceResponse(BaseModel):
+    workflow_run_id: UUID
+    events: list[WorkflowEventEvidence]
+    model_calls: list[ModelCallEvidence]
 
 
 class ApprovalRequestBody(BaseModel):
@@ -252,6 +280,58 @@ async def onboarding_status(run_id: UUID, request: Request) -> WorkflowStatus:
     )
 
 
+async def onboarding_evidence(
+    run_id: UUID,
+    database: Annotated[Database, Depends(get_database)],
+) -> WorkflowEvidenceResponse:
+    async with database.session() as session:
+        run = await WorkflowRunRepository(session).get(run_id)
+        if run is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="workflow run not found"
+            )
+        events = (
+            await session.scalars(
+                select(WorkflowEvent)
+                .where(WorkflowEvent.workflow_run_id == run_id)
+                .order_by(WorkflowEvent.sequence)
+            )
+        ).all()
+        model_calls = (
+            await session.scalars(
+                select(ModelCall)
+                .where(ModelCall.workflow_run_id == run_id)
+                .order_by(ModelCall.created_at)
+            )
+        ).all()
+    return WorkflowEvidenceResponse(
+        workflow_run_id=run_id,
+        events=[
+            WorkflowEventEvidence(
+                sequence=event.sequence,
+                event_type=event.event_type,
+                summary=event.summary,
+                payload=event.payload,
+            )
+            for event in events
+        ],
+        model_calls=[
+            ModelCallEvidence(
+                provider=model_call.provider,
+                model=model_call.model,
+                correlation_id=model_call.correlation_id,
+                status=model_call.status.value,
+                input_tokens=model_call.input_tokens,
+                output_tokens=model_call.output_tokens,
+                latency_ms=model_call.latency_ms,
+                error_category=model_call.error_category,
+                explanation_summary=model_call.decision_summary,
+            )
+            for model_call in model_calls
+        ],
+    )
+
+
 async def cancel_onboarding(
     run_id: UUID,
     request: Request,
@@ -324,6 +404,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.add_api_route(
         "/workflow-runs/{run_id}", onboarding_status, methods=["GET"], response_model=WorkflowStatus
+    )
+    app.add_api_route(
+        "/workflow-runs/{run_id}/evidence",
+        onboarding_evidence,
+        methods=["GET"],
+        response_model=WorkflowEvidenceResponse,
     )
     app.add_api_route(
         "/workflow-runs/{run_id}", cancel_onboarding, methods=["DELETE"], status_code=202

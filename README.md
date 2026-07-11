@@ -19,6 +19,7 @@ bounded evidence.
 - Read-only workflow evidence API for ordered state changes, policy citations, and model-call
   metadata.
 - Read-only evaluation reports for persisted behavioral-contract outcomes.
+- Explicit, idempotent local evaluation execution for release and operator workflows.
 - Reproducible local infrastructure: API, worker, PostgreSQL/pgvector, Temporal, Grafana,
   Prometheus, and Tempo.
 
@@ -49,6 +50,16 @@ volumes. See the [local development runbook](docs/runbooks/local-development.md)
 To exercise the workflow, create a vendor, start onboarding, then submit the human decision using
 the returned IDs. `GET /workflow-runs/{run_id}` exposes the durable phase, and `DELETE` on that path
 cancels a pending review. The API schema at `/docs` contains the precise request contracts.
+
+Run the deterministic behavioral-contract suite against the local database with an explicit key:
+
+```bash
+make up
+EVALUATION_IDEMPOTENCY_KEY=release-2026-07-11 make evaluate
+```
+
+The command returns an evaluation run ID. Inspect its bounded outcome report through
+`GET /evaluation-runs/{evaluation_run_id}`.
 
 ## Model Configuration
 

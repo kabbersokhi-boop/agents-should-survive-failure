@@ -62,6 +62,19 @@ async def test_evaluation_runner_records_passing_and_failing_cases() -> None:
 
 
 @pytest.mark.asyncio
+async def test_evaluation_runner_reuses_an_idempotent_run() -> None:
+    existing = SimpleNamespace(id=uuid.uuid4())
+    session = FakeSession([existing])
+
+    run = await EvaluationRunner().run_vendor_onboarding(
+        cast(AsyncSession, session), requested_by_id=str(uuid.uuid4()), idempotency_key="release-1"
+    )
+
+    assert run is existing
+    assert not session.added
+
+
+@pytest.mark.asyncio
 async def test_tool_gateway_denies_and_reuses_idempotent_invocation() -> None:
     gateway = ToolGateway()
     denied = FakeSession([None])

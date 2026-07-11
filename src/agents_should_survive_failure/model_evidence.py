@@ -10,8 +10,9 @@ from agents_should_survive_failure.providers import ModelProvider, ModelRequest,
 
 
 class ModelEvidenceService:
-    def __init__(self, provider: ModelProvider) -> None:
+    def __init__(self, provider: ModelProvider, *, max_summary_characters: int = 1000) -> None:
         self._provider = provider
+        self._max_summary_characters = max_summary_characters
 
     async def explain(
         self, session: AsyncSession, *, workflow_run_id: uuid.UUID, prompt: str, correlation_id: str
@@ -42,7 +43,7 @@ class ModelEvidenceService:
                 input_tokens=response.input_tokens,
                 output_tokens=response.output_tokens,
                 latency_ms=int((time.perf_counter() - started) * 1000),
-                decision_summary=response.summary,
+                decision_summary=response.summary[: self._max_summary_characters],
             )
         )
         return response

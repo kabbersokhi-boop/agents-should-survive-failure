@@ -55,7 +55,7 @@ async def test_nvidia_model_provider_parses_completion(monkeypatch: pytest.Monke
     )
 
     def post(payload: dict[str, object]) -> dict[str, object]:
-        del payload
+        assert payload["max_tokens"] == 256
         return {
             "choices": [{"message": {"content": "OK"}}],
             "usage": {"prompt_tokens": 2, "completion_tokens": 1},

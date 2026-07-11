@@ -81,18 +81,24 @@ class DeterministicEmbeddingProvider:
 class NVIDIAModelProvider:
     """NVIDIA's OpenAI-compatible chat-completions adapter."""
 
-    def __init__(self, *, api_key: str | None, base_url: str, model: str) -> None:
+    def __init__(
+        self, *, api_key: str | None, base_url: str, model: str, max_output_tokens: int = 256
+    ) -> None:
         if not api_key:
             raise ValueError("NVIDIA_API_KEY is required for the NVIDIA provider")
+        if max_output_tokens < 1:
+            raise ValueError("max_output_tokens must be positive")
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
         self._model = model
+        self._max_output_tokens = max_output_tokens
 
     async def explain(self, request: ModelRequest) -> ModelResponse:
         payload: dict[str, object] = {
             "model": self._model,
             "messages": [{"role": "user", "content": request.prompt}],
             "temperature": 0,
+            "max_tokens": self._max_output_tokens,
         }
         try:
             response = await asyncio.to_thread(self._post, payload)

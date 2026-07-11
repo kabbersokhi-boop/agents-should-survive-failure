@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
     nvidia_model: str = "z-ai/glm-5.2"
     nvidia_embedding_model: str = "nvidia/llama-nemotron-embed-1b-v2"
+    model_max_output_tokens: int = Field(default=256, ge=1, le=2048)
     model_provider: str = "deterministic"
 
 

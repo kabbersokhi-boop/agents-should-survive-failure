@@ -19,6 +19,7 @@ def build_model_provider(settings: Settings) -> ModelProvider:
             api_key=settings.nvidia_api_key,
             base_url=settings.nvidia_base_url,
             model=settings.nvidia_model,
+            max_output_tokens=settings.model_max_output_tokens,
         )
     raise ValueError(f"Unsupported MODEL_PROVIDER: {settings.model_provider}")
 

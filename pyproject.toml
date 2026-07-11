@@ -7,6 +7,7 @@ requires-python = ">=3.12,<3.13"
 license = "Apache-2.0"
 authors = [{ name = "Kabir Sokhi" }]
 dependencies = [
+  "alembic==1.16.5",
   "asyncpg==0.31.0",
   "fastapi==0.116.1",
   "opentelemetry-api==1.39.1",
@@ -14,6 +15,7 @@ dependencies = [
   "opentelemetry-instrumentation-fastapi==0.60b1",
   "opentelemetry-instrumentation-sqlalchemy==0.60b1",
   "opentelemetry-sdk==1.39.1",
+  "pgvector==0.4.1",
   "prometheus-client==0.23.1",
   "pydantic==2.11.7",
   "pydantic-settings==2.12.0",

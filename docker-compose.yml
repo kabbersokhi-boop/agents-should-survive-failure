@@ -57,6 +57,13 @@ services:
   api:
     build: .
     image: agents-control-plane:local
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        /app/.venv/bin/alembic upgrade head &&
+        /app/.venv/bin/python -m agents_should_survive_failure.persistence.cli &&
+        exec /app/.venv/bin/uvicorn agents_should_survive_failure.api:app --host 0.0.0.0 --port 8000
     depends_on:
       postgres:
         condition: service_healthy
@@ -92,6 +99,8 @@ services:
       postgres:
         condition: service_healthy
       temporal:
+        condition: service_healthy
+      api:
         condition: service_healthy
     environment:
       <<: *application-environment

@@ -1,0 +1,88 @@
+"""Idempotent development seed data."""
+
+import uuid
+from collections.abc import Sequence
+
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncEngine
+
+from agents_should_survive_failure.persistence.models import (
+    Agent,
+    AgentStatus,
+    EvaluationCase,
+    ToolDefinition,
+    User,
+    UserStatus,
+)
+
+SEED_NAMESPACE = uuid.UUID("ad2dbd38-ad07-4f39-aedc-2a4894d7767d")
+
+
+def seed_id(name: str) -> uuid.UUID:
+    return uuid.uuid5(SEED_NAMESPACE, name)
+
+
+def seed_rows() -> Sequence[
+    tuple[type[User | Agent | ToolDefinition | EvaluationCase], dict[str, object]]
+]:
+    return (
+        (
+            User,
+            {
+                "id": seed_id("user:demo-operator"),
+                "email": "operator@example.invalid",
+                "display_name": "Demo Operator",
+                "status": UserStatus.ACTIVE,
+            },
+        ),
+        (
+            Agent,
+            {
+                "id": seed_id("agent:vendor-onboarding:v1"),
+                "name": "vendor-onboarding",
+                "version": "1",
+                "workflow_type": "vendor_onboarding",
+                "status": AgentStatus.ACTIVE,
+                "configuration": {"model_provider": "deterministic_mock"},
+            },
+        ),
+        (
+            ToolDefinition,
+            {
+                "id": seed_id("tool:vendor-database-query:v1"),
+                "name": "vendor_database_query",
+                "version": "1",
+                "description": "Read-only lookup of synthetic vendor records.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {"external_reference": {"type": "string"}},
+                    "required": ["external_reference"],
+                    "additionalProperties": False,
+                },
+                "permissions": ["vendors:read"],
+                "enabled": True,
+            },
+        ),
+        (
+            EvaluationCase,
+            {
+                "id": seed_id("evaluation:complete-low-risk-vendor:v1"),
+                "slug": "complete-low-risk-vendor",
+                "version": "1",
+                "workflow_type": "vendor_onboarding",
+                "input_data": {
+                    "legal_name": "Example Components Ltd",
+                    "jurisdiction": "US",
+                },
+                "expected_outcome": {"requires_approval": True, "risk_band": "low"},
+                "enabled": True,
+            },
+        ),
+    )
+
+
+async def seed_database(engine: AsyncEngine) -> None:
+    async with engine.begin() as connection:
+        for model, values in seed_rows():
+            statement = insert(model).values(**values).on_conflict_do_nothing()
+            await connection.execute(statement)

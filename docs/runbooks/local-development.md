@@ -32,9 +32,26 @@ Use `docker compose ps` for service state and `docker compose logs <service>` fo
 Readiness returns dependency names and sanitized failure categories. Stop the environment with
 `make down`; named volumes remain so local state survives restarts.
 
+## Database lifecycle
+
+The API runs `alembic upgrade head` and idempotent seed loading before it starts accepting
+requests. For a locally reachable database configured by `DATABASE_URL`, run lifecycle commands
+directly:
+
+```bash
+make migrate
+make seed
+make downgrade
+```
+
+Create every schema change as an Alembic revision. Do not call SQLAlchemy `create_all` from the
+application or tests. A downgrade is a development and verification operation; back up persistent
+data before using it outside the isolated smoke project.
+
 ## Isolated smoke gate
 
-`make test-integration` starts the `agents-verify` Compose project, verifies dependency readiness,
-Prometheus scraping, Grafana provisioning, Tempo trace ingestion, Temporal UI, and pgvector, then
-removes only that project's containers and volumes. It can run independently of unit tests, but
-`make verify` includes it.
+`make test-integration` starts the `agents-verify` Compose project. It performs a clean migration,
+downgrades to base, upgrades again, and verifies seed data, relational constraints, repository
+CRUD, optimistic concurrency, pgvector similarity, dependency readiness, Prometheus scraping,
+Grafana provisioning, Tempo trace ingestion, and Temporal UI. It then removes only that project's
+containers and volumes. It can run independently of unit tests, but `make verify` includes it.

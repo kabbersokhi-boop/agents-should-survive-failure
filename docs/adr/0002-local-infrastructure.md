@@ -18,8 +18,10 @@ version pinned by its official Compose repository and is the newest verified `au
 available when this decision was recorded; the Python SDK is 1.30.0.
 
 One PostgreSQL process hosts separate `agents`, `temporal`, and `temporal_visibility` databases.
-The `agents` role cannot own or access Temporal's databases. Temporal remains the sole owner of
-workflow execution history, while the application database will own business and audit records.
+The application connects only as the `agents` role and owns no Temporal objects. Temporal remains
+the sole owner of workflow execution history, while the application database owns business and
+audit records. Temporal's development-only `auto-setup` role is a PostgreSQL bootstrap superuser;
+production deployments must use separately scoped infrastructure credentials.
 
 The API starts even when dependencies are unavailable. `/health/live` reports only process
 liveness; `/health/ready` concurrently probes PostgreSQL and Temporal with bounded timeouts and

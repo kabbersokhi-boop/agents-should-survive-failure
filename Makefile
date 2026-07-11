@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup format lint typecheck test test-unit test-integration verify dev up down compose-check secret-scan
+.PHONY: help setup format lint typecheck test test-unit test-integration verify dev up down compose-check secret-scan migrate downgrade seed
 
 help:
 	@printf '%s\n' 'setup         Install locked development dependencies' \
@@ -11,6 +11,9 @@ help:
 	  'typecheck     Run strict Pyright checks' \
 	  'test          Run unit tests with coverage' \
 	  'test-integration Run the isolated Compose smoke gate' \
+	  'migrate       Upgrade the application database to head' \
+	  'downgrade     Downgrade the application database by one revision' \
+	  'seed          Load idempotent local demonstration records' \
 	  'secret-scan   Scan tracked content with Gitleaks (Docker)' \
 	  'verify        Run the complete Phase 0 quality gate'
 
@@ -37,6 +40,15 @@ test test-unit:
 
 test-integration:
 	bash scripts/compose_smoke.sh
+
+migrate:
+	uv run alembic upgrade head
+
+downgrade:
+	uv run alembic downgrade -1
+
+seed:
+	uv run python -m agents_should_survive_failure.persistence.cli
 
 compose-check:
 	docker compose config --quiet

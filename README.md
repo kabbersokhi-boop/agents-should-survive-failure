@@ -10,9 +10,9 @@ compliance product and not production ready.
 
 ## Current status
 
-Phase 1 provides a verified local backend platform: dependency-aware FastAPI health checks,
-PostgreSQL with pgvector, Temporal and its UI, an initial worker process, Prometheus, Grafana, and
-Tempo. Application persistence and workflow logic begin in the next phases. See
+Phase 2 adds the complete application schema, asynchronous repositories, reversible Alembic
+migrations, deterministic development seeds, optimistic concurrency, and tested pgvector
+similarity search to the verified local platform. Durable workflow logic begins in Phase 3. See
 [PROGRESS.md](PROGRESS.md) for verified progress and limitations.
 
 ## Quick start
@@ -27,7 +27,8 @@ curl http://127.0.0.1:8000/health/live
 curl http://127.0.0.1:8000/health/ready
 ```
 
-`make up` builds and starts the local platform. The API is at port 8000, Temporal UI at 8080,
+`make up` builds and starts the local platform. API startup migrates the application database to
+Alembic head and loads idempotent development seeds. The API is at port 8000, Temporal UI at 8080,
 Prometheus at 9090, Grafana at 3000, and Tempo at 3200. `make down` stops it without deleting local
 volumes. See the [local development runbook](docs/runbooks/local-development.md).
 
@@ -48,9 +49,11 @@ compatible API. CI never uses a live key and never silently falls back to anothe
 
 ## Developer commands
 
-Run `make help` for the current command set. `make verify` is the complete local Phase 1 gate:
+Run `make help` for the current command set. `make verify` is the complete local Phase 2 gate:
 format and lint checks, strict type checking, unit tests with at least 80% coverage, Compose
-validation, a redacted Gitleaks scan, and an isolated live infrastructure smoke test.
+validation, a redacted Gitleaks scan, reversible database migrations, and live persistence and
+infrastructure tests. Use `make migrate`, `make downgrade`, and `make seed` for database lifecycle
+operations outside Compose.
 
 ## License
 

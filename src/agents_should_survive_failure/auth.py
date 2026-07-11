@@ -8,6 +8,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
 
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from agents_should_survive_failure.persistence.models import APIKey, AuthPrincipal, PrincipalStatus
+
 API_KEY_SCOPES = frozenset(
     {
         "admin",
@@ -112,3 +117,24 @@ def verify_secret(secret: str, encoded: str) -> bool:
 
 def key_is_active(*, expires_at: datetime | None, revoked_at: datetime | None) -> bool:
     return revoked_at is None and (expires_at is None or expires_at > datetime.now(UTC))
+
+
+async def resolve_api_key(session: AsyncSession, raw_value: str) -> AuthenticatedPrincipal | None:
+    parsed = parse_api_key(raw_value)
+    if parsed is None:
+        return None
+    identifier, secret = parsed
+    key = await session.scalar(select(APIKey).where(APIKey.key_identifier == identifier))
+    if key is None or not key_is_active(expires_at=key.expires_at, revoked_at=key.revoked_at):
+        return None
+    if not verify_secret(secret, key.secret_hash):
+        return None
+    principal = await session.get(AuthPrincipal, key.principal_id)
+    if principal is None or principal.status is not PrincipalStatus.ACTIVE:
+        return None
+    try:
+        scopes = frozenset(validate_scopes(key.scopes))
+    except ValueError:
+        return None
+    key.last_used_at = datetime.now(UTC)
+    return AuthenticatedPrincipal(id=principal.id, key_id=key.id, scopes=scopes)

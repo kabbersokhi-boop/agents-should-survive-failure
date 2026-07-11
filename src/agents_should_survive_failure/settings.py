@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     dependency_timeout_seconds: float = Field(default=3.0, gt=0, le=30)
     otel_exporter_otlp_endpoint: str | None = None
     otel_service_name: str = "agents-control-plane-api"
+    nvidia_api_key: str | None = None
+    nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
+    nvidia_model: str = "z-ai/glm-5.2"
 
 
 @lru_cache

@@ -21,7 +21,7 @@ def test_factory_selects_deterministic_providers_by_default() -> None:
 
 
 def test_nvidia_model_default_matches_documented_configuration() -> None:
-    assert Settings().nvidia_model == "mistralai/mistral-medium-3.5-128b"
+    assert Settings(_env_file=None).nvidia_model == "mistralai/mistral-medium-3.5-128b"
 
 
 def test_factory_selects_nvidia_providers_with_explicit_configuration() -> None:

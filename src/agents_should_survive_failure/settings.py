@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     temporal_address: str = "temporal:7233"
     temporal_namespace: str = "default"
     dependency_timeout_seconds: float = Field(default=3.0, gt=0, le=30)
+    max_request_body_bytes: int = Field(default=65_536, ge=1_024, le=1_048_576)
     otel_exporter_otlp_endpoint: str | None = None
     otel_service_name: str = "agents-control-plane-api"
     nvidia_api_key: str | None = None

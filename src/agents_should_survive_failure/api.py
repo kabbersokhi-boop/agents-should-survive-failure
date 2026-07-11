@@ -1,15 +1,16 @@
 """Control-plane API application."""
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID, uuid4
 
 import structlog
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, generate_latest
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
@@ -57,11 +58,27 @@ REQUESTS = Counter(
 class RequestContextMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         request_id = request.headers.get("x-request-id", str(uuid4()))
+        request.state.request_id = request_id
+        content_length = request.headers.get("content-length")
+        max_body_bytes = request.app.state.settings.max_request_body_bytes
+        if content_length is not None and int(content_length) > max_body_bytes:
+            response = JSONResponse(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                content=ApiErrorResponse(
+                    code="payload_too_large",
+                    message="request payload exceeds the configured limit",
+                    request_id=request_id,
+                ).model_dump(),
+            )
+            response.headers["x-request-id"] = request_id
+            return response
         structlog.contextvars.bind_contextvars(request_id=request_id)
         try:
             response = await call_next(request)
             response.headers["x-request-id"] = request_id
-            REQUESTS.labels(request.method, request.url.path, str(response.status_code)).inc()
+            route = request.scope.get("route")
+            route_path = getattr(route, "path", "unmatched")
+            REQUESTS.labels(request.method, route_path, str(response.status_code)).inc()
             return response
         finally:
             structlog.contextvars.clear_contextvars()
@@ -83,11 +100,27 @@ class ReadinessResponse(BaseModel):
     dependencies: dict[str, DependencyHealth]
 
 
-class VendorCreateRequest(BaseModel):
-    external_reference: str
-    legal_name: str
-    jurisdiction: str
-    contact_email: str
+class ApiFieldError(BaseModel):
+    field: str
+    message: str
+
+
+class ApiErrorResponse(BaseModel):
+    code: str
+    message: str
+    request_id: str
+    field_errors: list[ApiFieldError] | None = None
+
+
+class StrictRequestModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+
+class VendorCreateRequest(StrictRequestModel):
+    external_reference: str = Field(min_length=1, max_length=120, pattern=r"^[A-Za-z0-9._:-]+$")
+    legal_name: str = Field(min_length=1, max_length=240)
+    jurisdiction: str = Field(min_length=2, max_length=2, pattern=r"^[A-Za-z]{2}$")
+    contact_email: str = Field(min_length=3, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 class VendorResponse(BaseModel):
@@ -96,8 +129,8 @@ class VendorResponse(BaseModel):
     risk_score: int | None
 
 
-class StartOnboardingRequest(BaseModel):
-    idempotency_key: str
+class StartOnboardingRequest(StrictRequestModel):
+    idempotency_key: str = Field(min_length=1, max_length=240, pattern=r"^[A-Za-z0-9._:-]+$")
 
 
 class WorkflowRunResponse(BaseModel):
@@ -145,10 +178,10 @@ class EvaluationReportResponse(BaseModel):
     results: list[EvaluationResultReport]
 
 
-class ApprovalRequestBody(BaseModel):
+class ApprovalRequestBody(StrictRequestModel):
     decision: ApprovalDecisionType
-    rationale: str
-    idempotency_key: str
+    rationale: str = Field(min_length=1, max_length=1_000)
+    idempotency_key: str = Field(min_length=1, max_length=240, pattern=r"^[A-Za-z0-9._:-]+$")
     decided_by_id: UUID = seed_id("user:demo-operator")
 
 
@@ -193,6 +226,44 @@ async def readiness(
 
 async def metrics() -> Response:
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+def _request_id(request: Request) -> str:
+    return str(getattr(request.state, "request_id", "unknown"))
+
+
+async def validation_error(request: Request, error: RequestValidationError) -> JSONResponse:
+    field_errors = [
+        ApiFieldError(field=".".join(str(part) for part in item["loc"]), message=item["msg"])
+        for item in error.errors()
+    ]
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content=ApiErrorResponse(
+            code="validation_error",
+            message="request validation failed",
+            request_id=_request_id(request),
+            field_errors=field_errors,
+        ).model_dump(),
+    )
+
+
+async def http_error(request: Request, error: HTTPException) -> JSONResponse:
+    codes = {
+        status.HTTP_404_NOT_FOUND: "not_found",
+        status.HTTP_409_CONFLICT: "conflict",
+        status.HTTP_401_UNAUTHORIZED: "authentication_required",
+        status.HTTP_403_FORBIDDEN: "authorization_denied",
+        status.HTTP_503_SERVICE_UNAVAILABLE: "dependency_unavailable",
+    }
+    return JSONResponse(
+        status_code=error.status_code,
+        content=ApiErrorResponse(
+            code=codes.get(error.status_code, "request_failed"),
+            message=str(error.detail),
+            request_id=_request_id(request),
+        ).model_dump(),
+    )
 
 
 async def create_vendor(
@@ -419,6 +490,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     app.state.settings = app_settings
+    app.add_exception_handler(RequestValidationError, validation_error)  # type: ignore[arg-type]
+    app.add_exception_handler(HTTPException, http_error)  # type: ignore[arg-type]
+
+    def add_v1_route(
+        path: str,
+        endpoint: Callable[..., Any],
+        *,
+        methods: list[str],
+        **kwargs: Any,
+    ) -> None:
+        app.add_api_route(f"/api/v1{path}", endpoint, methods=methods, **kwargs)
+        app.add_api_route(path, endpoint, methods=methods, deprecated=True, **kwargs)
 
     app.add_api_route(
         "/health/live",
@@ -436,37 +519,35 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         tags=["health"],
     )
     app.add_api_route("/metrics", metrics, methods=["GET"], include_in_schema=False)
-    app.add_api_route("/vendors", create_vendor, methods=["POST"], response_model=VendorResponse)
-    app.add_api_route(
+    add_v1_route("/vendors", create_vendor, methods=["POST"], response_model=VendorResponse)
+    add_v1_route(
         "/vendors/{vendor_id}/onboarding",
         start_onboarding,
         methods=["POST"],
         response_model=WorkflowRunResponse,
     )
-    app.add_api_route(
+    add_v1_route(
         "/workflow-runs/{run_id}/approval",
         decide_onboarding,
         methods=["POST"],
         status_code=status.HTTP_202_ACCEPTED,
     )
-    app.add_api_route(
+    add_v1_route(
         "/workflow-runs/{run_id}", onboarding_status, methods=["GET"], response_model=WorkflowStatus
     )
-    app.add_api_route(
+    add_v1_route(
         "/workflow-runs/{run_id}/evidence",
         onboarding_evidence,
         methods=["GET"],
         response_model=WorkflowEvidenceResponse,
     )
-    app.add_api_route(
+    add_v1_route(
         "/evaluation-runs/{evaluation_run_id}",
         evaluation_report,
         methods=["GET"],
         response_model=EvaluationReportResponse,
     )
-    app.add_api_route(
-        "/workflow-runs/{run_id}", cancel_onboarding, methods=["DELETE"], status_code=202
-    )
+    add_v1_route("/workflow-runs/{run_id}", cancel_onboarding, methods=["DELETE"], status_code=202)
     app.add_middleware(RequestContextMiddleware)
 
     configure_tracing(app, app_settings)

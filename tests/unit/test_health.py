@@ -1,8 +1,20 @@
+from contextlib import asynccontextmanager
+from uuid import uuid4
+
 import pytest
+from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient, Response
+from starlette.requests import Request
 from starlette.types import ASGIApp
 
-from agents_should_survive_failure.api import create_app, get_database, get_dependencies
+from agents_should_survive_failure.api import (
+    create_app,
+    get_authenticated_principal,
+    get_database,
+    get_dependencies,
+    require_scopes,
+)
+from agents_should_survive_failure.auth import AuthenticatedPrincipal
 from agents_should_survive_failure.dependencies import DependencySet
 from agents_should_survive_failure.settings import Settings
 
@@ -89,6 +101,9 @@ async def test_prometheus_metrics_are_exposed() -> None:
 async def test_versioned_vendor_contract_rejects_unknown_fields() -> None:
     app = create_app()
     app.dependency_overrides[get_database] = lambda: object()
+    app.dependency_overrides[get_authenticated_principal] = lambda: AuthenticatedPrincipal(
+        uuid4(), uuid4(), frozenset({"admin"})
+    )
     response = await post(
         app,
         "/api/v1/vendors",
@@ -108,9 +123,50 @@ async def test_versioned_vendor_contract_rejects_unknown_fields() -> None:
 
 
 @pytest.mark.asyncio
+async def test_versioned_mutation_requires_authentication_before_database_access() -> None:
+    response = await post(
+        create_app(),
+        "/api/v1/vendors",
+        {
+            "external_reference": "V-100",
+            "legal_name": "Vendor",
+            "jurisdiction": "US",
+            "contact_email": "vendor@example.invalid",
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json()["code"] == "authentication_required"
+
+
+@pytest.mark.asyncio
+async def test_versioned_mutation_denies_missing_scope_before_database_access() -> None:
+    app = create_app()
+    app.dependency_overrides[get_authenticated_principal] = lambda: AuthenticatedPrincipal(
+        uuid4(), uuid4(), frozenset({"runs:read"})
+    )
+    response = await post(
+        app,
+        "/api/v1/vendors",
+        {
+            "external_reference": "V-100",
+            "legal_name": "Vendor",
+            "jurisdiction": "US",
+            "contact_email": "vendor@example.invalid",
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == "authorization_denied"
+
+
+@pytest.mark.asyncio
 async def test_versioned_vendor_contract_rejects_oversized_payload() -> None:
     app = create_app(Settings(max_request_body_bytes=1024))
     app.dependency_overrides[get_database] = lambda: object()
+    app.dependency_overrides[get_authenticated_principal] = lambda: AuthenticatedPrincipal(
+        uuid4(), uuid4(), frozenset({"admin"})
+    )
     response = await post(
         app,
         "/api/v1/vendors",
@@ -136,3 +192,54 @@ def test_versioned_read_contracts_are_exposed_with_deprecated_status_alias() -> 
     assert "/api/v1/workflow-runs/{run_id}/tool-calls" in schema["paths"]
     assert "/api/v1/agents" in schema["paths"]
     assert schema["paths"]["/workflow-runs/{run_id}"]["get"]["deprecated"] is True
+
+
+class FakeAuthDatabase:
+    @asynccontextmanager
+    async def session(self):  # type: ignore[no-untyped-def]
+        yield object()
+
+
+def authenticated_request(value: str | None = None) -> Request:
+    headers = [] if value is None else [(b"authorization", value.encode("ascii"))]
+    return Request({"type": "http", "headers": headers})
+
+
+@pytest.mark.asyncio
+async def test_auth_dependency_returns_generic_401_for_missing_or_invalid_keys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with pytest.raises(HTTPException) as missing:
+        await get_authenticated_principal(authenticated_request())
+    assert missing.value.status_code == 401
+    assert missing.value.headers == {"WWW-Authenticate": "Bearer"}
+
+    async def resolve(session: object, token: str) -> None:
+        del session, token
+        return None
+
+    monkeypatch.setattr("agents_should_survive_failure.api.resolve_api_key", resolve)
+    request = authenticated_request("Bearer invalid")
+    request.state.resources = type("Resources", (), {"engine": object()})()
+
+    def database_factory(engine: object) -> FakeAuthDatabase:
+        del engine
+        return FakeAuthDatabase()
+
+    monkeypatch.setattr(
+        "agents_should_survive_failure.api.Database", database_factory
+    )
+    with pytest.raises(HTTPException) as invalid:
+        await get_authenticated_principal(request)
+    assert invalid.value.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_scope_dependency_denies_and_allows_admin() -> None:
+    scope_dependency = require_scopes("approvals:decide")
+    with pytest.raises(HTTPException) as denied:
+        await scope_dependency(AuthenticatedPrincipal(uuid4(), uuid4(), frozenset({"runs:read"})))
+    assert denied.value.status_code == 403
+
+    principal = AuthenticatedPrincipal(uuid4(), uuid4(), frozenset({"admin"}))
+    assert await scope_dependency(principal) is principal

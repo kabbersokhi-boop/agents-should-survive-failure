@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 
+from agents_should_survive_failure.auth import AuthenticatedPrincipal, resolve_api_key
 from agents_should_survive_failure.dependencies import (
     DependencySet,
     RuntimeResources,
@@ -257,6 +258,40 @@ def get_app_settings(request: Request) -> Settings:
 def get_database(request: Request) -> Database:
     resources: RuntimeResources = request.app.state.resources
     return Database(resources.engine)
+
+
+def authentication_error() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="invalid API key",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+async def get_authenticated_principal(
+    request: Request,
+) -> AuthenticatedPrincipal:
+    authorization = request.headers.get("authorization", "")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise authentication_error()
+    database = get_database(request)
+    async with database.session() as session:
+        principal = await resolve_api_key(session, token)
+    if principal is None:
+        raise authentication_error()
+    return principal
+
+
+def require_scopes(*scopes: str) -> Callable[..., Any]:
+    async def dependency(
+        principal: Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)],
+    ) -> AuthenticatedPrincipal:
+        if not principal.allows(*scopes):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="insufficient scope")
+        return principal
+
+    return dependency
 
 
 async def readiness(
@@ -723,10 +758,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         endpoint: Callable[..., Any],
         *,
         methods: list[str],
+        scopes: tuple[str, ...],
         **kwargs: Any,
     ) -> None:
-        app.add_api_route(f"/api/v1{path}", endpoint, methods=methods, **kwargs)
-        app.add_api_route(path, endpoint, methods=methods, deprecated=True, **kwargs)
+        dependencies = [Depends(require_scopes(*scopes))]
+        app.add_api_route(
+            f"/api/v1{path}", endpoint, methods=methods, dependencies=dependencies, **kwargs
+        )
+        app.add_api_route(
+            path, endpoint, methods=methods, deprecated=True, dependencies=dependencies, **kwargs
+        )
 
     app.add_api_route(
         "/health/live",
@@ -744,17 +785,25 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         tags=["health"],
     )
     app.add_api_route("/metrics", metrics, methods=["GET"], include_in_schema=False)
-    add_v1_route("/vendors", create_vendor, methods=["POST"], response_model=VendorResponse)
+    add_v1_route(
+        "/vendors",
+        create_vendor,
+        methods=["POST"],
+        scopes=("runs:write",),
+        response_model=VendorResponse,
+    )
     add_v1_route(
         "/vendors/{vendor_id}/onboarding",
         start_onboarding,
         methods=["POST"],
+        scopes=("runs:write",),
         response_model=WorkflowRunResponse,
     )
     add_v1_route(
         "/workflow-runs/{run_id}/approval",
         decide_onboarding,
         methods=["POST"],
+        scopes=("approvals:decide",),
         status_code=status.HTTP_202_ACCEPTED,
     )
     app.add_api_route(
@@ -763,63 +812,85 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         methods=["GET"],
         response_model=WorkflowStatus,
         deprecated=True,
+        dependencies=[Depends(require_scopes("runs:read"))],
     )
     app.add_api_route(
         "/api/v1/workflow-runs/{run_id}/status",
         onboarding_status,
         methods=["GET"],
         response_model=WorkflowStatus,
+        dependencies=[Depends(require_scopes("runs:read"))],
     )
     app.add_api_route(
         "/api/v1/workflow-runs",
         list_workflow_runs,
         methods=["GET"],
         response_model=WorkflowRunPage,
+        dependencies=[Depends(require_scopes("runs:read"))],
     )
     app.add_api_route(
         "/api/v1/workflow-runs/{run_id}",
         workflow_run_detail,
         methods=["GET"],
         response_model=WorkflowRunDetailResponse,
+        dependencies=[Depends(require_scopes("runs:read"))],
     )
     app.add_api_route(
         "/api/v1/workflow-runs/{run_id}/events",
         list_run_events,
         methods=["GET"],
         response_model=list[WorkflowEventEvidence],
+        dependencies=[Depends(require_scopes("runs:read"))],
     )
     app.add_api_route(
         "/api/v1/workflow-runs/{run_id}/approvals",
         list_run_approvals,
         methods=["GET"],
         response_model=list[ApprovalResponse],
+        dependencies=[Depends(require_scopes("approvals:read"))],
     )
     app.add_api_route(
         "/api/v1/workflow-runs/{run_id}/model-calls",
         list_run_model_calls,
         methods=["GET"],
         response_model=list[ModelCallResponse],
+        dependencies=[Depends(require_scopes("runs:read"))],
     )
     app.add_api_route(
         "/api/v1/workflow-runs/{run_id}/tool-calls",
         list_run_tool_calls,
         methods=["GET"],
         response_model=list[ToolInvocationResponse],
+        dependencies=[Depends(require_scopes("runs:read"))],
     )
-    app.add_api_route("/api/v1/agents", list_agents, methods=["GET"], response_model=AgentPage)
+    app.add_api_route(
+        "/api/v1/agents",
+        list_agents,
+        methods=["GET"],
+        response_model=AgentPage,
+        dependencies=[Depends(require_scopes("agents:read"))],
+    )
     add_v1_route(
         "/workflow-runs/{run_id}/evidence",
         onboarding_evidence,
         methods=["GET"],
+        scopes=("runs:read",),
         response_model=WorkflowEvidenceResponse,
     )
     add_v1_route(
         "/evaluation-runs/{evaluation_run_id}",
         evaluation_report,
         methods=["GET"],
+        scopes=("evaluations:read",),
         response_model=EvaluationReportResponse,
     )
-    add_v1_route("/workflow-runs/{run_id}", cancel_onboarding, methods=["DELETE"], status_code=202)
+    add_v1_route(
+        "/workflow-runs/{run_id}",
+        cancel_onboarding,
+        methods=["DELETE"],
+        scopes=("runs:write",),
+        status_code=202,
+    )
     app.add_middleware(RequestContextMiddleware)
 
     configure_tracing(app, app_settings)

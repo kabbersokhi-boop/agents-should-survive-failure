@@ -39,6 +39,7 @@ async def _bootstrap(email: str, display_name: str, scopes: list[str]) -> str:
                     user_id=user.id,
                 )
                 session.add(principal)
+                await session.flush()
             generated = generate_api_key()
             session.add(
                 APIKey(

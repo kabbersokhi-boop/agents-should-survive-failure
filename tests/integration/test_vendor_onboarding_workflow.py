@@ -22,6 +22,11 @@ from agents_should_survive_failure.persistence.models import (
 )
 
 
+def auth_headers() -> dict[str, str]:
+    key = os.environ["INTEGRATION_API_KEY"]
+    return {"Authorization": f"Bearer {key}"}
+
+
 async def eventually[T](operation: Callable[[], Awaitable[T]], attempts: int = 45) -> T:
     last_error: BaseException | None = None
     for _ in range(attempts):
@@ -38,7 +43,9 @@ async def eventually[T](operation: Callable[[], Awaitable[T]], attempts: int = 4
 async def test_vendor_onboarding_survives_worker_restart_and_records_approval() -> None:
     reference = f"workflow-{uuid.uuid4()}"
     idempotency_key = f"onboarding-{uuid.uuid4()}"
-    async with httpx.AsyncClient(base_url="http://127.0.0.1:8000", timeout=5) as client:
+    async with httpx.AsyncClient(
+        base_url="http://127.0.0.1:8000", timeout=5, headers=auth_headers()
+    ) as client:
         created = await client.post(
             "/vendors",
             json={
@@ -155,7 +162,9 @@ async def test_vendor_onboarding_survives_worker_restart_and_records_approval() 
 @pytest.mark.integration
 @pytest.mark.asyncio
 async def test_vendor_onboarding_cancellation_is_durable() -> None:
-    async with httpx.AsyncClient(base_url="http://127.0.0.1:8000", timeout=5) as client:
+    async with httpx.AsyncClient(
+        base_url="http://127.0.0.1:8000", timeout=5, headers=auth_headers()
+    ) as client:
         created = await client.post(
             "/vendors",
             json={

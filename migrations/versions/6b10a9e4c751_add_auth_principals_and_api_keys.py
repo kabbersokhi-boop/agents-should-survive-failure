@@ -20,8 +20,6 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     principal_type = sa.Enum("USER", "SERVICE", "AGENT", name="principal_type")
     principal_status = sa.Enum("ACTIVE", "DISABLED", name="principal_status")
-    principal_type.create(op.get_bind(), checkfirst=True)
-    principal_status.create(op.get_bind(), checkfirst=True)
     op.create_table(
         "auth_principals",
         sa.Column("principal_type", principal_type, nullable=False),

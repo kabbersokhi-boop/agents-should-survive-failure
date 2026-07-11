@@ -24,6 +24,7 @@ from agents_should_survive_failure.persistence.repositories import (
     WorkflowRunRepository,
 )
 from agents_should_survive_failure.persistence.session import Database
+from agents_should_survive_failure.policy import PolicyRetriever
 from agents_should_survive_failure.providers import DeterministicModelProvider, ModelProvider
 from agents_should_survive_failure.workflows.contracts import (
     ApprovalDecisionInput,
@@ -36,9 +37,15 @@ from agents_should_survive_failure.workflows.contracts import (
 class VendorOnboardingActivities:
     """Persist workflow effects atomically and make retries harmless."""
 
-    def __init__(self, database: Database, model_provider: ModelProvider | None = None) -> None:
+    def __init__(
+        self,
+        database: Database,
+        model_provider: ModelProvider | None = None,
+        policy_retriever: PolicyRetriever | None = None,
+    ) -> None:
         self._database = database
         self._model_provider = model_provider or DeterministicModelProvider()
+        self._policy_retriever = policy_retriever or PolicyRetriever()
 
     @staticmethod
     def _id(value: str) -> uuid.UUID:
@@ -91,15 +98,31 @@ class VendorOnboardingActivities:
                 score=score,
                 summary=f"Deterministic jurisdiction risk score: {score}.",
             )
-            await ModelEvidenceService(self._model_provider).explain(
-                session,
-                workflow_run_id=run_id,
-                prompt=(
-                    "Explain the deterministic vendor risk score using only the jurisdiction: "
-                    f"{vendor.jurisdiction}."
-                ),
-                correlation_id=f"{run_id}:risk-assessment",
+            citations = await self._policy_retriever.retrieve(
+                session, "vendor onboarding approval policy"
             )
+            citation_evidence = [
+                {
+                    "document_id": citation.document_id,
+                    "title": citation.title,
+                    "source_uri": citation.source_uri,
+                }
+                for citation in citations
+            ]
+            explanation_available = True
+            try:
+                await ModelEvidenceService(self._model_provider).explain(
+                    session,
+                    workflow_run_id=run_id,
+                    prompt=self._risk_explanation_prompt(
+                        jurisdiction=vendor.jurisdiction,
+                        score=score,
+                        policy_context="\n".join(citation.content for citation in citations),
+                    ),
+                    correlation_id=f"{run_id}:risk-assessment",
+                )
+            except RuntimeError:
+                explanation_available = False
             await self._append_event(
                 WorkflowRunRepository(session),
                 run_id,
@@ -108,10 +131,31 @@ class VendorOnboardingActivities:
                 asdict(assessment),
                 sequence=20,
             )
+            await self._append_event(
+                WorkflowRunRepository(session),
+                run_id,
+                "risk.policy_context",
+                "Risk explanation grounded in retrieved policy evidence.",
+                {
+                    "citations": citation_evidence,
+                    "model_explanation_available": explanation_available,
+                },
+                sequence=25,
+            )
             await self._audit(
                 session, run_id, "vendor.risk.assess", "vendor", vendor_id, assessment.summary
             )
             return assessment
+
+    @staticmethod
+    def _risk_explanation_prompt(*, jurisdiction: str, score: int, policy_context: str) -> str:
+        return (
+            "Provide a concise explanation of the deterministic vendor risk result. "
+            "Do not recommend or authorize an approval decision.\n"
+            f"Jurisdiction: {jurisdiction}\n"
+            f"Deterministic risk score: {score}\n"
+            f"Policy evidence:\n{policy_context}"
+        )
 
     @activity.defn(name="vendor_onboarding.request_approval")
     async def request_approval(

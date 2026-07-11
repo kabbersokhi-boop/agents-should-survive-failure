@@ -1,18 +1,29 @@
 # Agents Should Survive Failure
 
-A durable, observable and secure control plane for long-running AI agents.
+A durable control plane for governed AI workflows.
 
-This repository is a production-style reference implementation for recoverable, permission-
-controlled business workflows. Its first workflow will onboard synthetic vendors, combine
-deterministic risk rules with cited model explanations, pause for human approval, and preserve a
-complete audit trail across worker failures. It is an engineering demonstration, not a real
-compliance product and not production ready.
+This reference implementation demonstrates a vendor-onboarding workflow that combines durable
+orchestration, policy retrieval, model explanations, human approval, and auditable state changes.
+It is designed to make consequential workflow decisions deterministic while models interpret
+bounded evidence.
 
-## Current status
+## Capabilities
 
-Phase 5 adds explicit provider contracts, NVIDIA NIM adapters, durable model-call evidence, and
-2,048-dimensional policy embeddings. See [PROGRESS.md](PROGRESS.md) for verified progress and
-limitations.
+- Durable, restart-safe vendor onboarding through Temporal workflows and signals.
+- PostgreSQL-backed application state, append-only audit evidence, and optimistic concurrency.
+- Permissioned, idempotent tool invocation with explicit authorization boundaries.
+- Policy retrieval with cited source material and 2,048-dimensional semantic embeddings.
+- NVIDIA NIM adapters for Mistral Medium 3.5 128B explanations and Nemotron embeddings.
+- Structured logs, request IDs, Prometheus metrics, OpenTelemetry traces, and readiness checks.
+- Reproducible local infrastructure: API, worker, PostgreSQL/pgvector, Temporal, Grafana,
+  Prometheus, and Tempo.
+
+## Architecture
+
+Temporal owns durable workflow execution. PostgreSQL owns domain state and evidence. Model and
+embedding providers sit behind explicit contracts, allowing deterministic local verification and
+NVIDIA NIM runtime integration without coupling workflow logic to a provider SDK. See the
+[architecture decisions](docs/adr) for the design record.
 
 ## Quick start
 
@@ -35,7 +46,7 @@ To exercise the workflow, create a vendor, start onboarding, then submit the hum
 the returned IDs. `GET /workflow-runs/{run_id}` exposes the durable phase, and `DELETE` on that path
 cancels a pending review. The API schema at `/docs` contains the precise request contracts.
 
-## Model configuration
+## Model Configuration
 
 Copy the safe names from `.env.example` into an untracked `.env`. To use NVIDIA NIM locally, set
 `MODEL_PROVIDER=nvidia_nim`, `NVIDIA_API_KEY`, `NVIDIA_BASE_URL`,
@@ -45,7 +56,7 @@ model summaries and usage data; it never grants approvals. Run `make reindex-pol
 migration to generate live policy embeddings. CI requires no credentials and uses the explicit
 deterministic provider.
 
-## Engineering constraints
+## Governance Boundaries
 
 - Deterministic code owns validation, scoring, authorization, transitions, retries, budgets, and
   final writes.
@@ -53,13 +64,11 @@ deterministic provider.
 - Temporal execution history and PostgreSQL application records have separate ownership.
 - No private reasoning or chain-of-thought is stored or exposed.
 
-## Developer commands
+## Verification
 
-Run `make help` for the current command set. `make verify` is the complete local Phase 5 gate:
-format and lint checks, strict type checking, unit tests with at least 80% coverage, Compose
-validation, a redacted Gitleaks scan, reversible database migrations, and live persistence and
-infrastructure tests. Use `make migrate`, `make downgrade`, and `make seed` for database lifecycle
-operations outside Compose.
+`make verify` runs formatting, static analysis, unit coverage, Compose validation, secret scanning,
+reversible migrations, and integration checks. Use `make migrate`, `make downgrade`, and `make
+seed` for database lifecycle operations outside Compose.
 
 ## License
 

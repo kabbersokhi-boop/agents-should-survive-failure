@@ -125,9 +125,12 @@ async def test_vendor_onboarding_survives_worker_restart_and_records_approval() 
     assert [event.event_type for event in events] == [
         "review.started",
         "risk.assessed",
+        "risk.policy_context",
         "approval.requested",
         "approval.decided",
     ]
+    assert events[2].payload["model_explanation_available"] is True
+    assert events[2].payload["citations"]
     assert {event.action for event in audit_events} == {
         "vendor.review.start",
         "vendor.risk.assess",

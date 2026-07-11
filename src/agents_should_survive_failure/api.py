@@ -237,7 +237,6 @@ class ApprovalRequestBody(StrictRequestModel):
     decision: ApprovalDecisionType
     rationale: str = Field(min_length=1, max_length=1_000)
     idempotency_key: str = Field(min_length=1, max_length=240, pattern=r"^[A-Za-z0-9._:-]+$")
-    decided_by_id: UUID = seed_id("user:demo-operator")
 
 
 async def liveness() -> HealthResponse:
@@ -377,6 +376,7 @@ async def start_onboarding(
     payload: StartOnboardingRequest,
     request: Request,
     database: Annotated[Database, Depends(get_database)],
+    principal: Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)],
 ) -> WorkflowRunResponse:
     async with database.session() as session:
         vendors = VendorRepository(session)
@@ -394,7 +394,7 @@ async def start_onboarding(
         run = WorkflowRun(
             agent_id=seed_id("agent:vendor-onboarding:v1"),
             vendor_id=vendor.id,
-            requested_by_id=seed_id("user:demo-operator"),
+            requested_by_id=principal.id,
             workflow_type=WORKFLOW_TYPE,
             temporal_workflow_id=f"vendor-onboarding-{uuid4()}",
             idempotency_key=payload.idempotency_key,
@@ -420,6 +420,7 @@ async def decide_onboarding(
     payload: ApprovalRequestBody,
     request: Request,
     database: Annotated[Database, Depends(get_database)],
+    principal: Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)],
 ) -> Response:
     async with database.session() as session:
         run = await WorkflowRunRepository(session).get(run_id)
@@ -434,7 +435,7 @@ async def decide_onboarding(
         VendorOnboardingWorkflow.decide,
         ApprovalDecisionInput(
             decision=payload.decision,
-            decided_by_id=str(payload.decided_by_id),
+            decided_by_id=str(principal.id),
             rationale=payload.rationale,
             idempotency_key=payload.idempotency_key,
         ),

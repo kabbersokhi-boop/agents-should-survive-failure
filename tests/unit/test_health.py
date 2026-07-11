@@ -192,6 +192,8 @@ def test_versioned_read_contracts_are_exposed_with_deprecated_status_alias() -> 
     assert "/api/v1/workflow-runs/{run_id}/tool-calls" in schema["paths"]
     assert "/api/v1/agents" in schema["paths"]
     assert schema["paths"]["/workflow-runs/{run_id}"]["get"]["deprecated"] is True
+    approval_schema = schema["components"]["schemas"]["ApprovalRequestBody"]
+    assert "decided_by_id" not in approval_schema["properties"]
 
 
 class FakeAuthDatabase:
@@ -226,9 +228,7 @@ async def test_auth_dependency_returns_generic_401_for_missing_or_invalid_keys(
         del engine
         return FakeAuthDatabase()
 
-    monkeypatch.setattr(
-        "agents_should_survive_failure.api.Database", database_factory
-    )
+    monkeypatch.setattr("agents_should_survive_failure.api.Database", database_factory)
     with pytest.raises(HTTPException) as invalid:
         await get_authenticated_principal(request)
     assert invalid.value.status_code == 401

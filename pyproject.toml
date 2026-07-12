@@ -10,6 +10,7 @@ dependencies = [
   "alembic==1.16.5",
   "asyncpg==0.31.0",
   "fastapi==0.116.1",
+  "mcp==1.28.1",
   "opentelemetry-api==1.39.1",
   "opentelemetry-exporter-otlp-proto-grpc==1.39.1",
   "opentelemetry-instrumentation-fastapi==0.60b1",

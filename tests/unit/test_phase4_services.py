@@ -6,7 +6,11 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agents_should_survive_failure.evaluation import EvaluationRunner
-from agents_should_survive_failure.persistence.models import EvaluationStatus, VendorStatus
+from agents_should_survive_failure.persistence.models import (
+    EvaluationStatus,
+    InvocationStatus,
+    VendorStatus,
+)
 from agents_should_survive_failure.tool_gateway import (
     ToolDeniedError,
     ToolGateway,
@@ -100,6 +104,8 @@ async def test_tool_gateway_denies_and_reuses_idempotent_invocation() -> None:
         version="v1",
         enabled=True,
         permissions=["vendors:read"],
+        approval_required=False,
+        timeout_seconds=10,
     )
     denied = FakeSession([tool, None], agent=None)
     with pytest.raises(ToolDeniedError):
@@ -111,13 +117,17 @@ async def test_tool_gateway_denies_and_reuses_idempotent_invocation() -> None:
             idempotency_key="lookup",
         )
 
-    existing = SimpleNamespace(id=uuid.uuid4(), result_summary={"found": False})
+    existing = SimpleNamespace(
+        id=uuid.uuid4(), result_summary={"found": False}, status=InvocationStatus.SUCCEEDED
+    )
     tool = SimpleNamespace(
         id=uuid.uuid4(),
         name="vendor_database_query",
         version="v1",
         enabled=True,
         permissions=["vendors:read"],
+        approval_required=False,
+        timeout_seconds=10,
     )
     existing.arguments = {"external_reference": "vendor"}
     existing.argument_fingerprint = "legacy"
@@ -143,6 +153,8 @@ async def test_tool_gateway_records_found_vendor() -> None:
         version="v1",
         enabled=True,
         permissions=["vendors:read"],
+        approval_required=False,
+        timeout_seconds=10,
     )
     vendor = SimpleNamespace(id=uuid.uuid4(), status=VendorStatus.SUBMITTED)
     agent = SimpleNamespace(configuration={"tool_permissions": ["vendors:read"]})
@@ -176,6 +188,8 @@ async def test_tool_gateway_validates_inputs_and_idempotency_arguments() -> None
                             version="v1",
                             enabled=True,
                             permissions=["vendors:read"],
+                            approval_required=False,
+                            timeout_seconds=10,
                         ),
                         None,
                     ],
@@ -194,12 +208,15 @@ async def test_tool_gateway_validates_inputs_and_idempotency_arguments() -> None
         version="v1",
         enabled=True,
         permissions=["vendors:read"],
+        approval_required=False,
+        timeout_seconds=10,
     )
     existing = SimpleNamespace(
         id=uuid.uuid4(),
         result_summary={"found": False},
         arguments={"external_reference": "other"},
         argument_fingerprint="legacy",
+        status=InvocationStatus.SUCCEEDED,
     )
     with pytest.raises(ToolInvocationConflictError):
         await gateway.invoke_vendor_lookup(

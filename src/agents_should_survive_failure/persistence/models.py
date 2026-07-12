@@ -412,8 +412,28 @@ class ToolInvocation(IdMixin, TimestampMixin, Base):
     )
     arguments: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     argument_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, default="legacy")
+    correlation_id: Mapped[str] = mapped_column(String(160), nullable=False, default="legacy")
     result_summary: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     error_category: Mapped[str | None] = mapped_column(String(80))
+
+
+class SyntheticEmailMessage(IdMixin, TimestampMixin, Base):
+    """Synthetic outbound message created only by the governed email tool."""
+
+    __tablename__ = "synthetic_email_messages"
+    __table_args__ = (
+        UniqueConstraint("workflow_run_id", "idempotency_key", name="uq_synthetic_email_run_key"),
+        Index("ix_synthetic_email_run_created", "workflow_run_id", "created_at"),
+    )
+
+    workflow_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    idempotency_key: Mapped[str] = mapped_column(String(240), nullable=False)
+    recipient: Mapped[str] = mapped_column(String(320), nullable=False)
+    subject: Mapped[str] = mapped_column(String(240), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False, default="simulated")
 
 
 class ModelCall(IdMixin, Base):

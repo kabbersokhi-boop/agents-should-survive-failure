@@ -9,6 +9,7 @@ from temporalio.client import Client
 from temporalio.worker import Worker
 
 from agents_should_survive_failure.dependencies import create_resources
+from agents_should_survive_failure.mcp_adapter import GovernedMCPAdapter
 from agents_should_survive_failure.observability import configure_logging
 from agents_should_survive_failure.persistence.session import Database
 from agents_should_survive_failure.policy import PolicyRetriever
@@ -36,6 +37,7 @@ async def run_worker() -> None:
             Database(resources.engine),
             build_model_provider(settings),
             PolicyRetriever(build_embedding_provider(settings)),
+            GovernedMCPAdapter(),
         )
         worker = Worker(
             resources.temporal_client,

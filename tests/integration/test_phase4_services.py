@@ -8,8 +8,12 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from agents_should_survive_failure.evaluation import EvaluationRunner
 from agents_should_survive_failure.model_evidence import ModelEvidenceService
 from agents_should_survive_failure.persistence.models import (
+    ApprovalDecision,
+    ApprovalRequest,
+    ApprovalStatus,
     EvaluationResult,
     EvaluationStatus,
+    InvocationStatus,
     ModelCall,
     RunStatus,
     Vendor,
@@ -19,7 +23,10 @@ from agents_should_survive_failure.persistence.models import (
 from agents_should_survive_failure.persistence.seed import seed_id
 from agents_should_survive_failure.policy import PolicyRetriever
 from agents_should_survive_failure.providers import DeterministicModelProvider
-from agents_should_survive_failure.tool_gateway import ToolDeniedError, ToolGateway
+from agents_should_survive_failure.tool_gateway import (
+    ToolApprovalRequiredError,
+    ToolGateway,
+)
 
 
 @pytest.mark.integration
@@ -109,14 +116,173 @@ async def test_tool_gateway_denies_missing_permission() -> None:
     )
     sessions = async_sessionmaker(engine, expire_on_commit=False)
     try:
-        async with sessions() as session:
-            with pytest.raises(ToolDeniedError):
+        async with sessions.begin() as session:
+            vendor = Vendor(
+                external_reference=f"denied-tool-{uuid.uuid4()}",
+                legal_name="Denied Tool Vendor",
+                jurisdiction="US",
+                contact_email="denied-tool@example.invalid",
+                status=VendorStatus.SUBMITTED,
+            )
+            session.add(vendor)
+            await session.flush()
+            run = WorkflowRun(
+                agent_id=seed_id("agent:vendor-onboarding:v1"),
+                vendor_id=vendor.id,
+                requested_by_id=seed_id("user:demo-operator"),
+                workflow_type="vendor_onboarding",
+                temporal_workflow_id=f"denied-tool-{uuid.uuid4()}",
+                idempotency_key=f"denied-tool-{uuid.uuid4()}",
+                status=RunStatus.PENDING,
+                input_summary={},
+            )
+            session.add(run)
+            await session.flush()
+            with pytest.raises(PermissionError):
                 await ToolGateway().invoke_vendor_lookup(
                     session,
-                    workflow_run_id=str(uuid.uuid4()),
+                    workflow_run_id=str(run.id),
                     agent_id=str(uuid.uuid4()),
                     external_reference="not-used",
                     idempotency_key="denied",
                 )
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_governed_policy_and_synthetic_email_tools_are_durable() -> None:
+    engine = create_async_engine(
+        os.getenv(
+            "INTEGRATION_DATABASE_URL",
+            "postgresql+asyncpg://agents:local-development-only@127.0.0.1:5432/agents",
+        )
+    )
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    reference = f"governed-tools-{uuid.uuid4()}"
+    try:
+        async with sessions.begin() as session:
+            vendor = Vendor(
+                external_reference=reference,
+                legal_name="Governed Tools Vendor",
+                jurisdiction="US",
+                contact_email="governed-tools@example.invalid",
+                status=VendorStatus.SUBMITTED,
+            )
+            session.add(vendor)
+            await session.flush()
+            run = WorkflowRun(
+                agent_id=seed_id("agent:vendor-onboarding:v1"),
+                vendor_id=vendor.id,
+                requested_by_id=seed_id("user:demo-operator"),
+                workflow_type="vendor_onboarding",
+                temporal_workflow_id=f"governed-tools-{uuid.uuid4()}",
+                idempotency_key=f"governed-tools-{uuid.uuid4()}",
+                status=RunStatus.WAITING,
+                input_summary={},
+            )
+            session.add(run)
+            await session.flush()
+            gateway = ToolGateway()
+            policy = await gateway.invoke(
+                session,
+                workflow_run_id=str(run.id),
+                agent_id=str(run.agent_id),
+                tool_name="internal_policy_search",
+                tool_version="1",
+                arguments={"query": "vendor approval"},
+                idempotency_key="policy-search",
+                correlation_id=f"{run.id}:policy-search",
+            )
+            assert policy.result["citations"]
+            with pytest.raises(ToolApprovalRequiredError):
+                await gateway.invoke(
+                    session,
+                    workflow_run_id=str(run.id),
+                    agent_id=str(run.agent_id),
+                    tool_name="synthetic_email_send",
+                    tool_version="1",
+                    arguments={
+                        "recipient": "vendor@example.invalid",
+                        "subject": "Vendor review",
+                        "body": "This is synthetic only.",
+                    },
+                    idempotency_key="email-without-approval",
+                )
+            approval = ApprovalRequest(
+                workflow_run_id=run.id,
+                request_key="synthetic-email",
+                status=ApprovalStatus.APPROVED,
+                summary="Synthetic email approval.",
+            )
+            session.add(approval)
+            await session.flush()
+            session.add(
+                ApprovalDecision(
+                    approval_request_id=approval.id,
+                    decided_by_id=seed_id("user:demo-operator"),
+                    decision=ApprovalStatus.APPROVED,
+                    rationale="Synthetic action approved.",
+                    idempotency_key="synthetic-email-decision",
+                )
+            )
+            first = await gateway.invoke(
+                session,
+                workflow_run_id=str(run.id),
+                agent_id=str(run.agent_id),
+                tool_name="synthetic_email_send",
+                tool_version="1",
+                arguments={
+                    "recipient": "vendor@example.invalid",
+                    "subject": "Vendor review",
+                    "body": "This is synthetic only.",
+                },
+                idempotency_key="email-after-approval",
+                correlation_id=f"{run.id}:email-after-approval",
+            )
+            second = await gateway.invoke(
+                session,
+                workflow_run_id=str(run.id),
+                agent_id=str(run.agent_id),
+                tool_name="synthetic_email_send",
+                tool_version="1",
+                arguments={
+                    "recipient": "vendor@example.invalid",
+                    "subject": "Vendor review",
+                    "body": "This is synthetic only.",
+                },
+                idempotency_key="email-after-approval",
+            )
+        assert first == second
+        async with sessions() as session:
+            from agents_should_survive_failure.persistence.models import (
+                SyntheticEmailMessage,
+                ToolInvocation,
+            )
+
+            messages = (
+                await session.scalars(
+                    select(SyntheticEmailMessage).where(
+                        SyntheticEmailMessage.workflow_run_id == run.id
+                    )
+                )
+            ).all()
+            calls = (
+                await session.scalars(
+                    select(ToolInvocation)
+                    .where(ToolInvocation.workflow_run_id == run.id)
+                    .order_by(ToolInvocation.created_at)
+                )
+            ).all()
+        assert len(messages) == 1
+        assert messages[0].status == "simulated"
+        assert [call.status for call in calls] == [
+            InvocationStatus.SUCCEEDED,
+            InvocationStatus.DENIED,
+            InvocationStatus.SUCCEEDED,
+        ]
+        assert calls[1].error_category == "approval_required"
+        assert calls[2].correlation_id == f"{run.id}:email-after-approval"
     finally:
         await engine.dispose()

@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from temporalio import activity
 
+from agents_should_survive_failure.mcp_adapter import GovernedMCPAdapter, MCPExecutionContext
 from agents_should_survive_failure.model_evidence import ModelEvidenceService
 from agents_should_survive_failure.persistence.models import (
     ApprovalDecision,
@@ -42,10 +43,12 @@ class VendorOnboardingActivities:
         database: Database,
         model_provider: ModelProvider | None = None,
         policy_retriever: PolicyRetriever | None = None,
+        mcp_adapter: GovernedMCPAdapter | None = None,
     ) -> None:
         self._database = database
         self._model_provider = model_provider or DeterministicModelProvider()
         self._policy_retriever = policy_retriever or PolicyRetriever()
+        self._mcp_adapter = mcp_adapter
 
     @staticmethod
     def _id(value: str) -> uuid.UUID:
@@ -67,6 +70,18 @@ class VendorOnboardingActivities:
                 run.started_at = activity.info().started_time
             if vendor.status is VendorStatus.SUBMITTED:
                 vendor.status = VendorStatus.UNDER_REVIEW
+            if self._mcp_adapter is not None:
+                await self._mcp_adapter.call(
+                    session,
+                    context=MCPExecutionContext(
+                        workflow_run_id=str(run_id),
+                        agent_id=str(run.agent_id),
+                        correlation_id=f"{run_id}:review",
+                    ),
+                    tool_name="vendor.lookup",
+                    arguments={"external_reference": vendor.external_reference},
+                    idempotency_key=f"{run_id}:vendor-lookup",
+                )
             await self._append_event(
                 runs,
                 run_id,
@@ -101,6 +116,21 @@ class VendorOnboardingActivities:
             citations = await self._policy_retriever.retrieve(
                 session, "vendor onboarding approval policy"
             )
+            if self._mcp_adapter is not None:
+                run = await WorkflowRunRepository(session).get(run_id)
+                if run is None:
+                    raise ValueError("workflow run does not exist")
+                await self._mcp_adapter.call(
+                    session,
+                    context=MCPExecutionContext(
+                        workflow_run_id=str(run_id),
+                        agent_id=str(run.agent_id),
+                        correlation_id=f"{run_id}:risk",
+                    ),
+                    tool_name="policy.search",
+                    arguments={"query": "vendor onboarding approval policy", "limit": 10},
+                    idempotency_key=f"{run_id}:policy-search",
+                )
             citation_evidence = [
                 {
                     "document_id": citation.document_id,
@@ -274,6 +304,22 @@ class VendorOnboardingActivities:
                             workflow_run_id=run_id,
                             approval_request_id=request.id,
                         )
+                    )
+                if self._mcp_adapter is not None:
+                    await self._mcp_adapter.call(
+                        session,
+                        context=MCPExecutionContext(
+                            workflow_run_id=str(run_id),
+                            agent_id=str(run.agent_id),
+                            correlation_id=f"{run_id}:approval",
+                        ),
+                        tool_name="email.send",
+                        arguments={
+                            "recipient": vendor.contact_email,
+                            "subject": "Synthetic vendor approval",
+                            "body": "This is a simulated approval notification.",
+                        },
+                        idempotency_key=f"{run_id}:approval-email",
                     )
             await self._append_event(
                 WorkflowRunRepository(session),

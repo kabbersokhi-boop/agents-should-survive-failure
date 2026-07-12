@@ -15,6 +15,9 @@ from agents_should_survive_failure.persistence.models import (
     ApprovedVendor,
     AuditEvent,
     RunStatus,
+    SyntheticEmailMessage,
+    ToolDefinition,
+    ToolInvocation,
     Vendor,
     VendorStatus,
     WorkflowEvent,
@@ -131,6 +134,21 @@ async def test_vendor_onboarding_survives_worker_restart_and_records_approval() 
             approved_vendor = await session.scalar(
                 select(ApprovedVendor).where(ApprovedVendor.workflow_run_id == run_id)
             )
+            tool_names = (
+                await session.scalars(
+                    select(ToolDefinition.name)
+                    .join(ToolInvocation, ToolInvocation.tool_definition_id == ToolDefinition.id)
+                    .where(ToolInvocation.workflow_run_id == run_id)
+                    .order_by(ToolInvocation.created_at)
+                )
+            ).all()
+            synthetic_messages = (
+                await session.scalars(
+                    select(SyntheticEmailMessage).where(
+                        SyntheticEmailMessage.workflow_run_id == run_id
+                    )
+                )
+            ).all()
     finally:
         await engine.dispose()
 
@@ -138,6 +156,13 @@ async def test_vendor_onboarding_survives_worker_restart_and_records_approval() 
     assert vendor is not None and vendor.status is VendorStatus.APPROVED and vendor.risk_score == 25
     assert approval is not None and approval.status is ApprovalStatus.APPROVED
     assert approved_vendor is not None
+    assert tool_names == [
+        "vendor_database_query",
+        "internal_policy_search",
+        "synthetic_email_send",
+    ]
+    assert len(synthetic_messages) == 1
+    assert synthetic_messages[0].status == "simulated"
     assert [event.event_type for event in events] == [
         "review.started",
         "risk.assessed",

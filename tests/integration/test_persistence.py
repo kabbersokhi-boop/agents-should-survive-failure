@@ -52,6 +52,7 @@ EXPECTED_TABLES = {
     "policy_documents",
     "tool_definitions",
     "tool_invocations",
+    "synthetic_email_messages",
     "users",
     "vendor_documents",
     "vendors",

@@ -39,6 +39,7 @@ def test_model_metadata_and_seeds_cover_required_schema() -> None:
         "approval_decisions",
         "tool_definitions",
         "tool_invocations",
+        "synthetic_email_messages",
         "model_calls",
         "policy_documents",
         "audit_events",
@@ -48,7 +49,7 @@ def test_model_metadata_and_seeds_cover_required_schema() -> None:
     }
 
     assert set(Base.metadata.tables) == expected_tables
-    assert len(seed_rows()) == 6
+    assert len(seed_rows()) == 8
     assert seed_id("stable") == seed_id("stable")
     assert utc_now().tzinfo is not None
 

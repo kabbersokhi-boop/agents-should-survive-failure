@@ -1,5 +1,6 @@
-"""Capability-negotiated, deterministic tools with durable invocation evidence."""
+"""Capability-negotiated, typed tools with durable invocation evidence."""
 
+import asyncio
 import hashlib
 import json
 import re
@@ -13,7 +14,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from agents_should_survive_failure.persistence.models import (
     Agent,
+    ApprovalDecision,
+    ApprovalRequest,
+    ApprovalStatus,
     InvocationStatus,
+    PolicyDocument,
+    SyntheticEmailMessage,
     ToolDefinition,
     ToolInvocation,
     Vendor,
@@ -33,6 +39,10 @@ class ToolInvocationConflictError(ValueError):
 
 
 class ToolUnavailableError(RuntimeError):
+    pass
+
+
+class ToolApprovalRequiredError(PermissionError):
     pass
 
 
@@ -63,7 +73,43 @@ class VendorLookupOutput(BaseModel):
     status: str | None = None
 
 
-ToolHandler = Callable[[AsyncSession, BaseModel], Awaitable[dict[str, Any]]]
+class PolicySearchInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    query: str = Field(min_length=1, max_length=500)
+    limit: int = Field(default=5, ge=1, le=10)
+
+
+class PolicyCitationOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    document_id: str
+    title: str
+    source_uri: str
+
+
+class PolicySearchOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    citations: list[PolicyCitationOutput]
+
+
+class SyntheticEmailInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    recipient: str = Field(min_length=3, max_length=320, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    subject: str = Field(min_length=1, max_length=240)
+    body: str = Field(min_length=1, max_length=20_000)
+
+
+class SyntheticEmailOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    message_id: str
+    status: str
+
+
+ToolHandler = Callable[[AsyncSession, BaseModel, ToolInvocation], Awaitable[dict[str, Any]]]
 
 
 @dataclass(frozen=True)
@@ -98,7 +144,17 @@ class ToolGateway:
                 input_model=VendorLookupInput,
                 output_model=VendorLookupOutput,
                 handler=self._vendor_lookup,
-            )
+            ),
+            "internal_policy_search": RegisteredTool(
+                input_model=PolicySearchInput,
+                output_model=PolicySearchOutput,
+                handler=self._policy_search,
+            ),
+            "synthetic_email_send": RegisteredTool(
+                input_model=SyntheticEmailInput,
+                output_model=SyntheticEmailOutput,
+                handler=self._synthetic_email_send,
+            ),
         }
 
     async def capabilities(self, session: AsyncSession, *, agent_id: str) -> list[ToolCapability]:
@@ -133,7 +189,7 @@ class ToolGateway:
             workflow_run_id=workflow_run_id,
             agent_id=agent_id,
             tool_name="vendor_database_query",
-            tool_version="v1",
+            tool_version="1",
             arguments={"external_reference": external_reference},
             idempotency_key=idempotency_key,
         )
@@ -148,6 +204,7 @@ class ToolGateway:
         tool_version: str,
         arguments: dict[str, Any],
         idempotency_key: str,
+        correlation_id: str | None = None,
     ) -> ToolResult:
         tool = await session.scalar(
             select(ToolDefinition).where(
@@ -171,7 +228,13 @@ class ToolGateway:
                 raise ToolInvocationConflictError(
                     "idempotency key was reused with different tool arguments"
                 )
-            return ToolResult(existing.result_summary or {}, str(existing.id))
+            if existing.status is InvocationStatus.SUCCEEDED:
+                return ToolResult(existing.result_summary or {}, str(existing.id))
+            if existing.status is InvocationStatus.DENIED:
+                raise ToolDeniedError("tool invocation was previously denied")
+            if existing.error_category == "approval_required":
+                raise ToolApprovalRequiredError("tool invocation requires an approved decision")
+            raise ToolUnavailableError("tool invocation did not complete successfully")
 
         invocation = ToolInvocation(
             workflow_run_id=workflow_run_id,
@@ -180,6 +243,7 @@ class ToolGateway:
             status=InvocationStatus.PENDING,
             arguments=arguments,
             argument_fingerprint=fingerprint,
+            correlation_id=correlation_id or f"{workflow_run_id}:{idempotency_key}",
         )
         session.add(invocation)
         await session.flush()
@@ -191,7 +255,13 @@ class ToolGateway:
         ):
             invocation.status = InvocationStatus.DENIED
             invocation.error_category = "policy_denied"
-            raise ToolDeniedError("vendor lookup is not permitted")
+            raise ToolDeniedError("tool invocation is not permitted")
+        if tool.approval_required and not await self._has_approved_decision(
+            session, workflow_run_id
+        ):
+            invocation.status = InvocationStatus.DENIED
+            invocation.error_category = "approval_required"
+            raise ToolApprovalRequiredError("tool invocation requires an approved decision")
         registered = self._registry.get(tool.name)
         if registered is None:
             invocation.status = InvocationStatus.FAILED
@@ -205,10 +275,15 @@ class ToolGateway:
             raise ToolInputError("tool arguments do not match the registered schema") from error
         invocation.status = InvocationStatus.RUNNING
         try:
-            raw_result = await registered.handler(session, validated_input)
+            async with asyncio.timeout(tool.timeout_seconds):
+                raw_result = await registered.handler(session, validated_input, invocation)
             result = registered.output_model.model_validate(raw_result).model_dump(
                 exclude_none=True
             )
+        except TimeoutError as error:
+            invocation.status = InvocationStatus.FAILED
+            invocation.error_category = "timeout"
+            raise ToolUnavailableError("tool invocation exceeded its timeout") from error
         except ValidationError as error:
             invocation.status = InvocationStatus.FAILED
             invocation.error_category = "invalid_result"
@@ -221,7 +296,10 @@ class ToolGateway:
         invocation.result_summary = result
         return ToolResult(result, str(invocation.id))
 
-    async def _vendor_lookup(self, session: AsyncSession, input: BaseModel) -> dict[str, Any]:
+    async def _vendor_lookup(
+        self, session: AsyncSession, input: BaseModel, invocation: ToolInvocation
+    ) -> dict[str, Any]:
+        del invocation
         request = cast(VendorLookupInput, input)
         vendor = await session.scalar(
             select(Vendor).where(Vendor.external_reference == request.external_reference)
@@ -231,3 +309,68 @@ class ToolGateway:
             if vendor is not None
             else {"found": False}
         )
+
+    async def _policy_search(
+        self, session: AsyncSession, input: BaseModel, invocation: ToolInvocation
+    ) -> dict[str, Any]:
+        del invocation
+        request = cast(PolicySearchInput, input)
+        query_terms = [term.lower() for term in request.query.split() if term]
+        documents = (
+            await session.scalars(
+                select(PolicyDocument).order_by(PolicyDocument.title, PolicyDocument.chunk_index)
+            )
+        ).all()
+        matching = [
+            document
+            for document in documents
+            if any(
+                term in document.title.lower() or term in document.content.lower()
+                for term in query_terms
+            )
+        ][: request.limit]
+        return {
+            "citations": [
+                {
+                    "document_id": str(document.id),
+                    "title": document.title,
+                    "source_uri": document.source_uri,
+                }
+                for document in matching
+            ]
+        }
+
+    async def _synthetic_email_send(
+        self, session: AsyncSession, input: BaseModel, invocation: ToolInvocation
+    ) -> dict[str, Any]:
+        request = cast(SyntheticEmailInput, input)
+        message = await session.scalar(
+            select(SyntheticEmailMessage).where(
+                SyntheticEmailMessage.workflow_run_id == invocation.workflow_run_id,
+                SyntheticEmailMessage.idempotency_key == invocation.idempotency_key,
+            )
+        )
+        if message is None:
+            message = SyntheticEmailMessage(
+                workflow_run_id=invocation.workflow_run_id,
+                idempotency_key=invocation.idempotency_key,
+                recipient=request.recipient,
+                subject=request.subject,
+                body=request.body,
+                status="simulated",
+            )
+            session.add(message)
+            await session.flush()
+        return {"message_id": str(message.id), "status": message.status}
+
+    async def _has_approved_decision(self, session: AsyncSession, workflow_run_id: str) -> bool:
+        decision = await session.scalar(
+            select(ApprovalDecision.id)
+            .join(ApprovalRequest, ApprovalRequest.id == ApprovalDecision.approval_request_id)
+            .where(
+                ApprovalRequest.workflow_run_id == workflow_run_id,
+                ApprovalRequest.status == ApprovalStatus.APPROVED,
+                ApprovalDecision.decision == ApprovalStatus.APPROVED,
+            )
+        )
+        return decision is not None

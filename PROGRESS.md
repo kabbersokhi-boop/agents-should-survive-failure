@@ -49,7 +49,7 @@ fingerprint differs, and records retry ownership with a short lease. Timeout and
 This is a hardening checkpoint, not the backend release gate. Approval concurrency, tool isolation,
 evaluation breadth, API completion, and SDK work remain open.
 
-## 2026-07-12 Backend Release Gate (Phase 9)
+## 2026-07-12 Local Backend Checkpoint (Not the Master Release Gate)
 
 Checked-out revision: `cfe207c ci: require evaluation in isolated release gate`.
 
@@ -64,8 +64,26 @@ Checked-out revision: `cfe207c ci: require evaluation in isolated release gate`.
 | Evaluator | Passed and persisted a `release-gate-v1` evaluation run inside the isolated stack |
 | Local restoration | Normal API readiness reported PostgreSQL and Temporal `ok` after the gate |
 
-The Phase 9 release gate covers the backend repository as it exists at this revision: strict API
-contracts, scoped API-key authentication, recoverable Temporal starts, versioned approvals,
-agent-owned tool capabilities, migration lifecycle checks, deterministic behavior evaluation, and
-secret scanning. It does not evaluate a credentialed NVIDIA model call and does not authorize SDK
-work as complete. SDK implementation is intentionally outside the current requested scope.
+This was a local repository checkpoint, not the master prompt's backend release gate. It does not
+prove the required governed MCP implementation, sandbox, end-to-end telemetry, twenty real
+workflow evaluations, worker failure during an activity, vulnerability scan/SBOM, or the SDK
+phases. It must not be used to claim that Phase A, Phase B, or the backend release gate is complete.
+
+## 2026-07-12 Governed MCP Checkpoint
+
+Checked-out worktree: pending commit.
+
+| Check | Result |
+| --- | --- |
+| Official SDK verification | Verified the official MCP Python SDK stable v1 branch; pinned `mcp==1.28.1` |
+| Unit suite | Passed: 74 unit tests, 80% coverage |
+| Static checks | Ruff formatting/lint and Pyright passed |
+| PostgreSQL tool integration | Passed: typed policy search, approval-gated synthetic email, retry idempotency, and denied-attempt persistence |
+| Reference workflow integration | Passed: real API/Temporal worker path invoked vendor lookup, policy search, and a single post-approval synthetic email |
+| Isolated migration lifecycle | Upgrade to `e4f6a2b1c9d8`, downgrade to base, and re-upgrade completed in the Compose gate |
+
+The platform now has a run-scoped local MCP adapter over the governed gateway. It binds run, agent,
+and correlation context in the managed host; it does not expose identity or permissions in MCP tool
+arguments. `email.send` persists only a synthetic message and requires a durable approved decision.
+Remote MCP transport/authentication and outage handling, sandboxing, full telemetry, real workflow
+evaluation, and all SDK phases remain incomplete.

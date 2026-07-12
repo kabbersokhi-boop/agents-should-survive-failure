@@ -64,7 +64,7 @@ def seed_rows() -> Sequence[
                 "status": AgentStatus.ACTIVE,
                 "configuration": {
                     "model_provider": "deterministic_mock",
-                    "tool_permissions": ["vendors:read"],
+                    "tool_permissions": ["vendors:read", "policy:read", "email:send"],
                 },
             },
         ),
@@ -95,6 +95,62 @@ def seed_rows() -> Sequence[
                 "risk_class": ToolRiskClass.READ_ONLY,
                 "timeout_seconds": 10,
                 "approval_required": False,
+                "enabled": True,
+            },
+        ),
+        (
+            ToolDefinition,
+            {
+                "id": seed_id("tool:internal-policy-search:v1"),
+                "name": "internal_policy_search",
+                "version": "1",
+                "description": "Read synthetic internal policy evidence.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {"query": {"type": "string"}, "limit": {"type": "integer"}},
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "permissions": ["policy:read"],
+                "output_schema": {
+                    "type": "object",
+                    "properties": {"citations": {"type": "array"}},
+                    "required": ["citations"],
+                    "additionalProperties": False,
+                },
+                "risk_class": ToolRiskClass.READ_ONLY,
+                "timeout_seconds": 10,
+                "approval_required": False,
+                "enabled": True,
+            },
+        ),
+        (
+            ToolDefinition,
+            {
+                "id": seed_id("tool:synthetic-email-send:v1"),
+                "name": "synthetic_email_send",
+                "version": "1",
+                "description": "Persist a synthetic email after a durable approval decision.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "recipient": {"type": "string"},
+                        "subject": {"type": "string"},
+                        "body": {"type": "string"},
+                    },
+                    "required": ["recipient", "subject", "body"],
+                    "additionalProperties": False,
+                },
+                "permissions": ["email:send"],
+                "output_schema": {
+                    "type": "object",
+                    "properties": {"message_id": {"type": "string"}, "status": {"type": "string"}},
+                    "required": ["message_id", "status"],
+                    "additionalProperties": False,
+                },
+                "risk_class": ToolRiskClass.REVERSIBLE_WRITE,
+                "timeout_seconds": 10,
+                "approval_required": True,
                 "enabled": True,
             },
         ),
@@ -133,5 +189,15 @@ def seed_rows() -> Sequence[
 async def seed_database(engine: AsyncEngine) -> None:
     async with engine.begin() as connection:
         for model, values in seed_rows():
-            statement = insert(model).values(**values).on_conflict_do_nothing()
+            statement = insert(model).values(**values)
+            update_values = {
+                ("metadata" if key == "metadata_" else key): getattr(
+                    statement.excluded, "metadata" if key == "metadata_" else key
+                )
+                for key in values
+                if key not in {"id", "created_at", "updated_at"}
+            }
+            statement = statement.on_conflict_do_update(
+                index_elements=[model.id], set_=update_values
+            )
             await connection.execute(statement)

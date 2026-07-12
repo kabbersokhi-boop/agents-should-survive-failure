@@ -87,3 +87,19 @@ and correlation context in the managed host; it does not expose identity or perm
 arguments. `email.send` persists only a synthetic message and requires a durable approved decision.
 Remote MCP transport/authentication and outage handling, sandboxing, full telemetry, real workflow
 evaluation, and all SDK phases remain incomplete.
+
+## 2026-07-13 Local Sandbox Checkpoint
+
+Checked-out worktree: pending commit.
+
+| Check | Result |
+| --- | --- |
+| Unit suite | Passed: 80 unit tests, 80% coverage |
+| Sandbox policy tests | Passed: restrictive Docker flags, denied environment names, timeout, output limit, cleanup |
+| Local Docker demonstration | Passed: `make sandbox-demo` printed `sandbox demonstration completed` from a bounded container |
+
+The sandbox is a local host-operated broker, not an HTTP endpoint. Workloads run non-root with a
+read-only root filesystem, a disposable workspace, network disabled, capability drop,
+`no-new-privileges`, CPU/memory/process limits, a timeout, and bounded output. The workload has no
+Docker socket. Docker is not a complete hostile-code boundary, and production isolation remains a
+documented future hardening requirement.

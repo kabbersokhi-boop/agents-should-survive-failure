@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup format lint typecheck test test-unit test-integration verify dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate nim-smoke-test nim-embedding-smoke-test bootstrap-api-key recover-workflow-starts
+.PHONY: help setup format lint typecheck test test-unit test-integration verify dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate nim-smoke-test nim-embedding-smoke-test bootstrap-api-key recover-workflow-starts sandbox-demo
 
 help:
 	@printf '%s\n' 'setup         Install locked development dependencies' \
@@ -20,6 +20,7 @@ help:
 	  'nim-embedding-smoke-test Run a manual credential-gated NVIDIA NIM embedding smoke test' \
 	  'bootstrap-api-key Create a scoped local API key and print it once' \
 	  'recover-workflow-starts Retry persisted workflow starts that need reconciliation' \
+	  'sandbox-demo  Run bounded Python in the local Docker sandbox broker' \
 	  'secret-scan   Scan tracked content with Gitleaks (Docker)' \
 	  'verify        Run the complete Phase 0 quality gate'
 
@@ -76,6 +77,10 @@ bootstrap-api-key:
 
 recover-workflow-starts:
 	docker compose exec -T api /app/.venv/bin/python -c 'from agents_should_survive_failure.workflow_start_cli import recovery_main; recovery_main()'
+
+sandbox-demo:
+	docker compose build api
+	uv run python -m agents_should_survive_failure.sandbox_cli
 
 compose-check:
 	docker compose config --quiet

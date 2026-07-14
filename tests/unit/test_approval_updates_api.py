@@ -133,3 +133,72 @@ async def test_approval_endpoint_maps_rejected_workflow_update_to_conflict(
 
     assert raised.value.status_code == 409
     assert raised.value.detail == "approval decision is no longer valid for the workflow state"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("approval_status", "approval_version"),
+    [
+        (ApprovalStatus.CANCELLED, 1),
+        (ApprovalStatus.APPROVED, 1),
+        (ApprovalStatus.PENDING, 2),
+    ],
+)
+async def test_approval_endpoint_rejects_terminal_or_stale_database_state(
+    monkeypatch: pytest.MonkeyPatch,
+    approval_status: ApprovalStatus,
+    approval_version: int,
+) -> None:
+    async def get_run(self: object, run_id: UUID) -> object | None:
+        del self
+        assert run_id == RUN_ID
+        return _run()
+
+    monkeypatch.setattr(api.WorkflowRunRepository, "get", get_run)
+    approval = SimpleNamespace(
+        id=APPROVAL_ID,
+        status=approval_status,
+        version=approval_version,
+    )
+    handle = Handle()
+
+    with pytest.raises(HTTPException) as raised:
+        await api.decide_onboarding(
+            RUN_ID,
+            _payload(),
+            _request(handle),
+            cast(Database, FakeDatabase(Session([approval, None]))),
+            _principal(),
+        )
+
+    assert raised.value.status_code == 409
+    assert handle.calls == []
+
+
+@pytest.mark.asyncio
+async def test_approval_endpoint_accepts_identical_persisted_retry_without_temporal_update(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def get_run(self: object, run_id: UUID) -> object | None:
+        del self
+        assert run_id == RUN_ID
+        return _run()
+
+    monkeypatch.setattr(api.WorkflowRunRepository, "get", get_run)
+    existing = SimpleNamespace(
+        decided_by_id=PRINCIPAL_ID,
+        decision=ApprovalStatus.APPROVED,
+        rationale="Synthetic human approval.",
+    )
+    handle = Handle()
+
+    response = await api.decide_onboarding(
+        RUN_ID,
+        _payload(),
+        _request(handle),
+        cast(Database, FakeDatabase(Session([_approval(), existing]))),
+        _principal(),
+    )
+
+    assert response.status_code == 202
+    assert handle.calls == []

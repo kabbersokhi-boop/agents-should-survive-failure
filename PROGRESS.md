@@ -279,3 +279,10 @@ than relying only on the caller-provided `Content-Length` header. Oversized chun
 rejected before routing with the same structured `413 payload_too_large` response and request ID
 as declared-length requests. The unit suite covers the no-`Content-Length` path; Ruff and Pyright
 passed after the change.
+
+## 2026-07-15 Phase A5 Approval API State-Matrix Expansion
+
+The approval API tests now prove that cancelled and terminal approval records, and requests with a
+stale expected version, are rejected with `409` before the Temporal Update is attempted. They also
+prove that a byte-for-byte identical persisted decision retry returns `202` without sending a second
+workflow update. Focused workflow, API, and official Temporal test-environment checks passed.

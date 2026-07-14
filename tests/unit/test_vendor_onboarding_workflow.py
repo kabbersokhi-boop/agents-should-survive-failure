@@ -99,6 +99,7 @@ def test_workflow_update_validator_rejects_early_and_cancelled_decisions() -> No
     workflow_for_test = cast(Any, instance)
     workflow_for_test._phase = "waiting_for_approval"
     workflow_for_test._approval_request_id = decision.approval_request_id
+    workflow_for_test._approval_version = decision.expected_version
     instance.cancel()
     with pytest.raises(ValueError, match="cancelled"):
         instance.validate_decision(decision)
@@ -109,6 +110,7 @@ def test_workflow_update_validator_rejects_conflicting_second_decision() -> None
     workflow_for_test = cast(Any, instance)
     workflow_for_test._phase = "waiting_for_approval"
     workflow_for_test._approval_request_id = "approval-4"
+    workflow_for_test._approval_version = 1
     first = ApprovalDecisionInput(
         approval_request_id="approval-4",
         expected_version=1,

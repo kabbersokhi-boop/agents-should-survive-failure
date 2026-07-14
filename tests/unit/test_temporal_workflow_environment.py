@@ -91,6 +91,21 @@ async def test_temporal_update_resolves_a_real_durable_approval_wait() -> None:
         status = await wait_for_phase(handle, "waiting_for_approval")
         assert status.approval_request_id == "temporal-approval-1"
 
+        with pytest.raises(WorkflowUpdateFailedError):
+            await handle.execute_update(  # pyright: ignore[reportUnknownMemberType]
+                "decide",
+                ApprovalDecisionInput(
+                    approval_request_id="temporal-approval-1",
+                    expected_version=2,
+                    decision=ApprovalDecisionType.APPROVED,
+                    decided_by_id="00000000-0000-0000-0000-000000000001",
+                    rationale="stale test approval",
+                    idempotency_key="stale-approval-update",
+                ),
+                id="stale-approval-update",
+            )
+        assert (await handle.query(VendorOnboardingWorkflow.status)).phase == "waiting_for_approval"
+
         await handle.execute_update(  # pyright: ignore[reportUnknownMemberType]
             "decide",
             ApprovalDecisionInput(

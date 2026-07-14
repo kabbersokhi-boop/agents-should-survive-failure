@@ -362,3 +362,10 @@ Focused Ruff, Pyright, and 21 auth/approval/workflow tests passed. These records
 and denied sensitive control-plane operations without storing API keys or request bodies. The
 remaining Phase A work is the final requirement-level security and policy audit; the separate
 master backend release gate remains blocked on Phase B evaluation breadth.
+
+## 2026-07-15 Phase A5 Workflow-Level Version Validation
+
+The approval version is now durable workflow state and the Temporal Update validator rejects a
+decision whose expected version differs, before it mutates the workflow. The official time-skipping
+Temporal test first submits a stale version, proves the workflow remains at its durable wait, then
+submits version `1` and completes. Focused Ruff, Pyright, and 12 approval-workflow tests passed.

@@ -23,6 +23,7 @@ class VendorOnboardingWorkflow:
     def __init__(self) -> None:
         self._phase = "created"
         self._approval_request_id: str | None = None
+        self._approval_version: int | None = None
         self._decision: ApprovalDecisionInput | None = None
         self._cancelled = False
 
@@ -48,6 +49,9 @@ class VendorOnboardingWorkflow:
             start_to_close_timeout=timedelta(seconds=30),
             retry_policy=ACTIVITY_RETRY,
         )
+        # The durable request activity creates the initial approval revision. Future request-
+        # information paths must explicitly advance this value before accepting another decision.
+        self._approval_version = 1
         await workflow.wait_condition(lambda: self._decision is not None or self._cancelled)
         if self._cancelled:
             await workflow.execute_activity(
@@ -80,6 +84,8 @@ class VendorOnboardingWorkflow:
             raise ValueError("workflow is not waiting for an approval decision")
         if self._approval_request_id != decision.approval_request_id:
             raise ValueError("approval request does not belong to this workflow state")
+        if self._approval_version != decision.expected_version:
+            raise ValueError("approval request version is stale")
         if self._cancelled:
             raise ValueError("workflow has been cancelled")
         if self._decision is not None:

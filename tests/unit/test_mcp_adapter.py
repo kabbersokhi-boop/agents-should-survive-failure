@@ -2,6 +2,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
+from mcp.server.fastmcp.exceptions import ToolError
 from mcp.types import TextContent
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,7 +10,11 @@ from agents_should_survive_failure.mcp_adapter import (
     GovernedMCPAdapter,
     MCPExecutionContext,
 )
-from agents_should_survive_failure.tool_gateway import ToolResult
+from agents_should_survive_failure.tool_gateway import (
+    ToolResult,
+    ToolUnavailableError,
+    ToolVersionMismatchError,
+)
 
 
 class RecordingGateway:
@@ -25,6 +30,21 @@ class RecordingGateway:
             "synthetic_email_send": {"message_id": "message-1", "status": "simulated"},
         }
         return ToolResult(result=results[kwargs["tool_name"]], invocation_id="invocation-1")
+
+
+class FailingGateway:
+    def __init__(self, error: Exception) -> None:
+        self._error = error
+
+    async def invoke(self, session: AsyncSession, **kwargs: Any) -> ToolResult:
+        del session, kwargs
+        raise self._error
+
+
+class MalformedGateway:
+    async def invoke(self, session: AsyncSession, **kwargs: Any) -> ToolResult:
+        del session, kwargs
+        return ToolResult(result={"untrusted": "output"}, invocation_id="invocation-1")
 
 
 @pytest.mark.asyncio
@@ -110,4 +130,40 @@ async def test_adapter_rejects_unknown_mcp_tools() -> None:
             tool_name="unknown.tool",
             arguments={},
             idempotency_key="unknown-1",
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error",
+    [
+        ToolUnavailableError("MCP tool transport timed out"),
+        ToolVersionMismatchError("tool version is not pinned for this workflow run"),
+    ],
+)
+async def test_adapter_preserves_governed_gateway_failures(error: Exception) -> None:
+    adapter = GovernedMCPAdapter(cast(Any, FailingGateway(error)))
+
+    with pytest.raises(type(error)):
+        await adapter.call(
+            cast(AsyncSession, SimpleNamespace()),
+            context=MCPExecutionContext("run-1", "agent-1", "correlation-1"),
+            tool_name="vendor.lookup",
+            arguments={"external_reference": "V-100"},
+            idempotency_key="lookup-1",
+        )
+
+
+@pytest.mark.asyncio
+async def test_mcp_server_rejects_malformed_gateway_output() -> None:
+    adapter = GovernedMCPAdapter(cast(Any, MalformedGateway()))
+    server = adapter.server(
+        cast(AsyncSession, SimpleNamespace()),
+        context=MCPExecutionContext("run-1", "agent-1", "correlation-1"),
+    )
+
+    with pytest.raises(ToolError, match="Error executing tool vendor.lookup"):
+        await server.call_tool(
+            "vendor.lookup",
+            {"external_reference": "V-100", "idempotency_key": "lookup-1"},
         )

@@ -294,3 +294,11 @@ event before the API returns `403`. The audit contains the principal ID/type, ro
 required scopes only; it does not record the API key, authorization header, or request body. The
 approval decision path remains restricted to user and service principals. Targeted API/auth tests,
 Ruff, and Pyright passed.
+
+## 2026-07-15 Phase A7 MCP Resilience Contract Expansion
+
+The governed MCP adapter tests now cover upstream timeout/unavailability, a run-pinned tool-version
+mismatch, and malformed gateway output. The adapter preserves the gateway's typed failure rather
+than bypassing policy, while FastMCP rejects malformed output instead of returning it as a valid
+tool result. This covers the local, in-process adapter only; remote MCP transport remains an
+explicitly unsupported capability.

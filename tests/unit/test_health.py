@@ -10,6 +10,7 @@ from starlette.requests import Request
 from starlette.types import ASGIApp, Message
 
 from agents_should_survive_failure.api import (
+    audit_authorization_denial,
     create_app,
     get_authenticated_principal,
     get_database,
@@ -18,7 +19,7 @@ from agents_should_survive_failure.api import (
 )
 from agents_should_survive_failure.auth import AuthenticatedPrincipal
 from agents_should_survive_failure.dependencies import DependencySet
-from agents_should_survive_failure.persistence.models import PrincipalType
+from agents_should_survive_failure.persistence.models import AuditEvent, PrincipalType
 from agents_should_survive_failure.settings import Settings
 
 
@@ -307,12 +308,16 @@ async def test_auth_dependency_returns_generic_401_for_missing_or_invalid_keys(
 @pytest.mark.asyncio
 async def test_scope_dependency_denies_and_allows_admin() -> None:
     scope_dependency = require_scopes("approvals:decide")
+    request = authenticated_request()
     with pytest.raises(HTTPException) as denied:
-        await scope_dependency(AuthenticatedPrincipal(uuid4(), uuid4(), frozenset({"runs:read"})))
+        await scope_dependency(
+            request,
+            AuthenticatedPrincipal(uuid4(), uuid4(), frozenset({"runs:read"})),
+        )
     assert denied.value.status_code == 403
 
     principal = AuthenticatedPrincipal(uuid4(), uuid4(), frozenset({"admin"}))
-    assert await scope_dependency(principal) is principal
+    assert await scope_dependency(request, principal) is principal
 
 
 @pytest.mark.asyncio
@@ -329,6 +334,45 @@ async def test_approval_scope_rejects_agent_principals() -> None:
     )
 
     with pytest.raises(HTTPException) as denied:
-        await scope_dependency(agent)
+        await scope_dependency(authenticated_request(), agent)
 
     assert denied.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_authorization_denial_is_audited_without_credentials(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    principal = AuthenticatedPrincipal(uuid4(), uuid4(), frozenset({"runs:read"}))
+    request = authenticated_request()
+    request.scope["app"] = SimpleNamespace(
+        state=SimpleNamespace(resources=SimpleNamespace(engine=object()))
+    )
+    recorded: list[object] = []
+
+    class Audits:
+        def __init__(self, session: object) -> None:
+            del session
+
+        async def append(self, event: object) -> None:
+            recorded.append(event)
+
+    def database_factory(engine: object) -> FakeAuthDatabase:
+        del engine
+        return FakeAuthDatabase()
+
+    monkeypatch.setattr("agents_should_survive_failure.api.Database", database_factory)
+    monkeypatch.setattr("agents_should_survive_failure.api.AuditEventRepository", Audits)
+
+    await audit_authorization_denial(request, principal, ("approvals:decide",))
+
+    assert len(recorded) == 1
+    event = recorded[0]
+    assert isinstance(event, AuditEvent)
+    assert event.actor_id == principal.id
+    assert event.action == "api.authorization.denied"
+    assert event.evidence == {
+        "route": "unmatched",
+        "required_scopes": ["approvals:decide"],
+        "principal_type": "user",
+    }

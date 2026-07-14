@@ -286,3 +286,11 @@ The approval API tests now prove that cancelled and terminal approval records, a
 stale expected version, are rejected with `409` before the Temporal Update is attempted. They also
 prove that a byte-for-byte identical persisted decision retry returns `202` without sending a second
 workflow update. Focused workflow, API, and official Temporal test-environment checks passed.
+
+## 2026-07-15 Phase A3 Authorization-Denial Auditing
+
+An authenticated principal denied by scope or principal-type policy now produces a durable audit
+event before the API returns `403`. The audit contains the principal ID/type, route template, and
+required scopes only; it does not record the API key, authorization header, or request body. The
+approval decision path remains restricted to user and service principals. Targeted API/auth tests,
+Ruff, and Pyright passed.

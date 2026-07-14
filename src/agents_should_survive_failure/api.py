@@ -31,6 +31,7 @@ from agents_should_survive_failure.persistence.models import (
     ApprovalDecision,
     ApprovalRequest,
     ApprovalStatus,
+    AuditEvent,
     EvaluationResult,
     EvaluationRun,
     ModelCall,
@@ -43,6 +44,7 @@ from agents_should_survive_failure.persistence.models import (
     WorkflowRun,
 )
 from agents_should_survive_failure.persistence.repositories import (
+    AuditEventRepository,
     VendorRepository,
     WorkflowRunRepository,
 )
@@ -372,6 +374,37 @@ def get_database(request: Request) -> Database:
     return Database(resources.engine)
 
 
+async def audit_authorization_denial(
+    request: Request,
+    principal: AuthenticatedPrincipal,
+    required_scopes: tuple[str, ...],
+) -> None:
+    """Persist authenticated scope denials without recording credentials or request bodies."""
+    try:
+        resources: RuntimeResources = request.app.state.resources
+    except (AttributeError, KeyError):
+        # Unit-level dependency tests do not start the application lifespan.
+        return
+    route = request.scope.get("route")
+    route_path = getattr(route, "path", "unmatched")
+    database = Database(resources.engine)
+    async with database.session() as session:
+        await AuditEventRepository(session).append(
+            AuditEvent(
+                actor_id=principal.id,
+                action="api.authorization.denied",
+                resource_type="api_route",
+                idempotency_key=f"api-authorization-denied:{uuid4()}",
+                summary="Authenticated principal was denied by the API authorization policy.",
+                evidence={
+                    "route": route_path,
+                    "required_scopes": list(required_scopes),
+                    "principal_type": principal.principal_type.value,
+                },
+            )
+        )
+
+
 def authentication_error() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -400,14 +433,17 @@ def require_scopes(
     allowed_principal_types: frozenset[PrincipalType] | None = None,
 ) -> Callable[..., Any]:
     async def dependency(
+        request: Request,
         principal: Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)],
     ) -> AuthenticatedPrincipal:
         if not principal.allows(*scopes):
+            await audit_authorization_denial(request, principal, scopes)
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="insufficient scope")
         if (
             allowed_principal_types is not None
             and principal.principal_type not in allowed_principal_types
         ):
+            await audit_authorization_denial(request, principal, scopes)
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="principal type is not permitted for this operation",

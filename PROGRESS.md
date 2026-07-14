@@ -258,3 +258,16 @@ Approval-decision audit events now carry the authenticated decision principal as
 the durable `ApprovalDecision.decided_by_id` record. The decision, request state transition, vendor
 projection, workflow result, event, and audit write remain within the transaction-owning activity.
 Focused workflow/activity/API tests passed.
+
+## 2026-07-15 Phase A3/A5 Principal and Temporal Test Correction
+
+| Check | Result |
+| --- | --- |
+| API-key scope contract | Added and tested the missing `agents:write` scope |
+| Approval principal boundary | User and service principals may decide; agent principals are rejected even with `approvals:decide` |
+| Official Temporal workflow test | Passed: real time-skipping environment reached durable approval wait, accepted a validated Update, and completed |
+| Static checks | Ruff and Pyright passed with 0 errors |
+
+This corrects two material release criteria that the prior checkpoints did not prove. It is not a
+Phase A completion claim: the remaining API audit, tool/MCP, sandbox, and end-to-end release-gate
+criteria are still being audited.

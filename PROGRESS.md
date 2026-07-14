@@ -377,3 +377,19 @@ an agent configuration JSON field. The reference `vendor-onboarding@1` policy gr
 review capabilities; unknown agent versions receive no tools. The gateway, MCP adapter, and seed
 data no longer treat configuration as an authority source. Focused Ruff, Pyright, 12 tool/MCP unit
 tests, and seven security tests passed.
+
+## 2026-07-15 Phase A Implementation Completion Checkpoint
+
+All Phase A implementation criteria for the current backend surface have been re-audited and
+verified. The final deterministic local gate passed with 103 unit tests (82% coverage), seven
+security tests, zero Ruff/Pyright findings, no Gitleaks findings, no known production dependency
+vulnerabilities, and a clean Compose configuration. The isolated release integration gate passed
+all 16 tests, completed the migration upgrade/downgrade/re-upgrade lifecycle, exercised real
+workflow recovery, approval, cancellation, SSE, governed MCP/tools, and sandbox behavior, and
+completed deterministic evaluation run `fe78099b-20a0-4492-9438-f87758326209`. The normal stack
+was restored and its PostgreSQL and Temporal readiness checks returned `ok`.
+
+This is a Phase A implementation completion claim, not the master **backend release gate**. The
+gate remains blocked on Phase B's required 20-case real-workflow evaluator and its stronger
+failure-injection suite. Live NVIDIA NIM smoke tests remain manual and credential-gated; they were
+not claimed as passed without a valid local credential.

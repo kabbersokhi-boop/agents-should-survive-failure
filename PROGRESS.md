@@ -302,3 +302,11 @@ mismatch, and malformed gateway output. The adapter preserves the gateway's type
 than bypassing policy, while FastMCP rejects malformed output instead of returning it as a valid
 tool result. This covers the local, in-process adapter only; remote MCP transport remains an
 explicitly unsupported capability.
+
+## 2026-07-15 Phase A8 Non-Root Workspace Enforcement Correction
+
+A real sandbox enforcement test found that the host-created temporary workspace was not writable by
+the configured non-root container UID. The broker now makes only that disposable bind mount writable
+for the workload. Real-container tests pass for network denial, UID `65532`, workspace writes, and
+root-filesystem write denial; command-construction tests continue to prove CPU, memory, process,
+environment, output, and cleanup controls.

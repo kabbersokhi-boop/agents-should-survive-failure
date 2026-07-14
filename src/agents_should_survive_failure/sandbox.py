@@ -118,6 +118,9 @@ class DockerSandbox:
         name = f"survive-sandbox-{secrets.token_hex(8)}"
         with tempfile.TemporaryDirectory(prefix="survive-sandbox-") as directory:
             workspace = Path(directory)
+            # The container runs as an unmapped non-root UID, so the dedicated bind mount must be
+            # writable independently of the host process user's temporary-directory permissions.
+            workspace.chmod(0o777)
             command = self.build_command(request, workspace=workspace, container_name=name)
             process = await asyncio.create_subprocess_exec(
                 *command,

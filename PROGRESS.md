@@ -193,3 +193,16 @@ contracts, and repository persistence. The live Compose workflow suite also pass
 scenarios: worker-restart approval, cancellation, and authenticated SSE replay. This improves A2
 but does not complete it: the full API surface and pagination consistency still need a release-gate
 audit.
+
+## 2026-07-15 Phase A6 Tool-Audit Durability Checkpoint
+
+Checked-out worktree: pending commit.
+
+The worker's governed MCP adapter now receives a gateway with an independent database recorder.
+Policy-denied, approval-required, malformed-input, and missing-handler attempts are recorded in a
+separate transaction before their caller raises. A rollback-focused PostgreSQL integration test
+proves that a policy-denied attempt remains visible after the calling transaction is rolled back.
+
+This does not complete A6: unregistered tool names cannot yet be recorded because the current
+invocation schema requires a registered tool-definition foreign key, and the full tool version
+pinning/credential-broker release audit remains open.

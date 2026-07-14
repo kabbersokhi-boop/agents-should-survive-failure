@@ -16,11 +16,13 @@ from agents_should_survive_failure.persistence.models import (
     InvocationStatus,
     ModelCall,
     RunStatus,
+    ToolInvocation,
     Vendor,
     VendorStatus,
     WorkflowRun,
 )
 from agents_should_survive_failure.persistence.seed import seed_id
+from agents_should_survive_failure.persistence.session import Database
 from agents_should_survive_failure.policy import PolicyRetriever
 from agents_should_survive_failure.providers import DeterministicModelProvider
 from agents_should_survive_failure.tool_gateway import (
@@ -146,6 +148,64 @@ async def test_tool_gateway_denies_missing_permission() -> None:
                     external_reference="not-used",
                     idempotency_key="denied",
                 )
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_denied_tool_attempt_survives_the_calling_transaction_rollback() -> None:
+    engine = create_async_engine(
+        os.getenv(
+            "INTEGRATION_DATABASE_URL",
+            "postgresql+asyncpg://agents:local-development-only@127.0.0.1:5432/agents",
+        )
+    )
+    database = Database(engine)
+    run_id: uuid.UUID
+    try:
+        async with database.session() as session:
+            vendor = Vendor(
+                external_reference=f"durable-denial-{uuid.uuid4()}",
+                legal_name="Durable Denial Vendor",
+                jurisdiction="US",
+                contact_email="durable-denial@example.invalid",
+                status=VendorStatus.SUBMITTED,
+            )
+            session.add(vendor)
+            await session.flush()
+            run = WorkflowRun(
+                agent_id=seed_id("agent:vendor-onboarding:v1"),
+                vendor_id=vendor.id,
+                requested_by_id=seed_id("user:demo-operator"),
+                workflow_type="vendor_onboarding",
+                temporal_workflow_id=f"durable-denial-{uuid.uuid4()}",
+                idempotency_key=f"durable-denial-{uuid.uuid4()}",
+                status=RunStatus.PENDING,
+                input_summary={},
+            )
+            session.add(run)
+            await session.flush()
+            run_id = run.id
+        with pytest.raises(PermissionError):
+            async with database.session() as session:
+                await ToolGateway(database).invoke_vendor_lookup(
+                    session,
+                    workflow_run_id=str(run_id),
+                    agent_id=str(uuid.uuid4()),
+                    external_reference="not-used",
+                    idempotency_key="durably-denied",
+                )
+        async with database.session() as session:
+            invocation = await session.scalar(
+                select(ToolInvocation).where(
+                    ToolInvocation.workflow_run_id == run_id,
+                    ToolInvocation.idempotency_key == "durably-denied",
+                )
+            )
+        assert invocation is not None
+        assert invocation.status is InvocationStatus.DENIED
+        assert invocation.error_category == "policy_denied"
     finally:
         await engine.dispose()
 

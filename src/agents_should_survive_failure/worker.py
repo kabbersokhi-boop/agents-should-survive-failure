@@ -21,6 +21,7 @@ from agents_should_survive_failure.provider_factory import (
     build_model_provider,
 )
 from agents_should_survive_failure.settings import get_settings
+from agents_should_survive_failure.tool_gateway import ToolGateway
 from agents_should_survive_failure.workflows.activities import VendorOnboardingActivities
 from agents_should_survive_failure.workflows.contracts import TASK_QUEUE
 from agents_should_survive_failure.workflows.vendor_onboarding import VendorOnboardingWorkflow
@@ -44,7 +45,7 @@ async def run_worker() -> None:
             Database(resources.engine),
             build_model_provider(settings),
             PolicyRetriever(build_embedding_provider(settings)),
-            GovernedMCPAdapter(),
+            GovernedMCPAdapter(ToolGateway(Database(resources.engine))),
         )
         worker = Worker(
             resources.temporal_client,

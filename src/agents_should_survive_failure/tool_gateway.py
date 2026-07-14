@@ -27,6 +27,7 @@ from agents_should_survive_failure.persistence.models import (
     ToolInvocation,
     Vendor,
 )
+from agents_should_survive_failure.persistence.session import Database
 
 
 class ToolDeniedError(PermissionError):
@@ -141,7 +142,8 @@ def _agent_tool_permissions(agent: Agent) -> set[str]:
 
 
 class ToolGateway:
-    def __init__(self) -> None:
+    def __init__(self, audit_database: Database | None = None) -> None:
+        self._audit_database = audit_database
         self._registry: dict[str, RegisteredTool] = {
             "vendor_database_query": RegisteredTool(
                 input_model=VendorLookupInput,
@@ -246,6 +248,69 @@ class ToolGateway:
             self._observe(metric_name, metric_version, "unavailable", started)
             raise ToolUnavailableError("tool invocation did not complete successfully")
 
+        resolved_correlation_id = correlation_id or f"{workflow_run_id}:{idempotency_key}"
+        agent = await session.get(Agent, agent_id)
+        if (
+            agent is None
+            or not tool.enabled
+            or not set(tool.permissions).issubset(_agent_tool_permissions(agent))
+        ):
+            await self._record_terminal_attempt(
+                workflow_run_id=workflow_run_id,
+                tool=tool,
+                idempotency_key=idempotency_key,
+                arguments=arguments,
+                fingerprint=fingerprint,
+                correlation_id=resolved_correlation_id,
+                status=InvocationStatus.DENIED,
+                error_category="policy_denied",
+            )
+            self._observe(metric_name, metric_version, "denied", started)
+            raise ToolDeniedError("tool invocation is not permitted")
+        if tool.approval_required and not await self._has_approved_decision(
+            session, workflow_run_id
+        ):
+            await self._record_terminal_attempt(
+                workflow_run_id=workflow_run_id,
+                tool=tool,
+                idempotency_key=idempotency_key,
+                arguments=arguments,
+                fingerprint=fingerprint,
+                correlation_id=resolved_correlation_id,
+                status=InvocationStatus.DENIED,
+                error_category="approval_required",
+            )
+            self._observe(metric_name, metric_version, "approval_required", started)
+            raise ToolApprovalRequiredError("tool invocation requires an approved decision")
+        registered = self._registry.get(tool.name)
+        if registered is None:
+            await self._record_terminal_attempt(
+                workflow_run_id=workflow_run_id,
+                tool=tool,
+                idempotency_key=idempotency_key,
+                arguments=arguments,
+                fingerprint=fingerprint,
+                correlation_id=resolved_correlation_id,
+                status=InvocationStatus.FAILED,
+                error_category="handler_unavailable",
+            )
+            self._observe(metric_name, metric_version, "unavailable", started)
+            raise ToolUnavailableError("registered tool has no local execution handler")
+        try:
+            validated_input = registered.input_model.model_validate(arguments)
+        except ValidationError as error:
+            await self._record_terminal_attempt(
+                workflow_run_id=workflow_run_id,
+                tool=tool,
+                idempotency_key=idempotency_key,
+                arguments=arguments,
+                fingerprint=fingerprint,
+                correlation_id=resolved_correlation_id,
+                status=InvocationStatus.FAILED,
+                error_category="invalid_arguments",
+            )
+            self._observe(metric_name, metric_version, "invalid_input", started)
+            raise ToolInputError("tool arguments do not match the registered schema") from error
         invocation = ToolInvocation(
             workflow_run_id=workflow_run_id,
             tool_definition_id=tool.id,
@@ -253,40 +318,10 @@ class ToolGateway:
             status=InvocationStatus.PENDING,
             arguments=arguments,
             argument_fingerprint=fingerprint,
-            correlation_id=correlation_id or f"{workflow_run_id}:{idempotency_key}",
+            correlation_id=resolved_correlation_id,
         )
         session.add(invocation)
         await session.flush()
-        agent = await session.get(Agent, agent_id)
-        if (
-            agent is None
-            or not tool.enabled
-            or not set(tool.permissions).issubset(_agent_tool_permissions(agent))
-        ):
-            invocation.status = InvocationStatus.DENIED
-            invocation.error_category = "policy_denied"
-            self._observe(metric_name, metric_version, "denied", started)
-            raise ToolDeniedError("tool invocation is not permitted")
-        if tool.approval_required and not await self._has_approved_decision(
-            session, workflow_run_id
-        ):
-            invocation.status = InvocationStatus.DENIED
-            invocation.error_category = "approval_required"
-            self._observe(metric_name, metric_version, "approval_required", started)
-            raise ToolApprovalRequiredError("tool invocation requires an approved decision")
-        registered = self._registry.get(tool.name)
-        if registered is None:
-            invocation.status = InvocationStatus.FAILED
-            invocation.error_category = "handler_unavailable"
-            self._observe(metric_name, metric_version, "unavailable", started)
-            raise ToolUnavailableError("registered tool has no local execution handler")
-        try:
-            validated_input = registered.input_model.model_validate(arguments)
-        except ValidationError as error:
-            invocation.status = InvocationStatus.FAILED
-            invocation.error_category = "invalid_arguments"
-            self._observe(metric_name, metric_version, "invalid_input", started)
-            raise ToolInputError("tool arguments do not match the registered schema") from error
         invocation.status = InvocationStatus.RUNNING
         try:
             with trace.get_tracer(__name__).start_as_current_span("agents.tool.invoke") as span:
@@ -321,6 +356,43 @@ class ToolGateway:
     def _observe(name: str, version: str, outcome: str, started: float) -> None:
         TOOL_CALLS.labels(name, version, outcome).inc()
         TOOL_LATENCY.labels(name, version, outcome).observe(time.perf_counter() - started)
+
+    async def _record_terminal_attempt(
+        self,
+        *,
+        workflow_run_id: str,
+        tool: ToolDefinition,
+        idempotency_key: str,
+        arguments: dict[str, Any],
+        fingerprint: str,
+        correlation_id: str,
+        status: InvocationStatus,
+        error_category: str,
+    ) -> None:
+        """Persist rejection evidence even when the calling activity transaction rolls back."""
+        if self._audit_database is None:
+            return
+        async with self._audit_database.session() as audit_session:
+            existing = await audit_session.scalar(
+                select(ToolInvocation).where(
+                    ToolInvocation.workflow_run_id == workflow_run_id,
+                    ToolInvocation.idempotency_key == idempotency_key,
+                )
+            )
+            if existing is not None:
+                return
+            audit_session.add(
+                ToolInvocation(
+                    workflow_run_id=workflow_run_id,
+                    tool_definition_id=tool.id,
+                    idempotency_key=idempotency_key,
+                    status=status,
+                    arguments=arguments,
+                    argument_fingerprint=fingerprint,
+                    correlation_id=correlation_id,
+                    error_category=error_category,
+                )
+            )
 
     async def _vendor_lookup(
         self, session: AsyncSession, input: BaseModel, invocation: ToolInvocation

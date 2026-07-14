@@ -71,7 +71,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         max_body_bytes = request.app.state.settings.max_request_body_bytes
         if content_length is not None and int(content_length) > max_body_bytes:
             response = JSONResponse(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
                 content=ApiErrorResponse(
                     code="payload_too_large",
                     message="request payload exceeds the configured limit",
@@ -336,7 +336,7 @@ async def validation_error(request: Request, error: RequestValidationError) -> J
         for item in error.errors()
     ]
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         content=ApiErrorResponse(
             code="validation_error",
             message="request validation failed",

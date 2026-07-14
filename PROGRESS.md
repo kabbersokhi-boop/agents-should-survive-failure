@@ -131,3 +131,29 @@ private reasoning were added as telemetry attributes.
 This completes the current A9 observability checkpoint, not all of Phase A. A10 remains: dependency
 vulnerability scanning, SBOM generation, and the full security test suite. Phase B's real 20-case
 workflow evaluator and every SDK/release phase (C-F) also remain open.
+
+## 2026-07-15 Phase A10 Security Checkpoint
+
+Checked-out worktree: pending commit.
+
+| Check | Result |
+| --- | --- |
+| Production dependency audit | Passed: `pip-audit` found no known vulnerabilities after upgrading FastAPI, Starlette, and Pydantic Settings |
+| Security suite | Passed: 6 adversarial tests for strict API input, identity override, scope escalation, MCP identity/permission exclusion, sandbox policy, and safe provider errors |
+| Backend SBOM | Generated valid CycloneDX JSON: 121 components |
+| Container SBOM | Generated valid CycloneDX JSON from `agents-control-plane:local`: 4,012 components |
+| Full static/unit gate | Passed: Ruff, Pyright, 80 unit tests, 80% coverage |
+| Secret scan | Passed: Gitleaks reported no leaks across 40 commits |
+| Isolated integration gate | Passed after stopping the normal Compose stack: migration round-trip, deterministic workflow integration, and cleanup completed |
+| Normal stack restoration | API readiness reported PostgreSQL and Temporal `ok` |
+
+`make dependency-audit`, `make test-security`, `make sbom-backend`, and `make sbom-container` now
+provide reproducible local checks. CI runs the security suite and dependency audit, uploads the
+backend CycloneDX SBOM, builds the container image, creates its CycloneDX SBOM with a read-only
+Docker socket mounted only into the scanner, and uploads that artifact. Gitleaks retains no `.env`
+allow-list.
+
+This completes the A10 security checkpoint for currently implemented surfaces. It does not make the
+master Phase A release gate complete: the API/approval/tool/MCP/sandbox/evaluation acceptance gaps
+recorded in the prior checkpoints remain, especially no real 20-case workflow evaluator and no
+adversarial tests for unimplemented artifact/checkpoint APIs. Phase B and C-F remain open.

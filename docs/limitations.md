@@ -2,11 +2,12 @@
 
 This is a backend reference implementation, not a production-ready agent platform. The current
 reference workflow is vendor onboarding. Tool execution is deterministic and local. A run-scoped
-MCP adapter exposes three governed local tools, but remote MCP trust, transport authentication, and
-a hostile-code sandbox are not implemented. A bounded local Docker sandbox demonstration exists,
-but Docker is not treated as hostile-code isolation. NVIDIA NIM access is manual and
-credential-gated.
+MCP adapter exposes three governed local tools, but remote MCP trust and transport authentication
+are not implemented. A bounded local Docker sandbox demonstration exists, but Docker is not
+treated as hostile-code isolation. NVIDIA NIM access is manual and credential-gated.
 
 The repository does not yet provide the independently installable SDK, external agent packages,
 artifact/checkpoint APIs, budgets, secret broker, multi-worker proof, or the 20-case real-workflow
-evaluator required by the master plan.
+evaluator required by the master plan. The current security gate scans production Python
+dependencies and creates CycloneDX SBOM artifacts, but it does not replace production dependency
+governance, image signing, or continuous runtime vulnerability management.

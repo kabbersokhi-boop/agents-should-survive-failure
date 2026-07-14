@@ -14,5 +14,6 @@ separate from untrusted workloads.
 Docker isolation is not a complete hostile-code security boundary. A production deployment should
 use a dedicated sandbox host or VM boundary, mandatory access controls, image provenance controls,
 egress enforcement outside the workload, and continuous escape-risk patching. The current tests
-verify command construction and policy denial; resource enforcement is demonstrated with the local
-Docker command and must be revalidated on every target host.
+verify command construction, policy denial, timeout/output handling, and cleanup; resource
+enforcement is demonstrated with the local Docker command and must be revalidated on every target
+host.

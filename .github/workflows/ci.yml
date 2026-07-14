@@ -20,10 +20,14 @@ jobs:
           enable-cache: true
       - run: uv python install 3.12
       - run: uv sync --frozen --all-groups
-      - run: make lint typecheck test compose-check
+      - run: make lint typecheck test test-security compose-check dependency-audit sbom-backend
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-sbom
+          path: artifacts/backend.sbom.json
 
   docker:
     runs-on: ubuntu-latest
@@ -33,7 +37,14 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
+          tags: agents-control-plane:local
           push: false
+          load: true
+      - run: mkdir -p artifacts && docker run --rm -v /var/run/docker.sock:/var/run/docker.sock:ro -v "$PWD/artifacts:/artifacts" anchore/syft:v1.31.0 agents-control-plane:local -o cyclonedx-json=/artifacts/container.sbom.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: container-sbom
+          path: artifacts/container.sbom.json
 
   integration:
     runs-on: ubuntu-latest

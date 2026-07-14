@@ -6,4 +6,7 @@ a duplicate execution. Approval decisions require the exact pending request and 
 are idempotent only when their canonical arguments match.
 
 Known incomplete cases: worker termination during a long-running activity, MCP outage, sandbox
-failure, real evaluator workflow execution, and provider failure injection are not yet proven.
+resource enforcement across all target hosts, real evaluator workflow execution, and provider
+failure injection are not yet proven. Remote MCP servers, artifact/checkpoint access, and SSRF-prone
+user URL ingestion are not supported by the current API; those surfaces require new tests when
+implemented.

@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup format lint typecheck test test-unit test-integration verify dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate nim-smoke-test nim-embedding-smoke-test bootstrap-api-key recover-workflow-starts sandbox-demo
+.PHONY: help setup format lint typecheck test test-unit test-security test-integration dependency-audit sbom-backend sbom-container sbom verify dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate nim-smoke-test nim-embedding-smoke-test bootstrap-api-key recover-workflow-starts sandbox-demo
 
 help:
 	@printf '%s\n' 'setup         Install locked development dependencies' \
@@ -10,6 +10,7 @@ help:
 	  'lint          Check formatting and lint rules' \
 	  'typecheck     Run strict Pyright checks' \
 	  'test          Run unit tests with coverage' \
+	  'test-security Run adversarial tests for implemented security boundaries' \
 	  'test-integration Run the isolated integration and evaluation release gate' \
 	  'migrate       Upgrade the application database to head' \
 	  'downgrade     Downgrade the application database by one revision' \
@@ -22,6 +23,8 @@ help:
 	  'recover-workflow-starts Retry persisted workflow starts that need reconciliation' \
 	  'sandbox-demo  Run bounded Python in the local Docker sandbox broker' \
 	  'secret-scan   Scan tracked content with Gitleaks (Docker)' \
+	  'dependency-audit Scan locked production dependencies with pip-audit' \
+	  'sbom          Generate backend and local container CycloneDX SBOM artifacts' \
 	  'verify        Run the complete Phase 0 quality gate'
 
 setup:
@@ -44,6 +47,9 @@ typecheck:
 test test-unit:
 	uv run coverage run -m pytest tests/unit
 	uv run coverage report
+
+test-security:
+	uv run pytest -m security tests/security
 
 test-integration:
 	bash scripts/compose_smoke.sh
@@ -88,7 +94,21 @@ compose-check:
 secret-scan:
 	docker run --rm -v "$(CURDIR):/repo" ghcr.io/gitleaks/gitleaks:v8.28.0 detect --config=/repo/.gitleaks.toml --source=/repo --redact
 
-verify: lint typecheck test compose-check secret-scan test-integration
+dependency-audit:
+	uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file /tmp/asf-requirements.txt >/dev/null
+	uv run pip-audit --requirement /tmp/asf-requirements.txt --strict
+
+sbom-backend:
+	mkdir -p artifacts
+	uv run cyclonedx-py environment .venv --output-format json --output-file artifacts/backend.sbom.json
+
+sbom-container:
+	mkdir -p artifacts
+	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock:ro -v "$(CURDIR)/artifacts:/artifacts" anchore/syft:v1.31.0 agents-control-plane:local -o cyclonedx-json=/artifacts/container.sbom.json
+
+sbom: sbom-backend sbom-container
+
+verify: lint typecheck test test-security compose-check secret-scan dependency-audit test-integration
 
 up:
 	docker compose up --build -d

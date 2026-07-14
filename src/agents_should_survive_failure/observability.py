@@ -34,10 +34,15 @@ def configure_logging(level: str) -> None:
     )
 
 
-def configure_tracing(app: FastAPI, settings: Settings) -> None:
+def configure_trace_provider(settings: Settings) -> TracerProvider:
     provider = TracerProvider(resource=Resource.create({SERVICE_NAME: settings.otel_service_name}))
     if settings.otel_exporter_otlp_endpoint:
         exporter = OTLPSpanExporter(endpoint=settings.otel_exporter_otlp_endpoint, insecure=True)
         provider.add_span_processor(BatchSpanProcessor(exporter))
     trace.set_tracer_provider(provider)
+    return provider
+
+
+def configure_tracing(app: FastAPI, settings: Settings) -> None:
+    provider = configure_trace_provider(settings)
     FastAPIInstrumentor.instrument_app(app, tracer_provider=provider)

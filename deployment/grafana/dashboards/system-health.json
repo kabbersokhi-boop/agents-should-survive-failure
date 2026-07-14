@@ -5,7 +5,7 @@
     {
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0},
       "id": 1,
       "targets": [
         {
@@ -20,11 +20,83 @@
     {
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "fieldConfig": {"defaults": {}, "overrides": []},
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "gridPos": {"h": 8, "w": 4, "x": 8, "y": 0},
       "id": 2,
       "targets": [{"expr": "up{job=\"agents-api\"}", "refId": "A"}],
       "title": "API scrape health",
       "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 4, "x": 12, "y": 0},
+      "id": 3,
+      "targets": [{"expr": "up{job=\"agents-worker\"}", "refId": "A"}],
+      "title": "Worker scrape health",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 0},
+      "id": 4,
+      "targets": [{"expr": "sum by (outcome) (rate(agents_run_terminal_outcomes_total[5m]))", "legendFormat": "{{outcome}}", "refId": "A"}],
+      "title": "Workflow terminal outcomes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "id": 5,
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le, tool, outcome) (rate(agents_tool_latency_seconds_bucket[5m])))", "legendFormat": "{{tool}} {{outcome}} p95", "refId": "A"}],
+      "title": "Governed tool latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "id": 6,
+      "targets": [{"expr": "sum by (tool, outcome) (rate(agents_tool_calls_total[5m]))", "legendFormat": "{{tool}} {{outcome}}", "refId": "A"}],
+      "title": "Tool operations and denials",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "id": 7,
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le, provider, model, outcome) (rate(agents_model_latency_seconds_bucket[5m])))", "legendFormat": "{{provider}}/{{model}} {{outcome}} p95", "refId": "A"}],
+      "title": "Model latency and errors",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "id": 8,
+      "targets": [{"expr": "sum by (outcome) (rate(agents_approval_decisions_total[5m]))", "legendFormat": "decision {{outcome}}", "refId": "A"}, {"expr": "sum by (outcome) (rate(agents_approval_requests_total[5m]))", "legendFormat": "request {{outcome}}", "refId": "B"}],
+      "title": "Approval operations",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+      "id": 9,
+      "targets": [{"expr": "sum by (outcome) (rate(agents_sandbox_executions_total[5m]))", "legendFormat": "{{outcome}}", "refId": "A"}],
+      "title": "Sandbox outcomes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+      "id": 10,
+      "targets": [{"expr": "agents_active_runs", "legendFormat": "{{state}}", "refId": "A"}],
+      "title": "Active workflow state",
+      "type": "timeseries"
     }
   ],
   "schemaVersion": 41,

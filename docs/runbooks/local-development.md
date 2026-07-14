@@ -32,6 +32,19 @@ Use `docker compose ps` for service state and `docker compose logs <service>` fo
 Readiness returns dependency names and sanitized failure categories. Stop the environment with
 `make down`; named volumes remain so local state survives restarts.
 
+## Observability
+
+Prometheus scrapes both `api:8000/metrics` and the internal worker endpoint `worker:9100`. The
+provisioned Grafana dashboard, **System health**, contains API and worker scrape health plus workflow,
+model, governed-tool, approval, sandbox, and active-run panels. Metrics use bounded route templates,
+registered tool names/versions, providers, models, and outcome categories; they do not label raw IDs,
+prompts, secrets, or tool arguments.
+
+Tempo receives API, database, Temporal, activity, model, and governed-tool spans. The official
+Temporal interceptor creates workflow/activity traces without instrumenting workflow code directly,
+preserving Temporal determinism. Local telemetry is intentionally unauthenticated only inside this
+Compose deployment; do not expose these ports in a shared environment without access controls.
+
 ## Database lifecycle
 
 The API runs `alembic upgrade head` and idempotent seed loading before it starts accepting

@@ -12,6 +12,7 @@ from opentelemetry.instrumentation.sqlalchemy import (  # pyright: ignore[report
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from temporalio.client import Client
+from temporalio.contrib.opentelemetry import TracingInterceptor
 
 from agents_should_survive_failure.settings import Settings
 
@@ -96,6 +97,7 @@ async def create_resources(
             settings.temporal_address,
             namespace=settings.temporal_namespace,
             lazy=lazy_temporal_client,
+            interceptors=[TracingInterceptor(always_create_workflow_spans=True)],
         )
     except BaseException:
         await engine.dispose()

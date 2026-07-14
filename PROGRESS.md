@@ -103,3 +103,31 @@ read-only root filesystem, a disposable workspace, network disabled, capability 
 `no-new-privileges`, CPU/memory/process limits, a timeout, and bounded output. The workload has no
 Docker socket. Docker is not a complete hostile-code boundary, and production isolation remains a
 documented future hardening requirement.
+
+## 2026-07-15 Phase A9 Observability Checkpoint
+
+Checked-out worktree: pending commit.
+
+| Check | Result |
+| --- | --- |
+| Static checks | Ruff formatting/lint and Pyright passed: 0 errors |
+| Unit suite | Passed: 80 tests, 80% coverage |
+| Compose validation | Passed |
+| Deterministic integration workflow | Passed: 2 API/Temporal tests, including a worker restart |
+| Prometheus | Verified `agents-worker` target is `up=1`; real model, governed-tool, approval, run, sandbox, and worker metric families are exposed |
+| Tempo | Verified worker-side workflow, activity, SQL, model, and governed-tool spans from a real workflow |
+
+The worker now exports its own Prometheus endpoint. API and worker install OpenTelemetry providers;
+the official Temporal Python `TracingInterceptor` links Temporal start, workflow, signal, and activity
+spans with API/model/tool work. Prometheus has route-stable API labels and low-cardinality lifecycle,
+model, tool, approval, sandbox, and worker metrics. The local Grafana dashboard now covers workflow
+outcomes, tool operations and denials, model latency, approvals, sandbox outcomes, and active states.
+
+Trace verification inspected one deterministic workflow containing `StartWorkflow`,
+`RunWorkflow:VendorOnboardingWorkflow`, `RunActivity` spans for review/risk/approval/cancellation,
+`agents.model.call`, `agents.tool.invoke`, and `agents.workflow.start`. No prompts, credentials, or
+private reasoning were added as telemetry attributes.
+
+This completes the current A9 observability checkpoint, not all of Phase A. A10 remains: dependency
+vulnerability scanning, SBOM generation, and the full security test suite. Phase B's real 20-case
+workflow evaluator and every SDK/release phase (C-F) also remain open.

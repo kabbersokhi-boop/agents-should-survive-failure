@@ -5,12 +5,15 @@ import signal
 from contextlib import suppress
 
 import structlog
+from prometheus_client import start_http_server
 from temporalio.client import Client
+from temporalio.contrib.opentelemetry import TracingInterceptor
 from temporalio.worker import Worker
 
 from agents_should_survive_failure.dependencies import create_resources
 from agents_should_survive_failure.mcp_adapter import GovernedMCPAdapter
-from agents_should_survive_failure.observability import configure_logging
+from agents_should_survive_failure.metrics import WORKER_STARTS
+from agents_should_survive_failure.observability import configure_logging, configure_trace_provider
 from agents_should_survive_failure.persistence.session import Database
 from agents_should_survive_failure.policy import PolicyRetriever
 from agents_should_survive_failure.provider_factory import (
@@ -26,6 +29,10 @@ from agents_should_survive_failure.workflows.vendor_onboarding import VendorOnbo
 async def run_worker() -> None:
     settings = get_settings()
     configure_logging(settings.log_level)
+    configure_trace_provider(settings)
+    if settings.metrics_enabled:
+        start_http_server(settings.worker_metrics_port)
+    WORKER_STARTS.inc()
     logger = structlog.get_logger(component="worker")
     resources = await create_resources(
         settings, temporal_connect=Client.connect, lazy_temporal_client=False
@@ -42,6 +49,7 @@ async def run_worker() -> None:
         worker = Worker(
             resources.temporal_client,
             task_queue=TASK_QUEUE,
+            interceptors=[TracingInterceptor(always_create_workflow_spans=True)],
             workflows=[VendorOnboardingWorkflow],
             activities=[
                 activities.begin_review,

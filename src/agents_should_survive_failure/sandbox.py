@@ -8,10 +8,13 @@ import asyncio
 import os
 import secrets
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from agents_should_survive_failure.metrics import SANDBOX_DURATION, SANDBOX_EXECUTIONS
 
 
 class SandboxRequest(BaseModel):
@@ -111,6 +114,7 @@ class DockerSandbox:
         return command
 
     async def execute(self, request: SandboxRequest) -> SandboxResult:
+        started = time.perf_counter()
         name = f"survive-sandbox-{secrets.token_hex(8)}"
         with tempfile.TemporaryDirectory(prefix="survive-sandbox-") as directory:
             workspace = Path(directory)
@@ -124,16 +128,21 @@ class DockerSandbox:
             try:
                 output, limit_exceeded = await self._capture_output(process)
                 if limit_exceeded:
-                    return SandboxResult("output_limit_exceeded", None, output)
-                return SandboxResult(
-                    "succeeded" if process.returncode == 0 else "failed",
-                    process.returncode,
-                    output,
-                )
+                    result = SandboxResult("output_limit_exceeded", None, output)
+                else:
+                    result = SandboxResult(
+                        "succeeded" if process.returncode == 0 else "failed",
+                        process.returncode,
+                        output,
+                    )
+                self._observe(result.status, started)
+                return result
             except TimeoutError:
                 process.kill()
                 await process.wait()
-                return SandboxResult("timed_out", None, "sandbox execution timed out")
+                result = SandboxResult("timed_out", None, "sandbox execution timed out")
+                self._observe(result.status, started)
+                return result
             finally:
                 if process.returncode is None:
                     process.kill()
@@ -148,6 +157,11 @@ class DockerSandbox:
                     stderr=asyncio.subprocess.DEVNULL,
                 )
                 await cleanup.wait()
+
+    @staticmethod
+    def _observe(outcome: str, started: float) -> None:
+        SANDBOX_EXECUTIONS.labels(outcome).inc()
+        SANDBOX_DURATION.labels(outcome).observe(time.perf_counter() - started)
 
     async def _capture_output(self, process: asyncio.subprocess.Process) -> tuple[str, bool]:
         stdout = process.stdout

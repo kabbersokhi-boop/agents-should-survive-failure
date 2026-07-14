@@ -78,6 +78,7 @@ services:
       OTEL_SERVICE_NAME: agents-control-plane-api
       LOG_LEVEL: INFO
       METRICS_ENABLED: "true"
+      WORKER_METRICS_PORT: "9100"
       MODEL_PROVIDER: ${MODEL_PROVIDER:-deterministic}
       NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
       NVIDIA_BASE_URL: ${NVIDIA_BASE_URL:-https://integrate.api.nvidia.com/v1}

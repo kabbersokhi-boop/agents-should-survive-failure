@@ -8,6 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from temporalio import activity
 
 from agents_should_survive_failure.mcp_adapter import GovernedMCPAdapter, MCPExecutionContext
+from agents_should_survive_failure.metrics import (
+    ACTIVE_RUNS,
+    APPROVAL_DECISIONS,
+    APPROVAL_REQUESTS,
+    RUN_OUTCOMES,
+)
 from agents_should_survive_failure.model_evidence import ModelEvidenceService
 from agents_should_survive_failure.persistence.models import (
     ApprovalDecision,
@@ -68,6 +74,7 @@ class VendorOnboardingActivities:
             if run.status is RunStatus.PENDING:
                 run.status = RunStatus.RUNNING
                 run.started_at = activity.info().started_time
+                ACTIVE_RUNS.labels("running").inc()
             if vendor.status is VendorStatus.SUBMITTED:
                 vendor.status = VendorStatus.UNDER_REVIEW
             if self._mcp_adapter is not None:
@@ -210,10 +217,14 @@ class VendorOnboardingActivities:
                 )
                 session.add(request)
                 await session.flush()
+                APPROVAL_REQUESTS.labels("created").inc()
             run = await WorkflowRunRepository(session).get(run_id)
             if run is None:
                 raise ValueError("workflow run does not exist")
-            run.status = RunStatus.WAITING
+            if run.status is not RunStatus.WAITING:
+                run.status = RunStatus.WAITING
+                ACTIVE_RUNS.labels("running").dec()
+                ACTIVE_RUNS.labels("waiting").inc()
             await self._append_event(
                 WorkflowRunRepository(session),
                 run_id,
@@ -288,6 +299,9 @@ class VendorOnboardingActivities:
             request.status = status
             vendor.status = VendorStatus.APPROVED if approved else VendorStatus.REJECTED
             run.status = RunStatus.SUCCEEDED if approved else RunStatus.REJECTED
+            APPROVAL_DECISIONS.labels(decision.decision.value).inc()
+            RUN_OUTCOMES.labels(run.status.value).inc()
+            ACTIVE_RUNS.labels("waiting").dec()
             run.result_summary = {
                 "decision": decision.decision.value,
                 "risk_score": vendor.risk_score,
@@ -356,6 +370,11 @@ class VendorOnboardingActivities:
                 approval.status = ApprovalStatus.CANCELLED
             run.status = RunStatus.CANCELLED
             run.completed_at = activity.info().started_time
+            RUN_OUTCOMES.labels("cancelled").inc()
+            if approval is not None:
+                ACTIVE_RUNS.labels("waiting").dec()
+            else:
+                ACTIVE_RUNS.labels("running").dec()
             await self._append_event(
                 WorkflowRunRepository(session),
                 run_id,

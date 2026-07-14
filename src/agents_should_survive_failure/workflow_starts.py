@@ -8,10 +8,12 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Protocol
 
+from opentelemetry import trace
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from temporalio.exceptions import WorkflowAlreadyStartedError
 
+from agents_should_survive_failure.metrics import RUN_STARTS
 from agents_should_survive_failure.persistence.models import (
     RunStatus,
     WorkflowRun,
@@ -156,20 +158,27 @@ class WorkflowStartCoordinator:
             return claim.run
         assert claim.token is not None
         try:
-            await self._temporal_client.start_workflow(
-                VendorOnboardingWorkflow.run,
-                VendorOnboardingInput(run_id=str(claim.run.id), vendor_id=str(claim.run.vendor_id)),
-                id=claim.run.temporal_workflow_id,
-                task_queue=TASK_QUEUE,
-            )
+            with trace.get_tracer(__name__).start_as_current_span("agents.workflow.start") as span:
+                span.set_attribute("temporal.workflow.type", "vendor_onboarding")
+                await self._temporal_client.start_workflow(
+                    VendorOnboardingWorkflow.run,
+                    VendorOnboardingInput(
+                        run_id=str(claim.run.id), vendor_id=str(claim.run.vendor_id)
+                    ),
+                    id=claim.run.temporal_workflow_id,
+                    task_queue=TASK_QUEUE,
+                )
         except WorkflowAlreadyStartedError:
             await self._mark_started(run_id, claim.token)
+            RUN_STARTS.labels("already_started").inc()
         except Exception as error:
             category = classify_start_error(error)
             await self._mark_failed(run_id, claim.token, category)
+            RUN_STARTS.labels(category).inc()
             raise WorkflowStartUnavailable(category) from error
         else:
             await self._mark_started(run_id, claim.token)
+            RUN_STARTS.labels("started").inc()
         return claim.run
 
     async def recover(self, *, limit: int = 100) -> RecoveryResult:

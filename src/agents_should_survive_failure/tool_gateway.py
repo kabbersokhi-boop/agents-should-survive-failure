@@ -4,14 +4,17 @@ import asyncio
 import hashlib
 import json
 import re
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
+from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agents_should_survive_failure.metrics import TOOL_CALLS, TOOL_LATENCY
 from agents_should_survive_failure.persistence.models import (
     Agent,
     ApprovalDecision,
@@ -206,6 +209,7 @@ class ToolGateway:
         idempotency_key: str,
         correlation_id: str | None = None,
     ) -> ToolResult:
+        started = time.perf_counter()
         tool = await session.scalar(
             select(ToolDefinition).where(
                 ToolDefinition.name == tool_name,
@@ -213,7 +217,9 @@ class ToolGateway:
             )
         )
         if tool is None:
+            self._observe("unregistered", "unknown", "unavailable", started)
             raise ToolUnavailableError("requested tool version is not registered")
+        metric_name, metric_version = tool.name, tool.version
         fingerprint = canonical_argument_fingerprint(arguments)
         existing = await session.scalar(
             select(ToolInvocation).where(
@@ -229,11 +235,15 @@ class ToolGateway:
                     "idempotency key was reused with different tool arguments"
                 )
             if existing.status is InvocationStatus.SUCCEEDED:
+                self._observe(metric_name, metric_version, "idempotent_replay", started)
                 return ToolResult(existing.result_summary or {}, str(existing.id))
             if existing.status is InvocationStatus.DENIED:
+                self._observe(metric_name, metric_version, "denied", started)
                 raise ToolDeniedError("tool invocation was previously denied")
             if existing.error_category == "approval_required":
+                self._observe(metric_name, metric_version, "approval_required", started)
                 raise ToolApprovalRequiredError("tool invocation requires an approved decision")
+            self._observe(metric_name, metric_version, "unavailable", started)
             raise ToolUnavailableError("tool invocation did not complete successfully")
 
         invocation = ToolInvocation(
@@ -255,46 +265,62 @@ class ToolGateway:
         ):
             invocation.status = InvocationStatus.DENIED
             invocation.error_category = "policy_denied"
+            self._observe(metric_name, metric_version, "denied", started)
             raise ToolDeniedError("tool invocation is not permitted")
         if tool.approval_required and not await self._has_approved_decision(
             session, workflow_run_id
         ):
             invocation.status = InvocationStatus.DENIED
             invocation.error_category = "approval_required"
+            self._observe(metric_name, metric_version, "approval_required", started)
             raise ToolApprovalRequiredError("tool invocation requires an approved decision")
         registered = self._registry.get(tool.name)
         if registered is None:
             invocation.status = InvocationStatus.FAILED
             invocation.error_category = "handler_unavailable"
+            self._observe(metric_name, metric_version, "unavailable", started)
             raise ToolUnavailableError("registered tool has no local execution handler")
         try:
             validated_input = registered.input_model.model_validate(arguments)
         except ValidationError as error:
             invocation.status = InvocationStatus.FAILED
             invocation.error_category = "invalid_arguments"
+            self._observe(metric_name, metric_version, "invalid_input", started)
             raise ToolInputError("tool arguments do not match the registered schema") from error
         invocation.status = InvocationStatus.RUNNING
         try:
-            async with asyncio.timeout(tool.timeout_seconds):
-                raw_result = await registered.handler(session, validated_input, invocation)
+            with trace.get_tracer(__name__).start_as_current_span("agents.tool.invoke") as span:
+                span.set_attribute("agents.tool.name", metric_name)
+                span.set_attribute("agents.tool.version", metric_version)
+                async with asyncio.timeout(tool.timeout_seconds):
+                    raw_result = await registered.handler(session, validated_input, invocation)
             result = registered.output_model.model_validate(raw_result).model_dump(
                 exclude_none=True
             )
         except TimeoutError as error:
             invocation.status = InvocationStatus.FAILED
             invocation.error_category = "timeout"
+            self._observe(metric_name, metric_version, "timeout", started)
             raise ToolUnavailableError("tool invocation exceeded its timeout") from error
         except ValidationError as error:
             invocation.status = InvocationStatus.FAILED
             invocation.error_category = "invalid_result"
+            self._observe(metric_name, metric_version, "invalid_output", started)
             raise ToolUnavailableError("tool returned an invalid result") from error
         except Exception:
             invocation.status = InvocationStatus.FAILED
             invocation.error_category = "execution_failed"
+            self._observe(metric_name, metric_version, "failed", started)
             raise
         invocation.status = InvocationStatus.SUCCEEDED
         invocation.result_summary = result
+        self._observe(metric_name, metric_version, "succeeded", started)
         return ToolResult(result, str(invocation.id))
+
+    @staticmethod
+    def _observe(name: str, version: str, outcome: str, started: float) -> None:
+        TOOL_CALLS.labels(name, version, outcome).inc()
+        TOOL_LATENCY.labels(name, version, outcome).observe(time.perf_counter() - started)
 
     async def _vendor_lookup(
         self, session: AsyncSession, input: BaseModel, invocation: ToolInvocation

@@ -40,10 +40,12 @@ async def test_dependency_timeout_is_classified() -> None:
 
 @pytest.mark.asyncio
 async def test_resources_use_lazy_temporal_connection() -> None:
-    calls: list[tuple[str, str, bool]] = []
+    calls: list[tuple[str, str, bool, int]] = []
 
-    async def connect(address: str, *, namespace: str, lazy: bool) -> Client:
-        calls.append((address, namespace, lazy))
+    async def connect(
+        address: str, *, namespace: str, lazy: bool, interceptors: list[object]
+    ) -> Client:
+        calls.append((address, namespace, lazy, len(interceptors)))
         return cast(Client, FakeTemporalClient())
 
     settings = Settings(
@@ -54,4 +56,4 @@ async def test_resources_use_lazy_temporal_connection() -> None:
     resources = await create_resources(settings, temporal_connect=connect)
     await resources.close()
 
-    assert calls == [("temporal.example:7233", "agents", True)]
+    assert calls == [("temporal.example:7233", "agents", True, 1)]

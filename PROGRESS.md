@@ -207,3 +207,12 @@ Unregistered tool attempts now have a nullable definition reference plus immutab
 and version evidence; the migration was applied successfully to the local stack and the same
 rollback-focused PostgreSQL test proves that record survives. This does not complete A6: the full
 tool version-pinning and credential-broker release audit remains open.
+
+## 2026-07-15 Phase A8 Sandbox Enforcement Checkpoint
+
+The Docker sandbox's network-disabled policy is now exercised in a real local container, not only
+through command-construction tests. The integration test attempts a TCP connection to `1.1.1.1:53`
+and requires a nonzero result containing `Network is unreachable`. It passed locally.
+
+This does not claim hostile-code isolation: Docker remains a limited local execution boundary, and
+resource-pressure, file-escape, and production broker isolation testing remain open.

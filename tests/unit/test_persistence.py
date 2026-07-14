@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agents_should_survive_failure.persistence.models import (
+    ApprovalStatus,
     AuditEvent,
     Base,
     RunStatus,
@@ -52,6 +53,10 @@ def test_model_metadata_and_seeds_cover_required_schema() -> None:
     assert len(seed_rows()) == 8
     assert seed_id("stable") == seed_id("stable")
     assert utc_now().tzinfo is not None
+
+
+def test_approval_status_exposes_only_implemented_decision_paths() -> None:
+    assert "information_requested" not in {status.value for status in ApprovalStatus}
 
 
 def mock_session() -> AsyncSession:

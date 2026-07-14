@@ -95,7 +95,6 @@ class ApprovalStatus(enum.StrEnum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
-    INFORMATION_REQUESTED = "information_requested"
     CANCELLED = "cancelled"
 
 

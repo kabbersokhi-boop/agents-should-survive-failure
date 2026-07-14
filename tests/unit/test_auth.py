@@ -13,7 +13,7 @@ from agents_should_survive_failure.auth import (
     validate_scopes,
     verify_secret,
 )
-from agents_should_survive_failure.persistence.models import PrincipalStatus
+from agents_should_survive_failure.persistence.models import PrincipalStatus, PrincipalType
 
 
 def test_generated_api_key_stores_only_a_verifier() -> None:
@@ -85,6 +85,7 @@ class KeyRecord:
 class PrincipalRecord:
     id: object
     status: PrincipalStatus
+    principal_type: PrincipalType = PrincipalType.USER
 
 
 @pytest.mark.asyncio
@@ -106,4 +107,5 @@ async def test_resolver_uses_active_principal_and_updates_last_use() -> None:
 
     assert resolved is not None
     assert resolved.id == principal.id
+    assert resolved.principal_type is PrincipalType.USER
     assert key.last_used_at is not None

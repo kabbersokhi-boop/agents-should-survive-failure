@@ -11,7 +11,12 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agents_should_survive_failure.persistence.models import APIKey, AuthPrincipal, PrincipalStatus
+from agents_should_survive_failure.persistence.models import (
+    APIKey,
+    AuthPrincipal,
+    PrincipalStatus,
+    PrincipalType,
+)
 
 API_KEY_SCOPES = frozenset(
     {
@@ -46,6 +51,7 @@ class AuthenticatedPrincipal:
     id: UUID
     key_id: UUID
     scopes: frozenset[str]
+    principal_type: PrincipalType = PrincipalType.USER
 
     def allows(self, *required_scopes: str) -> bool:
         return "admin" in self.scopes or set(required_scopes).issubset(self.scopes)
@@ -138,4 +144,9 @@ async def resolve_api_key(session: AsyncSession, raw_value: str) -> Authenticate
     except ValueError:
         return None
     key.last_used_at = datetime.now(UTC)
-    return AuthenticatedPrincipal(id=principal.id, key_id=key.id, scopes=scopes)
+    return AuthenticatedPrincipal(
+        id=principal.id,
+        key_id=key.id,
+        scopes=scopes,
+        principal_type=principal.principal_type,
+    )

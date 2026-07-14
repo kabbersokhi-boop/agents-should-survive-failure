@@ -17,6 +17,7 @@ from agents_should_survive_failure.api import (
 )
 from agents_should_survive_failure.auth import AuthenticatedPrincipal
 from agents_should_survive_failure.dependencies import DependencySet
+from agents_should_survive_failure.persistence.models import PrincipalType
 from agents_should_survive_failure.settings import Settings
 
 
@@ -265,3 +266,22 @@ async def test_scope_dependency_denies_and_allows_admin() -> None:
 
     principal = AuthenticatedPrincipal(uuid4(), uuid4(), frozenset({"admin"}))
     assert await scope_dependency(principal) is principal
+
+
+@pytest.mark.asyncio
+async def test_approval_scope_rejects_agent_principals() -> None:
+    scope_dependency = require_scopes(
+        "approvals:decide",
+        allowed_principal_types=frozenset({PrincipalType.USER, PrincipalType.SERVICE}),
+    )
+    agent = AuthenticatedPrincipal(
+        uuid4(),
+        uuid4(),
+        frozenset({"approvals:decide"}),
+        principal_type=PrincipalType.AGENT,
+    )
+
+    with pytest.raises(HTTPException) as denied:
+        await scope_dependency(agent)
+
+    assert denied.value.status_code == 403

@@ -33,6 +33,7 @@ from agents_should_survive_failure.persistence.models import (
     EvaluationResult,
     EvaluationRun,
     ModelCall,
+    PrincipalType,
     RunStatus,
     ToolInvocation,
     Vendor,
@@ -340,12 +341,23 @@ async def get_authenticated_principal(
     return principal
 
 
-def require_scopes(*scopes: str) -> Callable[..., Any]:
+def require_scopes(
+    *scopes: str,
+    allowed_principal_types: frozenset[PrincipalType] | None = None,
+) -> Callable[..., Any]:
     async def dependency(
         principal: Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)],
     ) -> AuthenticatedPrincipal:
         if not principal.allows(*scopes):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="insufficient scope")
+        if (
+            allowed_principal_types is not None
+            and principal.principal_type not in allowed_principal_types
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="principal type is not permitted for this operation",
+            )
         return principal
 
     return dependency
@@ -1116,9 +1128,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         *,
         methods: list[str],
         scopes: tuple[str, ...],
+        allowed_principal_types: frozenset[PrincipalType] | None = None,
         **kwargs: Any,
     ) -> None:
-        dependencies = [Depends(require_scopes(*scopes))]
+        dependencies = [
+            Depends(
+                require_scopes(
+                    *scopes,
+                    allowed_principal_types=allowed_principal_types,
+                )
+            )
+        ]
         app.add_api_route(
             f"/api/v1{path}", endpoint, methods=methods, dependencies=dependencies, **kwargs
         )
@@ -1161,6 +1181,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         decide_onboarding,
         methods=["POST"],
         scopes=("approvals:decide",),
+        allowed_principal_types=frozenset({PrincipalType.USER, PrincipalType.SERVICE}),
         status_code=status.HTTP_202_ACCEPTED,
     )
     app.add_api_route(

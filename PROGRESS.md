@@ -271,3 +271,11 @@ Focused workflow/activity/API tests passed.
 This corrects two material release criteria that the prior checkpoints did not prove. It is not a
 Phase A completion claim: the remaining API audit, tool/MCP, sandbox, and end-to-end release-gate
 criteria are still being audited.
+
+## 2026-07-15 Phase A2 Chunked Request-Size Enforcement
+
+The API now applies its configured request-size limit while reading ASGI request chunks, rather
+than relying only on the caller-provided `Content-Length` header. Oversized chunked requests are
+rejected before routing with the same structured `413 payload_too_large` response and request ID
+as declared-length requests. The unit suite covers the no-`Content-Length` path; Ruff and Pyright
+passed after the change.

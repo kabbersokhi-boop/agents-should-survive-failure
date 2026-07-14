@@ -1,12 +1,13 @@
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
+from typing import cast
 from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient, Response
 from starlette.requests import Request
-from starlette.types import ASGIApp
+from starlette.types import ASGIApp, Message
 
 from agents_should_survive_failure.api import (
     create_app,
@@ -190,6 +191,52 @@ async def test_versioned_vendor_contract_rejects_oversized_payload() -> None:
 
     assert response.status_code == 413
     assert response.json()["code"] == "payload_too_large"
+
+
+@pytest.mark.asyncio
+async def test_request_limit_rejects_chunked_body_without_content_length() -> None:
+    app = create_app(Settings(max_request_body_bytes=1_024))
+    sent: list[Message] = []
+    messages: list[Message] = [
+        {
+            "type": "http.request",
+            "body": b"x" * 1_025,
+            "more_body": False,
+        }
+    ]
+
+    async def receive() -> Message:
+        return messages.pop(0) if messages else {"type": "http.disconnect"}
+
+    async def send(message: Message) -> None:
+        sent.append(message)
+
+    await app(
+        {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": "/api/v1/vendors",
+            "raw_path": b"/api/v1/vendors",
+            "query_string": b"",
+            "headers": [(b"x-request-id", b"chunked-request")],
+            "client": ("127.0.0.1", 1234),
+            "server": ("testserver", 80),
+        },
+        receive,
+        send,
+    )
+
+    response_start = next(message for message in sent if message["type"] == "http.response.start")
+    assert cast(int, response_start["status"]) == 413
+    body = b"".join(
+        cast(bytes, message["body"])
+        for message in sent
+        if message["type"] == "http.response.body" and "body" in message
+    )
+    assert b'"code":"payload_too_large"' in body
 
 
 def test_versioned_read_contracts_are_exposed_with_deprecated_status_alias() -> None:

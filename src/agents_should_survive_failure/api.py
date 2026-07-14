@@ -15,6 +15,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, Counter, generate_latest
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from temporalio.client import WorkflowUpdateFailedError, WorkflowUpdateRPCTimeoutOrCancelledError
 
 from agents_should_survive_failure.auth import AuthenticatedPrincipal, resolve_api_key
@@ -128,6 +129,59 @@ class ApiErrorResponse(BaseModel):
     message: str
     request_id: str
     field_errors: list[ApiFieldError] | None = None
+
+
+class RequestBodyLimitMiddleware:
+    """Reject oversized bodies before FastAPI parses them, including chunked requests."""
+
+    def __init__(self, app: ASGIApp, *, max_body_bytes: int) -> None:
+        self._app = app
+        self._max_body_bytes = max_body_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self._app(scope, receive, send)
+            return
+
+        messages: list[Message] = []
+        body_size = 0
+        while True:
+            message = await receive()
+            messages.append(message)
+            if message["type"] == "http.disconnect":
+                break
+            if message["type"] != "http.request":
+                continue
+            body_size += len(message.get("body", b""))
+            if body_size > self._max_body_bytes:
+                request_id = next(
+                    (
+                        value.decode("latin-1")
+                        for key, value in scope["headers"]
+                        if key == b"x-request-id"
+                    ),
+                    str(uuid4()),
+                )
+                response = JSONResponse(
+                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                    content=ApiErrorResponse(
+                        code="payload_too_large",
+                        message="request payload exceeds the configured limit",
+                        request_id=request_id,
+                    ).model_dump(),
+                )
+                response.headers["x-request-id"] = request_id
+                await response(scope, receive, send)
+                return
+            if not message.get("more_body", False):
+                break
+
+        async def replay_receive() -> Message:
+            if messages:
+                return messages.pop(0)
+            return {"type": "http.disconnect"}
+
+        await self._app(scope, replay_receive, send)
 
 
 class StrictRequestModel(BaseModel):
@@ -1353,6 +1407,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         status_code=202,
     )
     app.add_middleware(RequestContextMiddleware)
+    app.add_middleware(
+        RequestBodyLimitMiddleware, max_body_bytes=app_settings.max_request_body_bytes
+    )
 
     configure_tracing(app, app_settings)
 

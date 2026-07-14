@@ -10,7 +10,7 @@ It exposes only these typed tools:
 
 The execution host supplies the run ID, agent ID, and correlation ID when it creates the adapter.
 MCP tool arguments include neither identity nor permissions. The gateway derives permissions from
-the registered agent configuration, validates inputs and outputs, records attempts, creates a
+the immutable platform policy for the registered agent version, validates inputs and outputs, records attempts, creates a
 durable per-run binding to the first accepted tool definition version, and enforces email approval
 before execution. A later request for another version of the same logical tool is denied and
 recorded as a version mismatch.

@@ -30,6 +30,7 @@ from agents_should_survive_failure.persistence.models import (
     Vendor,
 )
 from agents_should_survive_failure.persistence.session import Database
+from agents_should_survive_failure.policy import agent_tool_permissions
 
 
 class ToolDeniedError(PermissionError):
@@ -137,16 +138,6 @@ def canonical_argument_fingerprint(arguments: dict[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _agent_tool_permissions(agent: Agent) -> set[str]:
-    configured: object = agent.configuration.get("tool_permissions", [])
-    if not isinstance(configured, list):
-        return set()
-    values = cast(list[object], configured)
-    if not all(isinstance(item, str) for item in values):
-        return set()
-    return {item for item in values if isinstance(item, str)}
-
-
 class ToolGateway:
     def __init__(self, audit_database: Database | None = None) -> None:
         self._audit_database = audit_database
@@ -172,7 +163,7 @@ class ToolGateway:
         agent = await session.get(Agent, agent_id)
         if agent is None:
             return []
-        permissions = _agent_tool_permissions(agent)
+        permissions = agent_tool_permissions(name=agent.name, version=agent.version)
         tools = (
             await session.scalars(
                 select(ToolDefinition)
@@ -269,7 +260,9 @@ class ToolGateway:
         if (
             agent is None
             or not tool.enabled
-            or not set(tool.permissions).issubset(_agent_tool_permissions(agent))
+            or not set(tool.permissions).issubset(
+                agent_tool_permissions(name=agent.name, version=agent.version)
+            )
         ):
             await self._record_terminal_attempt(
                 session=session,

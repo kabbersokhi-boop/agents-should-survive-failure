@@ -369,3 +369,11 @@ The approval version is now durable workflow state and the Temporal Update valid
 decision whose expected version differs, before it mutates the workflow. The official time-skipping
 Temporal test first submits a stale version, proves the workflow remains at its durable wait, then
 submits version `1` and completes. Focused Ruff, Pyright, and 12 approval-workflow tests passed.
+
+## 2026-07-15 Phase A6 Immutable Tool-Policy Boundary
+
+Tool grants are now an immutable platform policy keyed by registered agent name and version, not
+an agent configuration JSON field. The reference `vendor-onboarding@1` policy grants only its three
+review capabilities; unknown agent versions receive no tools. The gateway, MCP adapter, and seed
+data no longer treat configuration as an authority source. Focused Ruff, Pyright, 12 tool/MCP unit
+tests, and seven security tests passed.

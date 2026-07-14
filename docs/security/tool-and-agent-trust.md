@@ -1,8 +1,9 @@
 # Tool and Agent Trust
 
 Agents request tool calls; they do not supply the permission set that authorizes them. The governed
-gateway resolves the registered agent configuration, tool version, input contract, idempotency key,
-and risk metadata before executing a local handler. Tool definitions are persisted and versioned.
+gateway resolves an immutable platform policy for the registered agent name and version, then checks
+the tool version, input contract, idempotency key, and risk metadata before executing a local
+handler. Unknown agent versions receive no tool grants. Tool definitions are persisted and versioned.
 The first valid call for a logical tool name creates a durable run-level binding to that exact tool
 definition. A later call for the same tool name with another version is denied, recorded as a
 `version_mismatch`, and cannot alter the run's capability surface.

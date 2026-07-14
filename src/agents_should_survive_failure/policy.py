@@ -11,6 +11,17 @@ from agents_should_survive_failure.providers import (
     EmbeddingProvider,
 )
 
+# Tool grants belong to the platform, never to agent-provided call arguments or mutable agent
+# configuration. New registered agent versions require an explicit policy review and entry here.
+_AGENT_TOOL_POLICIES: dict[tuple[str, str], frozenset[str]] = {
+    ("vendor-onboarding", "1"): frozenset({"vendors:read", "policy:read", "email:send"}),
+}
+
+
+def agent_tool_permissions(*, name: str, version: str) -> frozenset[str]:
+    """Return the immutable platform grants for one registered agent version."""
+    return _AGENT_TOOL_POLICIES.get((name, version), frozenset())
+
 
 @dataclass(frozen=True)
 class PolicyCitation:

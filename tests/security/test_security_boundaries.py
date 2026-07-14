@@ -16,6 +16,7 @@ from agents_should_survive_failure.auth import (
     verify_secret,
 )
 from agents_should_survive_failure.mcp_adapter import GovernedMCPAdapter, MCPExecutionContext
+from agents_should_survive_failure.policy import agent_tool_permissions
 from agents_should_survive_failure.providers import ProviderError, classify_provider_error
 from agents_should_survive_failure.sandbox import (
     DockerSandbox,
@@ -123,3 +124,9 @@ def test_admin_is_explicit_and_non_admin_scope_cannot_escalate() -> None:
     principal = AuthenticatedPrincipal(uuid4(), uuid4(), frozenset({"runs:read"}))
     assert not principal.allows("approvals:decide")
     assert not principal.allows("admin")
+
+
+@pytest.mark.security
+def test_unregistered_agent_version_cannot_self_grant_tool_permissions() -> None:
+    assert agent_tool_permissions(name="vendor-onboarding", version="2") == frozenset()
+    assert agent_tool_permissions(name="unregistered-agent", version="1") == frozenset()

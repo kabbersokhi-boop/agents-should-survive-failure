@@ -145,7 +145,7 @@ async def test_tool_gateway_denies_and_reuses_idempotent_invocation() -> None:
     )
     existing.arguments = {"external_reference": "vendor"}
     existing.argument_fingerprint = "legacy"
-    agent = SimpleNamespace(configuration={"tool_permissions": ["vendors:read"]})
+    agent = SimpleNamespace(name="vendor-onboarding", version="1", configuration={})
     reused = FakeSession([tool, existing], agent=agent)
     result = await gateway.invoke_vendor_lookup(
         cast(AsyncSession, reused),
@@ -171,7 +171,7 @@ async def test_tool_gateway_records_found_vendor() -> None:
         timeout_seconds=10,
     )
     vendor = SimpleNamespace(id=uuid.uuid4(), status=VendorStatus.SUBMITTED)
-    agent = SimpleNamespace(configuration={"tool_permissions": ["vendors:read"]})
+    agent = SimpleNamespace(name="vendor-onboarding", version="1", configuration={})
     session = FakeSession([tool, None, vendor], agent=agent)
 
     result = await ToolGateway().invoke_vendor_lookup(
@@ -189,7 +189,7 @@ async def test_tool_gateway_records_found_vendor() -> None:
 @pytest.mark.asyncio
 async def test_tool_gateway_validates_inputs_and_idempotency_arguments() -> None:
     gateway = ToolGateway()
-    agent = SimpleNamespace(configuration={"tool_permissions": ["vendors:read"]})
+    agent = SimpleNamespace(name="vendor-onboarding", version="1", configuration={})
     with pytest.raises(ToolInputError):
         await gateway.invoke_vendor_lookup(
             cast(
@@ -243,12 +243,16 @@ async def test_tool_gateway_validates_inputs_and_idempotency_arguments() -> None
 
 
 @pytest.mark.asyncio
-async def test_tool_capabilities_are_negotiated_from_agent_configuration() -> None:
+async def test_tool_capabilities_are_negotiated_from_platform_agent_policy() -> None:
     permitted = SimpleNamespace(
         name="vendor_database_query", version="v1", enabled=True, permissions=["vendors:read"]
     )
     denied = SimpleNamespace(name="other", version="v1", enabled=True, permissions=["other:read"])
-    agent = SimpleNamespace(configuration={"tool_permissions": ["vendors:read"]})
+    agent = SimpleNamespace(
+        name="vendor-onboarding",
+        version="1",
+        configuration={"tool_permissions": ["other:read"]},
+    )
 
     capabilities = await ToolGateway().capabilities(
         cast(AsyncSession, FakeSession([], [permitted, denied], agent=agent)),

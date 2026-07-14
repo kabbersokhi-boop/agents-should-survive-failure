@@ -16,7 +16,9 @@ from agents_should_survive_failure.persistence.models import (
     InvocationStatus,
     ModelCall,
     RunStatus,
+    ToolDefinition,
     ToolInvocation,
+    ToolRunBinding,
     Vendor,
     VendorStatus,
     WorkflowRun,
@@ -28,6 +30,7 @@ from agents_should_survive_failure.providers import DeterministicModelProvider
 from agents_should_survive_failure.tool_gateway import (
     ToolApprovalRequiredError,
     ToolGateway,
+    ToolVersionMismatchError,
 )
 
 
@@ -162,6 +165,7 @@ async def test_denied_tool_attempt_survives_the_calling_transaction_rollback() -
         )
     )
     database = Database(engine)
+    alternate_version: str
     run_id: uuid.UUID
     try:
         async with database.session() as session:
@@ -187,6 +191,50 @@ async def test_denied_tool_attempt_survives_the_calling_transaction_rollback() -
             session.add(run)
             await session.flush()
             run_id = run.id
+            original = await session.scalar(
+                select(ToolDefinition).where(
+                    ToolDefinition.name == "vendor_database_query",
+                    ToolDefinition.version == "1",
+                )
+            )
+            assert original is not None
+            alternate_version = f"test-{uuid.uuid4().hex[:8]}"
+            session.add(
+                ToolDefinition(
+                    name=original.name,
+                    version=alternate_version,
+                    description=original.description,
+                    input_schema=original.input_schema,
+                    output_schema=original.output_schema,
+                    permissions=original.permissions,
+                    risk_class=original.risk_class,
+                    timeout_seconds=original.timeout_seconds,
+                    approval_required=False,
+                    enabled=True,
+                )
+            )
+        async with database.session() as session:
+            first = await ToolGateway(database).invoke(
+                session,
+                workflow_run_id=str(run_id),
+                agent_id=str(seed_id("agent:vendor-onboarding:v1")),
+                tool_name="vendor_database_query",
+                tool_version="1",
+                arguments={"external_reference": "not-used"},
+                idempotency_key="pinned-tool-v1",
+            )
+        assert first.result == {"found": False}
+        with pytest.raises(ToolVersionMismatchError):
+            async with database.session() as session:
+                await ToolGateway(database).invoke(
+                    session,
+                    workflow_run_id=str(run_id),
+                    agent_id=str(seed_id("agent:vendor-onboarding:v1")),
+                    tool_name="vendor_database_query",
+                    tool_version=alternate_version,
+                    arguments={"external_reference": "not-used"},
+                    idempotency_key="pinned-tool-v2",
+                )
         with pytest.raises(PermissionError):
             async with database.session() as session:
                 await ToolGateway(database).invoke_vendor_lookup(
@@ -203,9 +251,24 @@ async def test_denied_tool_attempt_survives_the_calling_transaction_rollback() -
                     ToolInvocation.idempotency_key == "durably-denied",
                 )
             )
+            binding = await session.scalar(
+                select(ToolRunBinding).where(ToolRunBinding.workflow_run_id == run_id)
+            )
+            version_mismatch = await session.scalar(
+                select(ToolInvocation).where(
+                    ToolInvocation.workflow_run_id == run_id,
+                    ToolInvocation.idempotency_key == "pinned-tool-v2",
+                )
+            )
         assert invocation is not None
         assert invocation.status is InvocationStatus.DENIED
         assert invocation.error_category == "policy_denied"
+        assert binding is not None
+        assert binding.tool_name == "vendor_database_query"
+        assert binding.tool_definition_id == seed_id("tool:vendor-database-query:v1")
+        assert version_mismatch is not None
+        assert version_mismatch.status is InvocationStatus.FAILED
+        assert version_mismatch.error_category == "version_mismatch"
         with pytest.raises(RuntimeError):
             async with database.session() as session:
                 await ToolGateway(database).invoke(

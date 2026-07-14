@@ -1,6 +1,6 @@
 import uuid
 from types import SimpleNamespace
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,10 +40,21 @@ class FakeSession:
         self._scalar_values = scalar_values
         self._cases = cases or []
         self._agent = agent
+        self._last_tool_id: object | None = None
         self.added: list[object] = []
 
     async def scalar(self, statement: object) -> object | None:
-        return self._scalar_values.pop(0)
+        rendered = str(statement)
+        if "tool_run_bindings" in rendered:
+            if self._last_tool_id is None:
+                return None
+            return SimpleNamespace(tool_definition_id=self._last_tool_id)
+        if not self._scalar_values:
+            return None
+        value = self._scalar_values.pop(0)
+        if "tool_definitions" in rendered and value is not None:
+            self._last_tool_id = cast(Any, value).id
+        return value
 
     async def scalars(self, statement: object) -> FakeScalars:
         return FakeScalars(self._cases)
@@ -57,6 +68,9 @@ class FakeSession:
 
     async def flush(self) -> None:
         return None
+
+    async def execute(self, statement: object) -> None:
+        del statement
 
 
 @pytest.mark.asyncio

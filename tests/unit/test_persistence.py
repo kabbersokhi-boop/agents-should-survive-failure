@@ -39,6 +39,7 @@ def test_model_metadata_and_seeds_cover_required_schema() -> None:
         "approval_requests",
         "approval_decisions",
         "tool_definitions",
+        "tool_run_bindings",
         "tool_invocations",
         "synthetic_email_messages",
         "model_calls",

@@ -392,6 +392,23 @@ class ToolDefinition(IdMixin, TimestampMixin, Base):
     )
 
 
+class ToolRunBinding(IdMixin, TimestampMixin, Base):
+    """The immutable tool definition selected for a logical tool name in one run."""
+
+    __tablename__ = "tool_run_bindings"
+    __table_args__ = (
+        UniqueConstraint("workflow_run_id", "tool_name", name="uq_tool_run_binding_name"),
+    )
+
+    workflow_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    tool_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    tool_definition_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tool_definitions.id", ondelete="RESTRICT"), nullable=False
+    )
+
+
 class ToolInvocation(IdMixin, TimestampMixin, Base):
     __tablename__ = "tool_invocations"
     __table_args__ = (

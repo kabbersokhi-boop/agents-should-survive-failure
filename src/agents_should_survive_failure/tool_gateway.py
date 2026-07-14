@@ -12,6 +12,7 @@ from typing import Any, cast
 from opentelemetry import trace
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agents_should_survive_failure.metrics import TOOL_CALLS, TOOL_LATENCY
@@ -25,6 +26,7 @@ from agents_should_survive_failure.persistence.models import (
     SyntheticEmailMessage,
     ToolDefinition,
     ToolInvocation,
+    ToolRunBinding,
     Vendor,
 )
 from agents_should_survive_failure.persistence.session import Database
@@ -43,6 +45,10 @@ class ToolInvocationConflictError(ValueError):
 
 
 class ToolUnavailableError(RuntimeError):
+    pass
+
+
+class ToolVersionMismatchError(ToolUnavailableError):
     pass
 
 
@@ -220,6 +226,7 @@ class ToolGateway:
         )
         if tool is None:
             await self._record_unregistered_attempt(
+                session=session,
                 workflow_run_id=workflow_run_id,
                 tool_name=tool_name,
                 tool_version=tool_version,
@@ -265,6 +272,7 @@ class ToolGateway:
             or not set(tool.permissions).issubset(_agent_tool_permissions(agent))
         ):
             await self._record_terminal_attempt(
+                session=session,
                 workflow_run_id=workflow_run_id,
                 tool=tool,
                 idempotency_key=idempotency_key,
@@ -280,6 +288,7 @@ class ToolGateway:
             session, workflow_run_id
         ):
             await self._record_terminal_attempt(
+                session=session,
                 workflow_run_id=workflow_run_id,
                 tool=tool,
                 idempotency_key=idempotency_key,
@@ -294,6 +303,7 @@ class ToolGateway:
         registered = self._registry.get(tool.name)
         if registered is None:
             await self._record_terminal_attempt(
+                session=session,
                 workflow_run_id=workflow_run_id,
                 tool=tool,
                 idempotency_key=idempotency_key,
@@ -309,6 +319,7 @@ class ToolGateway:
             validated_input = registered.input_model.model_validate(arguments)
         except ValidationError as error:
             await self._record_terminal_attempt(
+                session=session,
                 workflow_run_id=workflow_run_id,
                 tool=tool,
                 idempotency_key=idempotency_key,
@@ -320,6 +331,26 @@ class ToolGateway:
             )
             self._observe(metric_name, metric_version, "invalid_input", started)
             raise ToolInputError("tool arguments do not match the registered schema") from error
+        try:
+            await self._pin_tool_version(
+                session,
+                workflow_run_id=workflow_run_id,
+                tool=tool,
+            )
+        except ToolVersionMismatchError:
+            await self._record_terminal_attempt(
+                session=session,
+                workflow_run_id=workflow_run_id,
+                tool=tool,
+                idempotency_key=idempotency_key,
+                arguments=arguments,
+                fingerprint=fingerprint,
+                correlation_id=resolved_correlation_id,
+                status=InvocationStatus.FAILED,
+                error_category="version_mismatch",
+            )
+            self._observe(metric_name, metric_version, "version_mismatch", started)
+            raise
         invocation = ToolInvocation(
             workflow_run_id=workflow_run_id,
             tool_definition_id=tool.id,
@@ -364,12 +395,121 @@ class ToolGateway:
         return ToolResult(result, str(invocation.id))
 
     @staticmethod
+    async def _pin_tool_version(
+        session: AsyncSession,
+        *,
+        workflow_run_id: str,
+        tool: ToolDefinition,
+    ) -> None:
+        """Bind a logical tool name to one immutable definition for the life of a run.
+
+        PostgreSQL's conflict-safe insert makes simultaneous first calls converge on one binding.
+        The following read observes either this transaction's insert or the winning concurrent one.
+        """
+        await session.execute(
+            insert(ToolRunBinding)
+            .values(
+                workflow_run_id=workflow_run_id,
+                tool_name=tool.name,
+                tool_definition_id=tool.id,
+            )
+            .on_conflict_do_nothing(index_elements=["workflow_run_id", "tool_name"])
+        )
+        binding = await session.scalar(
+            select(ToolRunBinding).where(
+                ToolRunBinding.workflow_run_id == workflow_run_id,
+                ToolRunBinding.tool_name == tool.name,
+            )
+        )
+        if binding is None:
+            raise ToolUnavailableError("tool version binding could not be established")
+        if binding.tool_definition_id != tool.id:
+            raise ToolVersionMismatchError("tool version is not pinned for this workflow run")
+
+    @staticmethod
     def _observe(name: str, version: str, outcome: str, started: float) -> None:
         TOOL_CALLS.labels(name, version, outcome).inc()
         TOOL_LATENCY.labels(name, version, outcome).observe(time.perf_counter() - started)
 
     async def _record_terminal_attempt(
         self,
+        *,
+        session: AsyncSession,
+        workflow_run_id: str,
+        tool: ToolDefinition,
+        idempotency_key: str,
+        arguments: dict[str, Any],
+        fingerprint: str,
+        correlation_id: str,
+        status: InvocationStatus,
+        error_category: str,
+    ) -> None:
+        """Persist a terminal attempt in the independent recorder when one is configured."""
+        if self._audit_database is None:
+            await self._add_terminal_attempt(
+                session,
+                workflow_run_id=workflow_run_id,
+                tool=tool,
+                idempotency_key=idempotency_key,
+                arguments=arguments,
+                fingerprint=fingerprint,
+                correlation_id=correlation_id,
+                status=status,
+                error_category=error_category,
+            )
+            return
+        async with self._audit_database.session() as audit_session:
+            await self._add_terminal_attempt(
+                audit_session,
+                workflow_run_id=workflow_run_id,
+                tool=tool,
+                idempotency_key=idempotency_key,
+                arguments=arguments,
+                fingerprint=fingerprint,
+                correlation_id=correlation_id,
+                status=status,
+                error_category=error_category,
+            )
+
+    async def _record_unregistered_attempt(
+        self,
+        *,
+        session: AsyncSession,
+        workflow_run_id: str,
+        tool_name: str,
+        tool_version: str,
+        idempotency_key: str,
+        arguments: dict[str, Any],
+        fingerprint: str,
+        correlation_id: str,
+    ) -> None:
+        if self._audit_database is None:
+            await self._add_unregistered_attempt(
+                session,
+                workflow_run_id=workflow_run_id,
+                tool_name=tool_name,
+                tool_version=tool_version,
+                idempotency_key=idempotency_key,
+                arguments=arguments,
+                fingerprint=fingerprint,
+                correlation_id=correlation_id,
+            )
+            return
+        async with self._audit_database.session() as audit_session:
+            await self._add_unregistered_attempt(
+                audit_session,
+                workflow_run_id=workflow_run_id,
+                tool_name=tool_name,
+                tool_version=tool_version,
+                idempotency_key=idempotency_key,
+                arguments=arguments,
+                fingerprint=fingerprint,
+                correlation_id=correlation_id,
+            )
+
+    @staticmethod
+    async def _add_terminal_attempt(
+        session: AsyncSession,
         *,
         workflow_run_id: str,
         tool: ToolDefinition,
@@ -380,19 +520,14 @@ class ToolGateway:
         status: InvocationStatus,
         error_category: str,
     ) -> None:
-        """Persist rejection evidence even when the calling activity transaction rolls back."""
-        if self._audit_database is None:
-            return
-        async with self._audit_database.session() as audit_session:
-            existing = await audit_session.scalar(
-                select(ToolInvocation).where(
-                    ToolInvocation.workflow_run_id == workflow_run_id,
-                    ToolInvocation.idempotency_key == idempotency_key,
-                )
+        existing = await session.scalar(
+            select(ToolInvocation).where(
+                ToolInvocation.workflow_run_id == workflow_run_id,
+                ToolInvocation.idempotency_key == idempotency_key,
             )
-            if existing is not None:
-                return
-            audit_session.add(
+        )
+        if existing is None:
+            session.add(
                 ToolInvocation(
                     workflow_run_id=workflow_run_id,
                     tool_definition_id=tool.id,
@@ -407,8 +542,9 @@ class ToolGateway:
                 )
             )
 
-    async def _record_unregistered_attempt(
-        self,
+    @staticmethod
+    async def _add_unregistered_attempt(
+        session: AsyncSession,
         *,
         workflow_run_id: str,
         tool_name: str,
@@ -418,30 +554,27 @@ class ToolGateway:
         fingerprint: str,
         correlation_id: str,
     ) -> None:
-        if self._audit_database is None:
-            return
-        async with self._audit_database.session() as audit_session:
-            existing = await audit_session.scalar(
-                select(ToolInvocation).where(
-                    ToolInvocation.workflow_run_id == workflow_run_id,
-                    ToolInvocation.idempotency_key == idempotency_key,
+        existing = await session.scalar(
+            select(ToolInvocation).where(
+                ToolInvocation.workflow_run_id == workflow_run_id,
+                ToolInvocation.idempotency_key == idempotency_key,
+            )
+        )
+        if existing is None:
+            session.add(
+                ToolInvocation(
+                    workflow_run_id=workflow_run_id,
+                    tool_definition_id=None,
+                    requested_tool_name=tool_name,
+                    requested_tool_version=tool_version,
+                    idempotency_key=idempotency_key,
+                    status=InvocationStatus.DENIED,
+                    arguments=arguments,
+                    argument_fingerprint=fingerprint,
+                    correlation_id=correlation_id,
+                    error_category="unregistered_tool",
                 )
             )
-            if existing is None:
-                audit_session.add(
-                    ToolInvocation(
-                        workflow_run_id=workflow_run_id,
-                        tool_definition_id=None,
-                        requested_tool_name=tool_name,
-                        requested_tool_version=tool_version,
-                        idempotency_key=idempotency_key,
-                        status=InvocationStatus.DENIED,
-                        arguments=arguments,
-                        argument_fingerprint=fingerprint,
-                        correlation_id=correlation_id,
-                        error_category="unregistered_tool",
-                    )
-                )
 
     async def _vendor_lookup(
         self, session: AsyncSession, input: BaseModel, invocation: ToolInvocation

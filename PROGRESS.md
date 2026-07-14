@@ -216,3 +216,26 @@ and requires a nonzero result containing `Network is unreachable`. It passed loc
 
 This does not claim hostile-code isolation: Docker remains a limited local execution boundary, and
 resource-pressure, file-escape, and production broker isolation testing remain open.
+
+## 2026-07-15 Phase A6 Tool-Version Pinning Checkpoint
+
+| Check | Result |
+| --- | --- |
+| Static checks | Ruff and Pyright passed with 0 errors |
+| Full unit suite | Passed: 86 tests, 80% coverage |
+| Security suite | Passed: 6 tests |
+| Compose validation | Passed |
+| PostgreSQL tool integration | Passed: 4 tests, including denied-attempt durability, unregistered-tool evidence, and version pinning |
+| Migration lifecycle | Isolated Compose upgrade through `c4d7e8f9a0b1`, downgrade to base, re-upgrade, and `alembic check` passed |
+| Normal stack restoration | API readiness reported PostgreSQL and Temporal `ok` at `c4d7e8f9a0b1` |
+
+The first valid call for a logical tool name now records a `tool_run_bindings` row that points to the
+exact immutable tool definition. PostgreSQL conflict-safe insertion means concurrent first calls
+converge on one binding. A later request for a different version of the same tool name is rejected,
+persisted with `version_mismatch`, and cannot change the run's capability surface. Gateway instances
+without an independent audit database now persist terminal denials in the caller transaction; the
+worker continues to use its independent audit database so denials also survive caller rollback.
+
+This improves the A6 tool-version-pinning criterion. Immutable agent-version registration,
+credential brokering, and the broader SDK capability-negotiation design remain later work; the master
+Phase A release gate is still incomplete.

@@ -243,7 +243,7 @@ async def test_request_limit_rejects_chunked_body_without_content_length() -> No
 
 
 @pytest.mark.asyncio
-async def test_request_limit_replay_keeps_streaming_clients_connected() -> None:
+async def test_request_limit_does_not_wrap_streaming_get_requests() -> None:
     messages: list[Message] = [
         {"type": "http.request", "body": b"", "more_body": False},
     ]
@@ -280,7 +280,7 @@ async def test_request_limit_replay_keeps_streaming_clients_connected() -> None:
         send,
     )
 
-    assert [message["type"] for message in received] == ["http.request", "http.request"]
+    assert [message["type"] for message in received] == ["http.request", "http.disconnect"]
 
 
 def test_versioned_read_contracts_are_exposed_with_deprecated_status_alias() -> None:

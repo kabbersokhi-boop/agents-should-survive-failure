@@ -144,6 +144,9 @@ class RequestBodyLimitMiddleware:
         if scope["type"] != "http":
             await self._app(scope, receive, send)
             return
+        if scope["method"] in {"GET", "HEAD", "OPTIONS"}:
+            await self._app(scope, receive, send)
+            return
 
         messages: list[Message] = []
         body_size = 0

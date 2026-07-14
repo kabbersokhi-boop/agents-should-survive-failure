@@ -206,6 +206,29 @@ async def test_denied_tool_attempt_survives_the_calling_transaction_rollback() -
         assert invocation is not None
         assert invocation.status is InvocationStatus.DENIED
         assert invocation.error_category == "policy_denied"
+        with pytest.raises(RuntimeError):
+            async with database.session() as session:
+                await ToolGateway(database).invoke(
+                    session,
+                    workflow_run_id=str(run_id),
+                    agent_id=str(seed_id("agent:vendor-onboarding:v1")),
+                    tool_name="missing.tool",
+                    tool_version="9",
+                    arguments={"synthetic": True},
+                    idempotency_key="unregistered-tool",
+                )
+        async with database.session() as session:
+            unregistered = await session.scalar(
+                select(ToolInvocation).where(
+                    ToolInvocation.workflow_run_id == run_id,
+                    ToolInvocation.idempotency_key == "unregistered-tool",
+                )
+            )
+        assert unregistered is not None
+        assert unregistered.tool_definition_id is None
+        assert unregistered.requested_tool_name == "missing.tool"
+        assert unregistered.requested_tool_version == "9"
+        assert unregistered.error_category == "unregistered_tool"
     finally:
         await engine.dispose()
 

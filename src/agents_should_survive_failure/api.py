@@ -196,7 +196,9 @@ class ApprovalResponse(BaseModel):
 class ToolInvocationResponse(BaseModel):
     id: UUID
     workflow_run_id: UUID
-    tool_definition_id: UUID
+    tool_definition_id: UUID | None
+    requested_tool_name: str
+    requested_tool_version: str
     status: str
     result_summary: dict[str, object] | None
     error_category: str | None
@@ -757,6 +759,8 @@ async def list_run_tool_calls(
             id=call.id,
             workflow_run_id=call.workflow_run_id,
             tool_definition_id=call.tool_definition_id,
+            requested_tool_name=call.requested_tool_name,
+            requested_tool_version=call.requested_tool_version,
             status=call.status.value,
             result_summary=call.result_summary,
             error_category=call.error_category,

@@ -403,9 +403,11 @@ class ToolInvocation(IdMixin, TimestampMixin, Base):
     workflow_run_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("workflow_runs.id", ondelete="CASCADE"), nullable=False
     )
-    tool_definition_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tool_definitions.id", ondelete="RESTRICT"), nullable=False
+    tool_definition_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("tool_definitions.id", ondelete="RESTRICT"), nullable=True
     )
+    requested_tool_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    requested_tool_version: Mapped[str] = mapped_column(String(40), nullable=False)
     idempotency_key: Mapped[str] = mapped_column(String(240), nullable=False)
     status: Mapped[InvocationStatus] = mapped_column(
         Enum(InvocationStatus, name="invocation_status"), nullable=False

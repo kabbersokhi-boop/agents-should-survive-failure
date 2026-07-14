@@ -203,6 +203,7 @@ Policy-denied, approval-required, malformed-input, and missing-handler attempts 
 separate transaction before their caller raises. A rollback-focused PostgreSQL integration test
 proves that a policy-denied attempt remains visible after the calling transaction is rolled back.
 
-This does not complete A6: unregistered tool names cannot yet be recorded because the current
-invocation schema requires a registered tool-definition foreign key, and the full tool version
-pinning/credential-broker release audit remains open.
+Unregistered tool attempts now have a nullable definition reference plus immutable requested name
+and version evidence; the migration was applied successfully to the local stack and the same
+rollback-focused PostgreSQL test proves that record survives. This does not complete A6: the full
+tool version-pinning and credential-broker release audit remains open.

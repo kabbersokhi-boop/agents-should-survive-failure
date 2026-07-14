@@ -219,6 +219,15 @@ class ToolGateway:
             )
         )
         if tool is None:
+            await self._record_unregistered_attempt(
+                workflow_run_id=workflow_run_id,
+                tool_name=tool_name,
+                tool_version=tool_version,
+                idempotency_key=idempotency_key,
+                arguments=arguments,
+                fingerprint=canonical_argument_fingerprint(arguments),
+                correlation_id=correlation_id or f"{workflow_run_id}:{idempotency_key}",
+            )
             self._observe("unregistered", "unknown", "unavailable", started)
             raise ToolUnavailableError("requested tool version is not registered")
         metric_name, metric_version = tool.name, tool.version
@@ -314,6 +323,8 @@ class ToolGateway:
         invocation = ToolInvocation(
             workflow_run_id=workflow_run_id,
             tool_definition_id=tool.id,
+            requested_tool_name=tool.name,
+            requested_tool_version=tool.version,
             idempotency_key=idempotency_key,
             status=InvocationStatus.PENDING,
             arguments=arguments,
@@ -385,6 +396,8 @@ class ToolGateway:
                 ToolInvocation(
                     workflow_run_id=workflow_run_id,
                     tool_definition_id=tool.id,
+                    requested_tool_name=tool.name,
+                    requested_tool_version=tool.version,
                     idempotency_key=idempotency_key,
                     status=status,
                     arguments=arguments,
@@ -393,6 +406,42 @@ class ToolGateway:
                     error_category=error_category,
                 )
             )
+
+    async def _record_unregistered_attempt(
+        self,
+        *,
+        workflow_run_id: str,
+        tool_name: str,
+        tool_version: str,
+        idempotency_key: str,
+        arguments: dict[str, Any],
+        fingerprint: str,
+        correlation_id: str,
+    ) -> None:
+        if self._audit_database is None:
+            return
+        async with self._audit_database.session() as audit_session:
+            existing = await audit_session.scalar(
+                select(ToolInvocation).where(
+                    ToolInvocation.workflow_run_id == workflow_run_id,
+                    ToolInvocation.idempotency_key == idempotency_key,
+                )
+            )
+            if existing is None:
+                audit_session.add(
+                    ToolInvocation(
+                        workflow_run_id=workflow_run_id,
+                        tool_definition_id=None,
+                        requested_tool_name=tool_name,
+                        requested_tool_version=tool_version,
+                        idempotency_key=idempotency_key,
+                        status=InvocationStatus.DENIED,
+                        arguments=arguments,
+                        argument_fingerprint=fingerprint,
+                        correlation_id=correlation_id,
+                        error_category="unregistered_tool",
+                    )
+                )
 
     async def _vendor_lookup(
         self, session: AsyncSession, input: BaseModel, invocation: ToolInvocation

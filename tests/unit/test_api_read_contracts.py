@@ -104,6 +104,8 @@ async def test_run_read_collections_map_events_approvals_models_and_tools() -> N
         id=ITEM_ID,
         workflow_run_id=RUN_ID,
         tool_definition_id=ITEM_ID,
+        requested_tool_name="vendor_database_query",
+        requested_tool_version="1",
         status=SimpleNamespace(value="succeeded"),
         result_summary={"found": True},
         error_category=None,

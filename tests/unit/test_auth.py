@@ -38,7 +38,10 @@ def test_api_key_verifier_rejects_tampering_and_malformed_values() -> None:
 
 
 def test_scope_validation_and_admin_authorization() -> None:
-    assert validate_scopes(["runs:read", "runs:read"]) == ["runs:read"]
+    assert validate_scopes(["runs:read", "agents:write", "runs:read"]) == [
+        "agents:write",
+        "runs:read",
+    ]
     with pytest.raises(ValueError, match="Unsupported"):
         validate_scopes(["runs:root"])
 

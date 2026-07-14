@@ -17,6 +17,7 @@ API_KEY_SCOPES = frozenset(
     {
         "admin",
         "agents:read",
+        "agents:write",
         "approvals:decide",
         "approvals:read",
         "evaluations:execute",

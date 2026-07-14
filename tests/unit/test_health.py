@@ -1,3 +1,4 @@
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from typing import cast
@@ -10,6 +11,7 @@ from starlette.requests import Request
 from starlette.types import ASGIApp, Message
 
 from agents_should_survive_failure.api import (
+    RequestBodyLimitMiddleware,
     audit_authorization_denial,
     create_app,
     get_authenticated_principal,
@@ -238,6 +240,47 @@ async def test_request_limit_rejects_chunked_body_without_content_length() -> No
         if message["type"] == "http.response.body" and "body" in message
     )
     assert b'"code":"payload_too_large"' in body
+
+
+@pytest.mark.asyncio
+async def test_request_limit_replay_keeps_streaming_clients_connected() -> None:
+    messages: list[Message] = [
+        {"type": "http.request", "body": b"", "more_body": False},
+    ]
+    received: list[Message] = []
+
+    async def receive() -> Message:
+        return messages.pop(0) if messages else {"type": "http.disconnect"}
+
+    async def send(message: Message) -> None:
+        del message
+
+    async def streaming_app(scope: object, replay_receive: object, send_: object) -> None:
+        del scope, send_
+        replay = cast(Callable[[], Awaitable[Message]], replay_receive)
+        received.append(await replay())
+        received.append(await replay())
+
+    middleware = RequestBodyLimitMiddleware(cast(ASGIApp, streaming_app), max_body_bytes=1_024)
+    await middleware(
+        {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/events",
+            "raw_path": b"/events",
+            "query_string": b"",
+            "headers": [],
+            "client": ("127.0.0.1", 1234),
+            "server": ("testserver", 80),
+        },
+        receive,
+        send,
+    )
+
+    assert [message["type"] for message in received] == ["http.request", "http.request"]
 
 
 def test_versioned_read_contracts_are_exposed_with_deprecated_status_alias() -> None:

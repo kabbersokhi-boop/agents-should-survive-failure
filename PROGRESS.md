@@ -318,3 +318,11 @@ an idempotency test token, not credential material. The current fixture was rena
 one exact-token allow-list entry solely so its history scan can pass without rewriting published
 history. The unsafe historical `.env` allow-list remains absent. `make secret-scan` passed after
 the correction.
+
+## 2026-07-15 Release Gate SSE Regression Correction
+
+The first captured integration gate found that the request-body replay middleware returned a
+synthetic disconnect after an empty GET body. That caused an active SSE client to stop polling
+before persisted events arrived. The replay now returns an empty request message instead, and a
+focused middleware test protects that streaming-client behavior. The full gate must be rerun after
+this correction.

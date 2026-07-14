@@ -181,7 +181,9 @@ class RequestBodyLimitMiddleware:
         async def replay_receive() -> Message:
             if messages:
                 return messages.pop(0)
-            return {"type": "http.disconnect"}
+            # A streaming endpoint may ask whether its client disconnected after the request body
+            # has been consumed. Returning a synthetic disconnect here would prematurely end SSE.
+            return {"type": "http.request", "body": b"", "more_body": False}
 
         await self._app(scope, replay_receive, send)
 

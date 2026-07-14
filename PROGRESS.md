@@ -239,3 +239,15 @@ worker continues to use its independent audit database so denials also survive c
 This improves the A6 tool-version-pinning criterion. Immutable agent-version registration,
 credential brokering, and the broader SDK capability-negotiation design remain later work; the master
 Phase A release gate is still incomplete.
+
+## 2026-07-15 Phase A2 SDK Read-Contract Checkpoint
+
+The versioned API now has SDK-suitable offset-paginated global list endpoints and matching detail
+endpoints for workflow events, approvals, model calls, tool calls, agents, and evaluations. Existing
+run-scoped evidence, list, and SSE endpoints remain available. Every new endpoint is under
+`/api/v1`, uses the appropriate existing read scope, bounds `limit` to 100 and `offset` to 10,000,
+and is represented in the OpenAPI schema.
+
+Focused API contract tests passed for route exposure, response mapping, pagination shapes, and
+detail retrieval. This closes the previously recorded A2 list/detail surface gap. API ownership
+scoping and any future cursor migration remain separate SDK/control-plane design work.

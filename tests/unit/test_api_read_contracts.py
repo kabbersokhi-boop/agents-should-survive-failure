@@ -31,8 +31,7 @@ class Session:
         return Scalars(self.result_sets.pop(0))
 
     async def get(self, model: object, identifier: UUID) -> object | None:
-        del model
-        assert identifier == RUN_ID
+        del model, identifier
         return self.model
 
 
@@ -128,3 +127,87 @@ async def test_run_read_collections_map_events_approvals_models_and_tools() -> N
     assert approvals[0].status == "pending"
     assert models[0].explanation_summary == "Bounded"
     assert tools[0].result_summary == {"found": True}
+
+
+@pytest.mark.asyncio
+async def test_global_read_pages_and_details_map_sdk_evidence_contracts() -> None:
+    event = SimpleNamespace(
+        id=ITEM_ID,
+        workflow_run_id=RUN_ID,
+        sequence=10,
+        event_type="review.started",
+        summary="Started",
+        payload={},
+    )
+    approval = SimpleNamespace(
+        id=ITEM_ID,
+        workflow_run_id=RUN_ID,
+        request_key="final-decision",
+        status=SimpleNamespace(value="pending"),
+        summary="Review",
+        version=1,
+    )
+    model_call = SimpleNamespace(
+        id=ITEM_ID,
+        workflow_run_id=RUN_ID,
+        provider="deterministic_mock",
+        model="deterministic-explainer-v1",
+        correlation_id="test",
+        status=SimpleNamespace(value="succeeded"),
+        input_tokens=1,
+        output_tokens=1,
+        latency_ms=1,
+        error_category=None,
+        decision_summary="Bounded",
+    )
+    tool_call = SimpleNamespace(
+        id=ITEM_ID,
+        workflow_run_id=RUN_ID,
+        tool_definition_id=ITEM_ID,
+        requested_tool_name="vendor_database_query",
+        requested_tool_version="1",
+        status=SimpleNamespace(value="succeeded"),
+        result_summary={"found": True},
+        error_category=None,
+    )
+    evaluation = SimpleNamespace(
+        id=ITEM_ID,
+        status=SimpleNamespace(value="succeeded"),
+        configuration={"provider": "deterministic"},
+    )
+    agent = SimpleNamespace(
+        id=ITEM_ID,
+        name="vendor-onboarding",
+        version="1",
+        workflow_type="vendor_onboarding",
+        status=SimpleNamespace(value="active"),
+        configuration={"durable": True},
+    )
+
+    events = await api.list_events(cast(Database, FakeDatabase(Session([[event]]))))
+    approvals = await api.list_approvals(cast(Database, FakeDatabase(Session([[approval]]))))
+    models = await api.list_model_calls(cast(Database, FakeDatabase(Session([[model_call]]))))
+    tools = await api.list_tool_calls(cast(Database, FakeDatabase(Session([[tool_call]]))))
+    evaluations = await api.list_evaluations(cast(Database, FakeDatabase(Session([[evaluation]]))))
+
+    assert events.items[0].id == ITEM_ID
+    assert approvals.items[0].workflow_run_id == RUN_ID
+    assert models.items[0].provider == "deterministic_mock"
+    assert tools.items[0].requested_tool_version == "1"
+    assert evaluations.items[0].status == "succeeded"
+    assert (
+        await api.agent_detail(ITEM_ID, cast(Database, FakeDatabase(Session([], agent))))
+    ).id == ITEM_ID
+
+    assert (
+        await api.event_detail(ITEM_ID, cast(Database, FakeDatabase(Session([], event))))
+    ).id == ITEM_ID
+    assert (
+        await api.approval_detail(ITEM_ID, cast(Database, FakeDatabase(Session([], approval))))
+    ).id == ITEM_ID
+    assert (
+        await api.model_call_detail(ITEM_ID, cast(Database, FakeDatabase(Session([], model_call))))
+    ).id == ITEM_ID
+    assert (
+        await api.tool_call_detail(ITEM_ID, cast(Database, FakeDatabase(Session([], tool_call))))
+    ).id == ITEM_ID

@@ -193,6 +193,12 @@ class ApprovalResponse(BaseModel):
     version: int
 
 
+class ApprovalPage(BaseModel):
+    items: list[ApprovalResponse]
+    limit: int
+    offset: int
+
+
 class ToolInvocationResponse(BaseModel):
     id: UUID
     workflow_run_id: UUID
@@ -204,11 +210,28 @@ class ToolInvocationResponse(BaseModel):
     error_category: str | None
 
 
+class ToolInvocationPage(BaseModel):
+    items: list[ToolInvocationResponse]
+    limit: int
+    offset: int
+
+
 class WorkflowEventEvidence(BaseModel):
     sequence: int
     event_type: str
     summary: str
     payload: dict[str, object]
+
+
+class WorkflowEventResponse(WorkflowEventEvidence):
+    id: UUID
+    workflow_run_id: UUID
+
+
+class WorkflowEventPage(BaseModel):
+    items: list[WorkflowEventResponse]
+    limit: int
+    offset: int
 
 
 class ModelCallEvidence(BaseModel):
@@ -226,6 +249,12 @@ class ModelCallEvidence(BaseModel):
 class ModelCallResponse(ModelCallEvidence):
     id: UUID
     workflow_run_id: UUID
+
+
+class ModelCallPage(BaseModel):
+    items: list[ModelCallResponse]
+    limit: int
+    offset: int
 
 
 class WorkflowEvidenceResponse(BaseModel):
@@ -246,6 +275,18 @@ class EvaluationReportResponse(BaseModel):
     status: str
     configuration: dict[str, object]
     results: list[EvaluationResultReport]
+
+
+class EvaluationRunResponse(BaseModel):
+    id: UUID
+    status: str
+    configuration: dict[str, object]
+
+
+class EvaluationRunPage(BaseModel):
+    items: list[EvaluationRunResponse]
+    limit: int
+    offset: int
 
 
 class ApprovalRequestBody(StrictRequestModel):
@@ -540,6 +581,68 @@ def workflow_run_response(run: WorkflowRun) -> WorkflowRunDetailResponse:
     )
 
 
+def agent_response(agent: Agent) -> AgentResponse:
+    return AgentResponse(
+        id=agent.id,
+        name=agent.name,
+        version=agent.version,
+        workflow_type=agent.workflow_type,
+        status=agent.status.value,
+        configuration=agent.configuration,
+    )
+
+
+def workflow_event_response(event: WorkflowEvent) -> WorkflowEventResponse:
+    return WorkflowEventResponse(
+        id=event.id,
+        workflow_run_id=event.workflow_run_id,
+        sequence=event.sequence,
+        event_type=event.event_type,
+        summary=event.summary,
+        payload=event.payload,
+    )
+
+
+def approval_response(approval: ApprovalRequest) -> ApprovalResponse:
+    return ApprovalResponse(
+        id=approval.id,
+        workflow_run_id=approval.workflow_run_id,
+        request_key=approval.request_key,
+        status=approval.status.value,
+        summary=approval.summary,
+        version=approval.version,
+    )
+
+
+def model_call_response(call: ModelCall) -> ModelCallResponse:
+    return ModelCallResponse(
+        id=call.id,
+        workflow_run_id=call.workflow_run_id,
+        provider=call.provider,
+        model=call.model,
+        correlation_id=call.correlation_id,
+        status=call.status.value,
+        input_tokens=call.input_tokens,
+        output_tokens=call.output_tokens,
+        latency_ms=call.latency_ms,
+        error_category=call.error_category,
+        explanation_summary=call.decision_summary,
+    )
+
+
+def tool_invocation_response(call: ToolInvocation) -> ToolInvocationResponse:
+    return ToolInvocationResponse(
+        id=call.id,
+        workflow_run_id=call.workflow_run_id,
+        tool_definition_id=call.tool_definition_id,
+        requested_tool_name=call.requested_tool_name,
+        requested_tool_version=call.requested_tool_version,
+        status=call.status.value,
+        result_summary=call.result_summary,
+        error_category=call.error_category,
+    )
+
+
 async def list_workflow_runs(
     database: Annotated[Database, Depends(get_database)],
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
@@ -589,6 +692,37 @@ async def list_run_events(
         )
         for event in events
     ]
+
+
+async def list_events(
+    database: Annotated[Database, Depends(get_database)],
+    workflow_run_id: UUID | None = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0, le=10_000)] = 0,
+) -> WorkflowEventPage:
+    statement = select(WorkflowEvent).order_by(
+        WorkflowEvent.occurred_at.desc(), WorkflowEvent.id.desc()
+    )
+    if workflow_run_id is not None:
+        statement = statement.where(WorkflowEvent.workflow_run_id == workflow_run_id)
+    async with database.session() as session:
+        events = (await session.scalars(statement.limit(limit).offset(offset))).all()
+    return WorkflowEventPage(
+        items=[workflow_event_response(event) for event in events], limit=limit, offset=offset
+    )
+
+
+async def event_detail(
+    event_id: UUID,
+    database: Annotated[Database, Depends(get_database)],
+) -> WorkflowEventResponse:
+    async with database.session() as session:
+        event = await session.get(WorkflowEvent, event_id)
+    if event is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="workflow event not found"
+        )
+    return workflow_event_response(event)
 
 
 def event_stream_cursor(request: Request, after_sequence: int) -> int:
@@ -671,20 +805,21 @@ async def list_agents(
             )
         ).all()
     return AgentPage(
-        items=[
-            AgentResponse(
-                id=agent.id,
-                name=agent.name,
-                version=agent.version,
-                workflow_type=agent.workflow_type,
-                status=agent.status.value,
-                configuration=agent.configuration,
-            )
-            for agent in agents
-        ],
+        items=[agent_response(agent) for agent in agents],
         limit=limit,
         offset=offset,
     )
+
+
+async def agent_detail(
+    agent_id: UUID,
+    database: Annotated[Database, Depends(get_database)],
+) -> AgentResponse:
+    async with database.session() as session:
+        agent = await session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="agent not found")
+    return agent_response(agent)
 
 
 async def list_run_approvals(
@@ -699,17 +834,38 @@ async def list_run_approvals(
                 .order_by(ApprovalRequest.created_at)
             )
         ).all()
-    return [
-        ApprovalResponse(
-            id=approval.id,
-            workflow_run_id=approval.workflow_run_id,
-            request_key=approval.request_key,
-            status=approval.status.value,
-            summary=approval.summary,
-            version=approval.version,
+    return [approval_response(approval) for approval in approvals]
+
+
+async def list_approvals(
+    database: Annotated[Database, Depends(get_database)],
+    workflow_run_id: UUID | None = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0, le=10_000)] = 0,
+) -> ApprovalPage:
+    statement = select(ApprovalRequest).order_by(
+        ApprovalRequest.created_at.desc(), ApprovalRequest.id.desc()
+    )
+    if workflow_run_id is not None:
+        statement = statement.where(ApprovalRequest.workflow_run_id == workflow_run_id)
+    async with database.session() as session:
+        approvals = (await session.scalars(statement.limit(limit).offset(offset))).all()
+    return ApprovalPage(
+        items=[approval_response(approval) for approval in approvals], limit=limit, offset=offset
+    )
+
+
+async def approval_detail(
+    approval_id: UUID,
+    database: Annotated[Database, Depends(get_database)],
+) -> ApprovalResponse:
+    async with database.session() as session:
+        approval = await session.get(ApprovalRequest, approval_id)
+    if approval is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="approval request not found"
         )
-        for approval in approvals
-    ]
+    return approval_response(approval)
 
 
 async def list_run_model_calls(
@@ -724,22 +880,34 @@ async def list_run_model_calls(
                 .order_by(ModelCall.created_at)
             )
         ).all()
-    return [
-        ModelCallResponse(
-            id=call.id,
-            workflow_run_id=call.workflow_run_id,
-            provider=call.provider,
-            model=call.model,
-            correlation_id=call.correlation_id,
-            status=call.status.value,
-            input_tokens=call.input_tokens,
-            output_tokens=call.output_tokens,
-            latency_ms=call.latency_ms,
-            error_category=call.error_category,
-            explanation_summary=call.decision_summary,
-        )
-        for call in calls
-    ]
+    return [model_call_response(call) for call in calls]
+
+
+async def list_model_calls(
+    database: Annotated[Database, Depends(get_database)],
+    workflow_run_id: UUID | None = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0, le=10_000)] = 0,
+) -> ModelCallPage:
+    statement = select(ModelCall).order_by(ModelCall.created_at.desc(), ModelCall.id.desc())
+    if workflow_run_id is not None:
+        statement = statement.where(ModelCall.workflow_run_id == workflow_run_id)
+    async with database.session() as session:
+        calls = (await session.scalars(statement.limit(limit).offset(offset))).all()
+    return ModelCallPage(
+        items=[model_call_response(call) for call in calls], limit=limit, offset=offset
+    )
+
+
+async def model_call_detail(
+    model_call_id: UUID,
+    database: Annotated[Database, Depends(get_database)],
+) -> ModelCallResponse:
+    async with database.session() as session:
+        call = await session.get(ModelCall, model_call_id)
+    if call is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="model call not found")
+    return model_call_response(call)
 
 
 async def list_run_tool_calls(
@@ -754,19 +922,38 @@ async def list_run_tool_calls(
                 .order_by(ToolInvocation.created_at)
             )
         ).all()
-    return [
-        ToolInvocationResponse(
-            id=call.id,
-            workflow_run_id=call.workflow_run_id,
-            tool_definition_id=call.tool_definition_id,
-            requested_tool_name=call.requested_tool_name,
-            requested_tool_version=call.requested_tool_version,
-            status=call.status.value,
-            result_summary=call.result_summary,
-            error_category=call.error_category,
+    return [tool_invocation_response(call) for call in calls]
+
+
+async def list_tool_calls(
+    database: Annotated[Database, Depends(get_database)],
+    workflow_run_id: UUID | None = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0, le=10_000)] = 0,
+) -> ToolInvocationPage:
+    statement = select(ToolInvocation).order_by(
+        ToolInvocation.created_at.desc(), ToolInvocation.id.desc()
+    )
+    if workflow_run_id is not None:
+        statement = statement.where(ToolInvocation.workflow_run_id == workflow_run_id)
+    async with database.session() as session:
+        calls = (await session.scalars(statement.limit(limit).offset(offset))).all()
+    return ToolInvocationPage(
+        items=[tool_invocation_response(call) for call in calls], limit=limit, offset=offset
+    )
+
+
+async def tool_call_detail(
+    tool_call_id: UUID,
+    database: Annotated[Database, Depends(get_database)],
+) -> ToolInvocationResponse:
+    async with database.session() as session:
+        call = await session.get(ToolInvocation, tool_call_id)
+    if call is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="tool invocation not found"
         )
-        for call in calls
-    ]
+    return tool_invocation_response(call)
 
 
 async def onboarding_evidence(
@@ -849,6 +1036,34 @@ async def evaluation_report(
             )
             for result in results
         ],
+    )
+
+
+async def list_evaluations(
+    database: Annotated[Database, Depends(get_database)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0, le=10_000)] = 0,
+) -> EvaluationRunPage:
+    async with database.session() as session:
+        runs = (
+            await session.scalars(
+                select(EvaluationRun)
+                .order_by(EvaluationRun.created_at.desc(), EvaluationRun.id.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+        ).all()
+    return EvaluationRunPage(
+        items=[
+            EvaluationRunResponse(
+                id=run.id,
+                status=run.status.value,
+                configuration=run.configuration,
+            )
+            for run in runs
+        ],
+        limit=limit,
+        offset=offset,
     )
 
 
@@ -985,6 +1200,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         dependencies=[Depends(require_scopes("runs:read"))],
     )
     app.add_api_route(
+        "/api/v1/events",
+        list_events,
+        methods=["GET"],
+        response_model=WorkflowEventPage,
+        dependencies=[Depends(require_scopes("runs:read"))],
+    )
+    app.add_api_route(
+        "/api/v1/events/{event_id}",
+        event_detail,
+        methods=["GET"],
+        response_model=WorkflowEventResponse,
+        dependencies=[Depends(require_scopes("runs:read"))],
+    )
+    app.add_api_route(
         "/api/v1/workflow-runs/{run_id}/events/stream",
         stream_run_events,
         methods=["GET"],
@@ -998,10 +1227,38 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         dependencies=[Depends(require_scopes("approvals:read"))],
     )
     app.add_api_route(
+        "/api/v1/approvals",
+        list_approvals,
+        methods=["GET"],
+        response_model=ApprovalPage,
+        dependencies=[Depends(require_scopes("approvals:read"))],
+    )
+    app.add_api_route(
+        "/api/v1/approvals/{approval_id}",
+        approval_detail,
+        methods=["GET"],
+        response_model=ApprovalResponse,
+        dependencies=[Depends(require_scopes("approvals:read"))],
+    )
+    app.add_api_route(
         "/api/v1/workflow-runs/{run_id}/model-calls",
         list_run_model_calls,
         methods=["GET"],
         response_model=list[ModelCallResponse],
+        dependencies=[Depends(require_scopes("runs:read"))],
+    )
+    app.add_api_route(
+        "/api/v1/model-calls",
+        list_model_calls,
+        methods=["GET"],
+        response_model=ModelCallPage,
+        dependencies=[Depends(require_scopes("runs:read"))],
+    )
+    app.add_api_route(
+        "/api/v1/model-calls/{model_call_id}",
+        model_call_detail,
+        methods=["GET"],
+        response_model=ModelCallResponse,
         dependencies=[Depends(require_scopes("runs:read"))],
     )
     app.add_api_route(
@@ -1012,10 +1269,31 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         dependencies=[Depends(require_scopes("runs:read"))],
     )
     app.add_api_route(
+        "/api/v1/tool-calls",
+        list_tool_calls,
+        methods=["GET"],
+        response_model=ToolInvocationPage,
+        dependencies=[Depends(require_scopes("runs:read"))],
+    )
+    app.add_api_route(
+        "/api/v1/tool-calls/{tool_call_id}",
+        tool_call_detail,
+        methods=["GET"],
+        response_model=ToolInvocationResponse,
+        dependencies=[Depends(require_scopes("runs:read"))],
+    )
+    app.add_api_route(
         "/api/v1/agents",
         list_agents,
         methods=["GET"],
         response_model=AgentPage,
+        dependencies=[Depends(require_scopes("agents:read"))],
+    )
+    app.add_api_route(
+        "/api/v1/agents/{agent_id}",
+        agent_detail,
+        methods=["GET"],
+        response_model=AgentResponse,
         dependencies=[Depends(require_scopes("agents:read"))],
     )
     add_v1_route(
@@ -1031,6 +1309,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         methods=["GET"],
         scopes=("evaluations:read",),
         response_model=EvaluationReportResponse,
+    )
+    app.add_api_route(
+        "/api/v1/evaluations",
+        list_evaluations,
+        methods=["GET"],
+        response_model=EvaluationRunPage,
+        dependencies=[Depends(require_scopes("evaluations:read"))],
+    )
+    app.add_api_route(
+        "/api/v1/evaluations/{evaluation_run_id}",
+        evaluation_report,
+        methods=["GET"],
+        response_model=EvaluationReportResponse,
+        dependencies=[Depends(require_scopes("evaluations:read"))],
     )
     add_v1_route(
         "/workflow-runs/{run_id}",

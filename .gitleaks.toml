@@ -2,3 +2,10 @@ title = "Agents Should Survive Failure secret scanning"
 
 [extend]
 useDefault = true
+
+# Historical test-only idempotency token, not credential material. This precise exception is kept
+# because scans include published history; it does not suppress .env or generic API-key scanning.
+[allowlist]
+regexes = [
+  '''temporal-decision-1''',
+]

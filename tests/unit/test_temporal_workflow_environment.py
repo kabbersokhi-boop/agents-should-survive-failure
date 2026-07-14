@@ -99,9 +99,9 @@ async def test_temporal_update_resolves_a_real_durable_approval_wait() -> None:
                 decision=ApprovalDecisionType.APPROVED,
                 decided_by_id="00000000-0000-0000-0000-000000000001",
                 rationale="approved by the test principal",
-                idempotency_key="temporal-decision-1",
+                idempotency_key="test-approval-update",
             ),
-            id="temporal-decision-1",
+            id="test-approval-update",
         )
 
         assert await handle.result() is ApprovalDecisionType.APPROVED

@@ -310,3 +310,11 @@ the configured non-root container UID. The broker now makes only that disposable
 for the workload. Real-container tests pass for network denial, UID `65532`, workspace writes, and
 root-filesystem write denial; command-construction tests continue to prove CPU, memory, process,
 environment, output, and cleanup controls.
+
+## 2026-07-15 Release Gate Secret-Scan Correction
+
+The first full gate run reported one generic-key match in a historical Temporal test fixture. It was
+an idempotency test token, not credential material. The current fixture was renamed and Gitleaks has
+one exact-token allow-list entry solely so its history scan can pass without rewriting published
+history. The unsafe historical `.env` allow-list remains absent. `make secret-scan` passed after
+the correction.

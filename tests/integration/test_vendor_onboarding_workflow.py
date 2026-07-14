@@ -284,6 +284,13 @@ async def test_workflow_event_stream_replays_persisted_evidence() -> None:
             assert response.json()["phase"] == "waiting_for_approval"
 
         await eventually(waiting_for_approval)
+
+        async def approval_event_is_persisted() -> None:
+            response = await client.get(f"/api/v1/workflow-runs/{run_id}/events")
+            response.raise_for_status()
+            assert any(event["event_type"] == "approval.requested" for event in response.json())
+
+        await eventually(approval_event_is_persisted)
         received_event: dict[str, Any] | None = None
         async with client.stream(
             "GET", f"/api/v1/workflow-runs/{run_id}/events/stream?after_sequence=0"

@@ -326,3 +326,10 @@ synthetic disconnect after an empty GET body. That caused an active SSE client t
 before persisted events arrived. The replay now returns an empty request message instead, and a
 focused middleware test protects that streaming-client behavior. The full gate must be rerun after
 this correction.
+
+## 2026-07-15 Release Gate Persisted-Evidence Replay Correction
+
+The rerun exposed a test race: Temporal reports its in-memory waiting phase before the asynchronous
+approval activity has committed the `approval.requested` event. The SSE integration test now waits
+for that persisted event before asserting the stream replays it, which is the endpoint's actual
+persisted-evidence contract. Ruff and Pyright passed; the complete gate must be rerun again.

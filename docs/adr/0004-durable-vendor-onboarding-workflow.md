@@ -16,11 +16,14 @@ uses named, retrying activities with a three-attempt retry policy. Activities ow
 transactions and apply idempotent transitions: start review, calculate a deterministic jurisdiction
 risk score, create one approval request, record an approval or rejection, or cancel the run.
 
-The workflow exposes a query for its phase and approval-request identifier. It accepts durable
-`decide` and `cancel` signals. A decision signal includes an approver identity and idempotency key;
-the database stores the decision, event, audit entry, and approved-vendor projection atomically.
-The API creates submitted vendors, starts runs by idempotency key, sends approval or cancellation
-signals, and queries workflow status. It does not implement workflow state transitions itself.
+The workflow exposes a query for its phase and approval-request identifier. It accepts a validated
+Temporal `decide` Update and a `cancel` signal. The Update validator rejects decisions before the
+workflow reaches a pending approval boundary, for a different approval request, after cancellation,
+or after a conflicting decision. It is addressed with the caller's idempotency key. A decision
+includes an authenticated approver identity and idempotency key; the database stores the decision,
+event, audit entry, and approved-vendor projection atomically. The API creates submitted vendors,
+starts runs by idempotency key, invokes the approval Update or cancellation signal, and queries
+workflow status. It does not implement workflow state transitions itself.
 
 ## Consequences
 

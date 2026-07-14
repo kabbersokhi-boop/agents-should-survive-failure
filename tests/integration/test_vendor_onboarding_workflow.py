@@ -47,7 +47,7 @@ async def test_vendor_onboarding_survives_worker_restart_and_records_approval() 
     reference = f"workflow-{uuid.uuid4()}"
     idempotency_key = f"onboarding-{uuid.uuid4()}"
     async with httpx.AsyncClient(
-        base_url="http://127.0.0.1:8000", timeout=5, headers=auth_headers()
+        base_url="http://127.0.0.1:8000", timeout=15, headers=auth_headers()
     ) as client:
         created = await client.post(
             "/vendors",
@@ -194,7 +194,7 @@ async def test_vendor_onboarding_survives_worker_restart_and_records_approval() 
 @pytest.mark.asyncio
 async def test_vendor_onboarding_cancellation_is_durable() -> None:
     async with httpx.AsyncClient(
-        base_url="http://127.0.0.1:8000", timeout=5, headers=auth_headers()
+        base_url="http://127.0.0.1:8000", timeout=15, headers=auth_headers()
     ) as client:
         created = await client.post(
             "/vendors",

@@ -13,6 +13,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, Counter, generate_latest
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from temporalio.client import WorkflowUpdateFailedError, WorkflowUpdateRPCTimeoutOrCancelledError
 
 from agents_should_survive_failure.auth import AuthenticatedPrincipal, resolve_api_key
 from agents_should_survive_failure.dependencies import (
@@ -475,17 +476,31 @@ async def decide_onboarding(
         temporal_workflow_id = run.temporal_workflow_id
     resources: RuntimeResources = request.app.state.resources
     handle = resources.temporal_client.get_workflow_handle(temporal_workflow_id)
-    await handle.signal(
-        VendorOnboardingWorkflow.decide,
-        ApprovalDecisionInput(
-            approval_request_id=str(payload.approval_request_id),
-            expected_version=payload.expected_version,
-            decision=payload.decision,
-            decided_by_id=str(principal.id),
-            rationale=payload.rationale,
-            idempotency_key=payload.idempotency_key,
-        ),
+    decision = ApprovalDecisionInput(
+        approval_request_id=str(payload.approval_request_id),
+        expected_version=payload.expected_version,
+        decision=payload.decision,
+        decided_by_id=str(principal.id),
+        rationale=payload.rationale,
+        idempotency_key=payload.idempotency_key,
     )
+    try:
+        await handle.execute_update(  # pyright: ignore[reportUnknownMemberType]
+            "decide",
+            decision,
+            id=payload.idempotency_key,
+        )
+    except WorkflowUpdateFailedError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="approval decision is no longer valid for the workflow state",
+        ) from None
+    except WorkflowUpdateRPCTimeoutOrCancelledError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="approval decision outcome is unknown; retry with the same idempotency key",
+            headers={"Retry-After": "1"},
+        ) from None
     return Response(status_code=status.HTTP_202_ACCEPTED)
 
 

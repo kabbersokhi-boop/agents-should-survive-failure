@@ -157,3 +157,23 @@ This completes the A10 security checkpoint for currently implemented surfaces. I
 master Phase A release gate complete: the API/approval/tool/MCP/sandbox/evaluation acceptance gaps
 recorded in the prior checkpoints remain, especially no real 20-case workflow evaluator and no
 adversarial tests for unimplemented artifact/checkpoint APIs. Phase B and C-F remain open.
+
+## 2026-07-15 Phase A5 Approval-Boundary Checkpoint
+
+Checked-out worktree: pending commit.
+
+| Check | Result |
+| --- | --- |
+| Workflow approval boundary | `decide` is a Temporal Update with a workflow-side validator, not a fire-and-forget signal |
+| Validator tests | Passed: early, cancelled, mismatched, idempotent-retry, and conflicting decision states |
+| API tests | Passed: authenticated principal identity is forwarded to a deterministic update ID; rejected update maps to `409` |
+| Compose workflow test | Passed: approved run survived a worker restart and completed its single synthetic-email side effect; cancellation also passed |
+| Focused static checks | Ruff and Pyright passed with 0 errors |
+
+The approval endpoint now waits for Temporal to validate the Update before returning `202`. A
+worker-side rejection returns a safe `409`; an RPC timeout returns `503` and directs the caller to
+retry the same idempotency key. PostgreSQL remains the transaction owner for the decision, audit
+event, terminal run state, and at-most-once approved-vendor projection.
+
+This is not full A5 acceptance: broader Temporal test-environment coverage and a complete
+adversarial decision matrix remain required, including terminal-state and concurrent-request cases.

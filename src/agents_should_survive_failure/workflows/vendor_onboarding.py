@@ -69,10 +69,23 @@ class VendorOnboardingWorkflow:
         self._phase = "completed"
         return self._decision.decision
 
-    @workflow.signal
+    @workflow.update
     def decide(self, decision: ApprovalDecisionInput) -> None:
-        if self._decision is None and not self._cancelled:
-            self._decision = decision
+        self._decision = decision
+
+    @decide.validator
+    def validate_decision(self, decision: ApprovalDecisionInput) -> None:
+        """Reject invalid approval updates before they mutate workflow state."""
+        if self._phase != "waiting_for_approval":
+            raise ValueError("workflow is not waiting for an approval decision")
+        if self._approval_request_id != decision.approval_request_id:
+            raise ValueError("approval request does not belong to this workflow state")
+        if self._cancelled:
+            raise ValueError("workflow has been cancelled")
+        if self._decision is not None:
+            if self._decision == decision:
+                return
+            raise ValueError("workflow already has an approval decision")
 
     @workflow.signal
     def cancel(self) -> None:

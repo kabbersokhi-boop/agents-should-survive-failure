@@ -9,7 +9,8 @@ bounded evidence.
 
 ## Capabilities
 
-- Durable, restart-safe vendor onboarding through Temporal workflows and signals.
+- Durable, restart-safe vendor onboarding through Temporal workflows, validated approval updates,
+  and cancellation signals.
 - PostgreSQL-backed application state, append-only audit evidence, and optimistic concurrency.
 - Permissioned, idempotent tool invocation with explicit authorization boundaries.
 - Policy retrieval with cited source material and 2,048-dimensional semantic embeddings.

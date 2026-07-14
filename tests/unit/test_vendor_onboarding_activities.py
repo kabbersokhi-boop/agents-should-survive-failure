@@ -1,8 +1,9 @@
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import cast
+from typing import Any, cast
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from agents_should_survive_failure.persistence.models import (
     ApprovalStatus,
@@ -364,6 +365,44 @@ async def test_append_event_skips_existing_sequence() -> None:
     )
 
     assert runs.appended == []
+
+
+@pytest.mark.asyncio
+async def test_approval_audit_records_the_authenticated_decision_principal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    recorded: list[object] = []
+
+    class Audits:
+        def __init__(self, session: object) -> None:
+            del session
+
+        async def get_by_idempotency_key(self, key: str) -> None:
+            assert key.endswith(":approval.decision.record")
+            return None
+
+        async def append(self, event: object) -> None:
+            recorded.append(event)
+
+    monkeypatch.setattr(activity_module, "AuditEventRepository", Audits)
+    onboarding = activity_module.VendorOnboardingActivities(
+        cast(Database, FakeDatabase(FakeSession()))
+    )
+    run_id = activity_module.uuid.UUID("00000000-0000-0000-0000-000000000010")
+    approver_id = activity_module.uuid.UUID("00000000-0000-0000-0000-000000000040")
+
+    await onboarding._audit(  # pyright: ignore[reportPrivateUsage]
+        cast(AsyncSession, object()),
+        run_id,
+        "approval.decision.record",
+        "approval_request",
+        activity_module.uuid.UUID("00000000-0000-0000-0000-000000000030"),
+        "Approved by an authenticated principal.",
+        actor_id=approver_id,
+    )
+
+    assert len(recorded) == 1
+    assert cast(Any, recorded[0]).actor_id == approver_id
 
 
 async def _done(*args: object, **kwargs: object) -> None:

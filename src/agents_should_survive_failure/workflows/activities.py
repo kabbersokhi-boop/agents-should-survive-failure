@@ -350,6 +350,7 @@ class VendorOnboardingActivities:
                 "approval_request",
                 request.id,
                 f"Vendor {decision.decision.value} by human approver.",
+                actor_id=approver_id,
             )
 
     @activity.defn(name="vendor_onboarding.cancel_review")
@@ -418,6 +419,8 @@ class VendorOnboardingActivities:
         resource_type: str,
         resource_id: uuid.UUID,
         summary: str,
+        *,
+        actor_id: uuid.UUID | None = None,
     ) -> None:
         # Activity attempts can repeat, so audit identity is deterministic per durable transition.
         repository = AuditEventRepository(session)
@@ -426,7 +429,7 @@ class VendorOnboardingActivities:
             await repository.append(
                 AuditEvent(
                     workflow_run_id=run_id,
-                    actor_id=None,
+                    actor_id=actor_id,
                     action=action,
                     resource_type=resource_type,
                     resource_id=resource_id,

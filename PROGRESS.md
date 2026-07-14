@@ -251,3 +251,10 @@ and is represented in the OpenAPI schema.
 Focused API contract tests passed for route exposure, response mapping, pagination shapes, and
 detail retrieval. This closes the previously recorded A2 list/detail surface gap. API ownership
 scoping and any future cursor migration remain separate SDK/control-plane design work.
+
+## 2026-07-15 Phase A5 Approval-Audit Integrity Checkpoint
+
+Approval-decision audit events now carry the authenticated decision principal as `actor_id`, matching
+the durable `ApprovalDecision.decided_by_id` record. The decision, request state transition, vendor
+projection, workflow result, event, and audit write remain within the transaction-owning activity.
+Focused workflow/activity/API tests passed.

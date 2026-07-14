@@ -61,6 +61,28 @@ Create every schema change as an Alembic revision. Do not call SQLAlchemy `creat
 application or tests. A downgrade is a development and verification operation; back up persistent
 data before using it outside the isolated smoke project.
 
+## Local API-key lifecycle
+
+Create a local key only when a client needs to call the authenticated API. The plaintext value is
+printed once by the command and is never stored by the platform. Supply an optional timezone-aware
+ISO-8601 expiry such as `2026-12-31T00:00:00Z`.
+
+```bash
+API_KEY_BOOTSTRAP_EMAIL=developer@example.invalid \
+API_KEY_BOOTSTRAP_NAME='Local Developer' \
+API_KEY_BOOTSTRAP_SCOPES='runs:read,runs:write' \
+API_KEY_BOOTSTRAP_EXPIRES_AT='2026-12-31T00:00:00Z' \
+make bootstrap-api-key
+```
+
+Revoke one key using its safe identifier, or disable the principal to reject every key issued to
+that user:
+
+```bash
+API_KEY_IDENTIFIER=identifier-from-bootstrap-output make revoke-api-key
+API_KEY_BOOTSTRAP_EMAIL=developer@example.invalid make disable-principal
+```
+
 ## Evaluation execution
 
 Run deterministic vendor-onboarding behavior evaluations only from the local operator command:

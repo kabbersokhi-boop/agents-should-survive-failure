@@ -187,6 +187,11 @@ async def seed_database(engine: AsyncEngine) -> None:
     async with engine.begin() as connection:
         for model, values in seed_rows():
             statement = insert(model).values(**values)
+            if model in {Agent, ToolDefinition}:
+                await connection.execute(
+                    statement.on_conflict_do_nothing(index_elements=[model.id])
+                )
+                continue
             update_values = {
                 ("metadata" if key == "metadata_" else key): getattr(
                     statement.excluded, "metadata" if key == "metadata_" else key

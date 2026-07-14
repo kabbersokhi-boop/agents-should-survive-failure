@@ -30,7 +30,8 @@ workflow start and approval transitions require explicit recovery and idempotenc
 
 API keys are salted and hashed; scope and principal status are checked at the API boundary.
 Approval and workflow-start operations use persisted idempotency, version checks, and audit data.
-Tool permission derives from registered agent configuration and tool definitions. The MCP adapter
+Tool permission derives from immutable platform policy for the registered agent version and tool
+definitions. The MCP adapter
 does not accept caller-supplied agent identity or permissions. The bounded sandbox uses a temporary
 workspace, non-root execution, disabled networking, read-only root filesystem, dropped
 capabilities, and resource limits. Gitleaks scans Git-tracked content without a `.env` exemption.

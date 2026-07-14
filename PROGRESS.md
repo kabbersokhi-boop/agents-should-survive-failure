@@ -393,3 +393,22 @@ This is a Phase A implementation completion claim, not the master **backend rele
 gate remains blocked on Phase B's required 20-case real-workflow evaluator and its stronger
 failure-injection suite. Live NVIDIA NIM smoke tests remain manual and credential-gated; they were
 not claimed as passed without a valid local credential.
+
+## 2026-07-15 Phase A Audit Correction: Immutable Versioned Contracts
+
+A requirement-level re-audit found that the prior version-pinning work bound a run to a definition
+but still allowed seed upserts to mutate existing `Agent` and `ToolDefinition` records. Migration
+`e8f1a2b3c4d5` now rejects deletion and contract mutation in PostgreSQL while permitting an
+operational enabled/disabled state. The seed loader uses conflict-safe no-op inserts for these
+versioned records. A database integration test proves agent/tool contract changes fail while an
+enabled-state change succeeds and rolls back. `alembic check`, Ruff, Pyright, and the focused
+PostgreSQL test passed.
+
+## 2026-07-15 Phase A Audit Correction: API-Key Lifecycle
+
+The authentication model previously enforced expiry, revocation, and disabled principals only when
+records were changed directly in the database. Local operator commands now create optionally
+expiring keys, revoke a key by safe identifier, and disable a principal. Plaintext key material is
+still printed only by bootstrap; lifecycle output and audit records contain only safe identifiers,
+scopes, and expiry metadata. A PostgreSQL integration test proves creation, revocation, principal
+disablement, and their three audit records. Ruff, Pyright, and 113 unit/security tests passed.

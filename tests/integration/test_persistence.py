@@ -5,7 +5,7 @@ from collections.abc import AsyncIterator
 import pytest
 import pytest_asyncio
 from sqlalchemy import inspect, select, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 from sqlalchemy.orm.exc import StaleDataError
 from temporalio.exceptions import WorkflowAlreadyStartedError
@@ -219,6 +219,41 @@ async def test_database_constraints_reject_duplicate_and_invalid_vendor(
                     risk_score=101,
                 )
             )
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_registered_agent_and_tool_contracts_are_immutable(engine: AsyncEngine) -> None:
+    agent_id = seed_id("agent:vendor-onboarding:v1")
+    tool_id = seed_id("tool:vendor-database-query:v1")
+
+    with pytest.raises(DBAPIError, match="registered agent version contract is immutable"):
+        async with engine.begin() as connection:
+            await connection.execute(
+                text('UPDATE agents SET configuration = \'{"provider": "other"}\' WHERE id = :id'),
+                {"id": agent_id},
+            )
+
+    with pytest.raises(DBAPIError, match="tool definition contract is immutable"):
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("UPDATE tool_definitions SET description = 'changed' WHERE id = :id"),
+                {"id": tool_id},
+            )
+
+    async with engine.connect() as connection:
+        transaction = await connection.begin()
+        try:
+            await connection.execute(
+                text("UPDATE tool_definitions SET enabled = false WHERE id = :id"),
+                {"id": tool_id},
+            )
+            enabled = await connection.scalar(
+                text("SELECT enabled FROM tool_definitions WHERE id = :id"), {"id": tool_id}
+            )
+            assert enabled is False
+        finally:
+            await transaction.rollback()
 
 
 @pytest.mark.integration

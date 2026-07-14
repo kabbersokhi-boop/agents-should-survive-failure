@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup format lint typecheck test test-unit test-security test-integration dependency-audit sbom-backend sbom-container sbom verify dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate nim-smoke-test nim-embedding-smoke-test bootstrap-api-key recover-workflow-starts sandbox-demo
+.PHONY: help setup format lint typecheck test test-unit test-security test-integration dependency-audit sbom-backend sbom-container sbom verify dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate nim-smoke-test nim-embedding-smoke-test bootstrap-api-key revoke-api-key disable-principal recover-workflow-starts sandbox-demo
 
 help:
 	@printf '%s\n' 'setup         Install locked development dependencies' \
@@ -19,7 +19,9 @@ help:
 	  'evaluate      Run deterministic vendor-onboarding behavior evaluations' \
 	  'nim-smoke-test Run a manual credential-gated NVIDIA NIM model smoke test' \
 	  'nim-embedding-smoke-test Run a manual credential-gated NVIDIA NIM embedding smoke test' \
-	  'bootstrap-api-key Create a scoped local API key and print it once' \
+	  'bootstrap-api-key Create a scoped local API key and print it once; supports optional expiry' \
+	  'revoke-api-key Revoke an API key by safe key identifier' \
+	  'disable-principal Disable a user principal and all of its API access' \
 	  'recover-workflow-starts Retry persisted workflow starts that need reconciliation' \
 	  'sandbox-demo  Run bounded Python in the local Docker sandbox broker' \
 	  'secret-scan   Scan tracked content with Gitleaks (Docker)' \
@@ -79,7 +81,15 @@ nim-embedding-smoke-test:
 bootstrap-api-key:
 	@test -n "$(API_KEY_BOOTSTRAP_EMAIL)" || (echo 'Set API_KEY_BOOTSTRAP_EMAIL.' >&2; exit 2)
 	@test -n "$(API_KEY_BOOTSTRAP_SCOPES)" || (echo 'Set API_KEY_BOOTSTRAP_SCOPES.' >&2; exit 2)
-	docker compose exec -T api /app/.venv/bin/python -c 'from agents_should_survive_failure.auth_cli import bootstrap_main; bootstrap_main("$(API_KEY_BOOTSTRAP_EMAIL)", "$(API_KEY_BOOTSTRAP_NAME)", "$(API_KEY_BOOTSTRAP_SCOPES)")'
+	docker compose exec -T api /app/.venv/bin/python -c 'from agents_should_survive_failure.auth_cli import bootstrap_main; bootstrap_main("$(API_KEY_BOOTSTRAP_EMAIL)", "$(API_KEY_BOOTSTRAP_NAME)", "$(API_KEY_BOOTSTRAP_SCOPES)", "$(API_KEY_BOOTSTRAP_EXPIRES_AT)")'
+
+revoke-api-key:
+	@test -n "$(API_KEY_IDENTIFIER)" || (echo 'Set API_KEY_IDENTIFIER.' >&2; exit 2)
+	docker compose exec -T api /app/.venv/bin/python -c 'from agents_should_survive_failure.auth_cli import revoke_main; revoke_main("$(API_KEY_IDENTIFIER)")'
+
+disable-principal:
+	@test -n "$(API_KEY_BOOTSTRAP_EMAIL)" || (echo 'Set API_KEY_BOOTSTRAP_EMAIL.' >&2; exit 2)
+	docker compose exec -T api /app/.venv/bin/python -c 'from agents_should_survive_failure.auth_cli import disable_principal_main; disable_principal_main("$(API_KEY_BOOTSTRAP_EMAIL)")'
 
 recover-workflow-starts:
 	docker compose exec -T api /app/.venv/bin/python -c 'from agents_should_survive_failure.workflow_start_cli import recovery_main; recovery_main()'

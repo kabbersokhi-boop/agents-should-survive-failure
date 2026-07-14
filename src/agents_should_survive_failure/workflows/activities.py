@@ -104,6 +104,7 @@ class VendorOnboardingActivities:
                 "vendor",
                 vendor_id,
                 "Vendor review started.",
+                actor_id=run.requested_by_id,
             )
 
     @activity.defn(name="vendor_onboarding.assess_risk")

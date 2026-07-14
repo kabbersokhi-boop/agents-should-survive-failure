@@ -1176,6 +1176,7 @@ async def cancel_onboarding(
     run_id: UUID,
     request: Request,
     database: Annotated[Database, Depends(get_database)],
+    principal: Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)],
 ) -> Response:
     async with database.session() as session:
         run = await WorkflowRunRepository(session).get(run_id)
@@ -1184,6 +1185,21 @@ async def cancel_onboarding(
                 status_code=status.HTTP_404_NOT_FOUND, detail="workflow run not found"
             )
         temporal_workflow_id = run.temporal_workflow_id
+        audit_key = f"{run.id}:api.workflow.cancel.request:{principal.id}"
+        audits = AuditEventRepository(session)
+        if await audits.get_by_idempotency_key(audit_key) is None:
+            await audits.append(
+                AuditEvent(
+                    workflow_run_id=run.id,
+                    actor_id=principal.id,
+                    action="api.workflow.cancel.request",
+                    resource_type="workflow_run",
+                    resource_id=run.id,
+                    idempotency_key=audit_key,
+                    summary="Authenticated principal requested workflow cancellation.",
+                    evidence={},
+                )
+            )
     resources: RuntimeResources = request.app.state.resources
     await resources.temporal_client.get_workflow_handle(temporal_workflow_id).signal(
         VendorOnboardingWorkflow.cancel

@@ -109,3 +109,24 @@ async def test_resolver_uses_active_principal_and_updates_last_use() -> None:
     assert resolved.id == principal.id
     assert resolved.principal_type is PrincipalType.USER
     assert key.last_used_at is not None
+
+
+@pytest.mark.asyncio
+async def test_resolver_rejects_disabled_principal_without_updating_key_use() -> None:
+    generated = generate_api_key()
+    key = KeyRecord(
+        id=uuid4(),
+        key_identifier=generated.key_identifier,
+        secret_hash=generated.secret_hash,
+        expires_at=None,
+        revoked_at=None,
+        principal_id=uuid4(),
+        scopes=["runs:read"],
+        last_used_at=None,
+    )
+    principal = PrincipalRecord(id=key.principal_id, status=PrincipalStatus.DISABLED)
+
+    resolved = await resolve_api_key(Session(key, principal), generated.plaintext)  # type: ignore[arg-type]
+
+    assert resolved is None
+    assert key.last_used_at is None

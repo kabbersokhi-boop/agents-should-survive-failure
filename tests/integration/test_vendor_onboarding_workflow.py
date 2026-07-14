@@ -185,6 +185,7 @@ async def test_vendor_onboarding_survives_worker_restart_and_records_approval() 
     assert evidence["model_calls"][0]["status"] == "succeeded"
     assert "prompt" not in evidence["model_calls"][0]
     assert {event.action for event in audit_events} == {
+        "api.workflow.start.request",
         "vendor.review.start",
         "vendor.risk.assess",
         "approval.request.create",

@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any, cast
+from uuid import UUID
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -66,7 +67,11 @@ async def test_begin_review_transitions_submitted_vendor(
     monkeypatch: pytest.MonkeyPatch, activity_info: None
 ) -> None:
     session = FakeSession()
-    run = SimpleNamespace(status=RunStatus.PENDING, started_at=None)
+    run = SimpleNamespace(
+        status=RunStatus.PENDING,
+        started_at=None,
+        requested_by_id=UUID("00000000-0000-0000-0000-000000000030"),
+    )
     vendor = SimpleNamespace(status=VendorStatus.SUBMITTED)
 
     class Runs:
@@ -94,8 +99,11 @@ async def test_begin_review_transitions_submitted_vendor(
     async def append(*args: object, **kwargs: object) -> None:
         events.append(str(args[2]))
 
+    audit_actor_ids: list[object] = []
+
     async def audit(*args: object, **kwargs: object) -> None:
         audits.append(str(args[2]))
+        audit_actor_ids.append(kwargs.get("actor_id"))
 
     monkeypatch.setattr(onboarding, "_append_event", append)
     monkeypatch.setattr(onboarding, "_audit", audit)
@@ -111,6 +119,7 @@ async def test_begin_review_transitions_submitted_vendor(
     assert vendor.status is VendorStatus.UNDER_REVIEW
     assert events == ["review.started"]
     assert audits == ["vendor.review.start"]
+    assert audit_actor_ids == [run.requested_by_id]
 
 
 @pytest.mark.asyncio

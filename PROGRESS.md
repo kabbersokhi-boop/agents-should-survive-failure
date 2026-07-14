@@ -333,3 +333,32 @@ The rerun exposed a test race: Temporal reports its in-memory waiting phase befo
 approval activity has committed the `approval.requested` event. The SSE integration test now waits
 for that persisted event before asserting the stream replays it, which is the endpoint's actual
 persisted-evidence contract. Ruff and Pyright passed; the complete gate must be rerun again.
+
+## 2026-07-15 Phase A Isolated Integration Gate
+
+| Check | Result |
+| --- | --- |
+| Isolated migration lifecycle | Passed: upgrade to `c4d7e8f9a0b1`, downgrade to base, re-upgrade, and `alembic check` |
+| Compose integration suite | Passed: 16 tests, including governed tools, worker restart, cancellation, SSE replay, and real sandbox enforcement |
+| Deterministic evaluation | Passed: evaluation run `dc899d10-5c75-45b6-af15-f03e9bb18538` succeeded |
+| Normal-stack restoration | Passed: API readiness reported PostgreSQL and Temporal `ok` |
+
+The SSE body-limit interaction was repaired by exempting bodyless read methods from request-body
+buffering. The final local verification evidence now includes the full isolated integration gate;
+the master backend release gate remains blocked on Phase B's 20-case real-workflow evaluator, as
+documented in the master plan.
+
+## 2026-07-15 Phase A3/A5 Actor Attribution and Conflict Coverage
+
+| Check | Result |
+| --- | --- |
+| Disabled principal authentication | Passed: disabled principals cannot resolve an API key and do not update key-use time |
+| Durable workflow start audit | Passed: the persisted start intent records the authenticated requester atomically with the start attempt |
+| Worker-side review audit | Passed: the first workflow activity preserves the run requester as its actor |
+| Cancellation request audit | Passed: the API records the authenticated cancellation requester before signalling Temporal |
+| Conflicting Temporal decision | Passed: a second contradictory Update is rejected after the first resolves the durable wait |
+
+Focused Ruff, Pyright, and 21 auth/approval/workflow tests passed. These records cover successful
+and denied sensitive control-plane operations without storing API keys or request bodies. The
+remaining Phase A work is the final requirement-level security and policy audit; the separate
+master backend release gate remains blocked on Phase B evaluation breadth.

@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 from temporalio import activity
-from temporalio.client import WorkflowHandle
+from temporalio.client import WorkflowHandle, WorkflowUpdateFailedError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Worker
 
@@ -103,5 +103,61 @@ async def test_temporal_update_resolves_a_real_durable_approval_wait() -> None:
             ),
             id="test-approval-update",
         )
+
+        assert await handle.result() is ApprovalDecisionType.APPROVED
+
+
+@pytest.mark.asyncio
+async def test_temporal_rejects_conflicting_decision_after_first_update() -> None:
+    """Only the first decision can resolve a pending approval request."""
+    task_queue = f"approval-conflict-test-{uuid4()}"
+    activities: list[Callable[..., Awaitable[object]]] = [
+        begin_review,
+        assess_risk,
+        request_approval,
+        record_decision,
+        cancel_review,
+    ]
+    async with (
+        await WorkflowEnvironment.start_time_skipping() as environment,
+        Worker(
+            environment.client,
+            task_queue=task_queue,
+            workflows=[VendorOnboardingWorkflow],
+            activities=activities,
+        ),
+    ):
+        handle = await environment.client.start_workflow(
+            VendorOnboardingWorkflow.run,
+            VendorOnboardingInput(run_id="run-conflict", vendor_id="vendor-conflict"),
+            id=f"approval-conflict-workflow-{uuid4()}",
+            task_queue=task_queue,
+        )
+        await wait_for_phase(handle, "waiting_for_approval")
+
+        approved = ApprovalDecisionInput(
+            approval_request_id="temporal-approval-1",
+            expected_version=1,
+            decision=ApprovalDecisionType.APPROVED,
+            decided_by_id="00000000-0000-0000-0000-000000000001",
+            rationale="approved by the first test principal",
+            idempotency_key="first-approval-update",
+        )
+        rejected = ApprovalDecisionInput(
+            approval_request_id="temporal-approval-1",
+            expected_version=1,
+            decision=ApprovalDecisionType.REJECTED,
+            decided_by_id="00000000-0000-0000-0000-000000000002",
+            rationale="rejected by the second test principal",
+            idempotency_key="second-approval-update",
+        )
+
+        await handle.execute_update(  # pyright: ignore[reportUnknownMemberType]
+            "decide", approved, id=approved.idempotency_key
+        )
+        with pytest.raises(WorkflowUpdateFailedError):
+            await handle.execute_update(  # pyright: ignore[reportUnknownMemberType]
+                "decide", rejected, id=rejected.idempotency_key
+            )
 
         assert await handle.result() is ApprovalDecisionType.APPROVED

@@ -15,12 +15,14 @@ from temporalio.exceptions import WorkflowAlreadyStartedError
 
 from agents_should_survive_failure.metrics import RUN_STARTS
 from agents_should_survive_failure.persistence.models import (
+    AuditEvent,
     RunStatus,
     WorkflowRun,
     WorkflowStartAttempt,
     WorkflowStartStatus,
     utc_now,
 )
+from agents_should_survive_failure.persistence.repositories import AuditEventRepository
 from agents_should_survive_failure.persistence.session import Database
 from agents_should_survive_failure.workflows.contracts import TASK_QUEUE, VendorOnboardingInput
 from agents_should_survive_failure.workflows.vendor_onboarding import VendorOnboardingWorkflow
@@ -134,6 +136,18 @@ class WorkflowStartCoordinator:
                     WorkflowStartAttempt(
                         workflow_run_id=run_id,
                         status=WorkflowStartStatus.PENDING,
+                    )
+                )
+                await AuditEventRepository(session).append(
+                    AuditEvent(
+                        workflow_run_id=run_id,
+                        actor_id=requested_by_id,
+                        action="api.workflow.start.request",
+                        resource_type="workflow_run",
+                        resource_id=run_id,
+                        idempotency_key=f"{run_id}:api.workflow.start.request",
+                        summary="Authenticated principal requested a vendor onboarding workflow.",
+                        evidence={"vendor_id": str(vendor_id)},
                     )
                 )
                 run = await session.get(WorkflowRun, run_id)

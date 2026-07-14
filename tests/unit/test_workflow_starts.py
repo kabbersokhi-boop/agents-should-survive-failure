@@ -7,6 +7,7 @@ import pytest
 from temporalio.exceptions import WorkflowAlreadyStartedError
 
 from agents_should_survive_failure.persistence.models import (
+    AuditEvent,
     RunStatus,
     WorkflowRun,
     WorkflowStartAttempt,
@@ -43,6 +44,7 @@ class FakeSession:
     def __init__(self) -> None:
         self.run: WorkflowRun | None = None
         self.attempt: WorkflowStartAttempt | None = None
+        self.audit_events: list[AuditEvent] = []
         self.inserted = True
         self.scalar_values: list[object | None] = []
         self.run_ids: list[UUID] = []
@@ -78,8 +80,14 @@ class FakeSession:
         del statement
         return ScalarsResult(self.run_ids)
 
-    def add(self, value: WorkflowStartAttempt) -> None:
-        self.attempt = value
+    def add(self, value: WorkflowStartAttempt | AuditEvent) -> None:
+        if isinstance(value, AuditEvent):
+            self.audit_events.append(value)
+        else:
+            self.attempt = value
+
+    async def flush(self) -> None:
+        return None
 
 
 class FakeDatabase:
@@ -136,6 +144,9 @@ async def test_new_start_timeout_then_already_started_reconciles() -> None:
     )
     assert session.attempt is not None
     assert run.temporal_workflow_id == f"vendor-onboarding-{run.id}"
+    assert len(session.audit_events) == 1
+    assert session.audit_events[0].action == "api.workflow.start.request"
+    assert session.audit_events[0].actor_id == principal_id
 
     session.scalar_values = [session.attempt, session.attempt]
     with pytest.raises(WorkflowStartUnavailable) as unavailable:

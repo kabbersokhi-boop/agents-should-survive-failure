@@ -885,8 +885,6 @@ async def stream_run_events(
                 yield f"id: {cursor}\nevent: workflow_event\ndata: {json.dumps(data)}\n\n"
             if run is None or run.status in TERMINAL_RUN_STATUSES:
                 return
-            if await request.is_disconnected():
-                return
             yield ": keepalive\n\n"
             await asyncio.sleep(EVENT_STREAM_POLL_SECONDS)
 

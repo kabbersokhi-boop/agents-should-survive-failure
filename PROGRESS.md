@@ -177,3 +177,19 @@ event, terminal run state, and at-most-once approved-vendor projection.
 
 This is not full A5 acceptance: broader Temporal test-environment coverage and a complete
 adversarial decision matrix remain required, including terminal-state and concurrent-request cases.
+
+## 2026-07-15 Phase A2 Event-Stream Checkpoint
+
+Checked-out worktree: pending commit.
+
+`GET /api/v1/workflow-runs/{run_id}/events/stream` now provides an authenticated SSE view over
+persisted workflow evidence. It replays ordered events after a bounded sequence cursor, accepts the
+standard `Last-Event-ID` header for reconnects, emits a stable `workflow_event` SSE type, sends
+keepalives for active runs, and completes after a terminal run's evidence has been sent. The stream
+uses short database transactions per poll rather than holding a connection while a client waits.
+
+Focused repository/API tests passed for cursor validation, replay, terminal completion, route
+contracts, and repository persistence. The live Compose workflow suite also passed all three
+scenarios: worker-restart approval, cancellation, and authenticated SSE replay. This improves A2
+but does not complete it: the full API surface and pagination consistency still need a release-gate
+audit.

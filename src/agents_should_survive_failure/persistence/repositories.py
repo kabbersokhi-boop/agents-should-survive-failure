@@ -103,6 +103,20 @@ class WorkflowRunRepository:
         )
         return result.all()
 
+    async def events_after(
+        self, run_id: uuid.UUID, *, after_sequence: int, limit: int
+    ) -> Sequence[WorkflowEvent]:
+        result = await self._session.scalars(
+            select(WorkflowEvent)
+            .where(
+                WorkflowEvent.workflow_run_id == run_id,
+                WorkflowEvent.sequence > after_sequence,
+            )
+            .order_by(WorkflowEvent.sequence)
+            .limit(limit)
+        )
+        return result.all()
+
 
 class AuditEventRepository:
     def __init__(self, session: AsyncSession) -> None:

@@ -1,5 +1,7 @@
 """Control-plane API application."""
 
+import asyncio
+import json
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
@@ -8,7 +10,7 @@ from uuid import UUID, uuid4
 import structlog
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, generate_latest
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
@@ -62,6 +64,12 @@ REQUESTS = Counter(
     "HTTP requests processed by the control-plane API.",
     ("method", "path", "status"),
 )
+
+TERMINAL_RUN_STATUSES = frozenset(
+    {RunStatus.SUCCEEDED, RunStatus.FAILED, RunStatus.CANCELLED, RunStatus.REJECTED}
+)
+EVENT_STREAM_BATCH_SIZE = 100
+EVENT_STREAM_POLL_SECONDS = 0.5
 
 
 class RequestContextMiddleware(BaseHTTPMiddleware):
@@ -581,6 +589,74 @@ async def list_run_events(
     ]
 
 
+def event_stream_cursor(request: Request, after_sequence: int) -> int:
+    """Use the furthest supplied replay cursor without trusting an invalid header."""
+    last_event_id = request.headers.get("last-event-id")
+    if last_event_id is None:
+        return after_sequence
+    try:
+        header_cursor = int(last_event_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Last-Event-ID must be a non-negative integer",
+        ) from None
+    if header_cursor < 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Last-Event-ID must be a non-negative integer",
+        )
+    return max(after_sequence, header_cursor)
+
+
+async def stream_run_events(
+    run_id: UUID,
+    request: Request,
+    database: Annotated[Database, Depends(get_database)],
+    after_sequence: Annotated[int, Query(ge=0, le=2_147_483_647)] = 0,
+) -> StreamingResponse:
+    cursor = event_stream_cursor(request, after_sequence)
+    async with database.session() as session:
+        if await WorkflowRunRepository(session).get(run_id) is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="workflow run not found"
+            )
+
+    async def event_source() -> AsyncIterator[str]:
+        nonlocal cursor
+        while True:
+            async with database.session() as session:
+                runs = WorkflowRunRepository(session)
+                events = await runs.events_after(
+                    run_id,
+                    after_sequence=cursor,
+                    limit=EVENT_STREAM_BATCH_SIZE,
+                )
+                run = await runs.get(run_id)
+            for event in events:
+                cursor = event.sequence
+                data = {
+                    "sequence": event.sequence,
+                    "event_type": event.event_type,
+                    "summary": event.summary,
+                    "payload": event.payload,
+                    "occurred_at": event.occurred_at.isoformat(),
+                }
+                yield f"id: {cursor}\nevent: workflow_event\ndata: {json.dumps(data)}\n\n"
+            if run is None or run.status in TERMINAL_RUN_STATUSES:
+                return
+            if await request.is_disconnected():
+                return
+            yield ": keepalive\n\n"
+            await asyncio.sleep(EVENT_STREAM_POLL_SECONDS)
+
+    return StreamingResponse(
+        event_source(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 async def list_agents(
     database: Annotated[Database, Depends(get_database)],
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
@@ -902,6 +978,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         list_run_events,
         methods=["GET"],
         response_model=list[WorkflowEventEvidence],
+        dependencies=[Depends(require_scopes("runs:read"))],
+    )
+    app.add_api_route(
+        "/api/v1/workflow-runs/{run_id}/events/stream",
+        stream_run_events,
+        methods=["GET"],
         dependencies=[Depends(require_scopes("runs:read"))],
     )
     app.add_api_route(

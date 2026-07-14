@@ -1,8 +1,10 @@
 import asyncio
+import json
 import os
 import subprocess
 import uuid
 from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 import httpx
 import pytest
@@ -251,3 +253,59 @@ async def test_vendor_onboarding_cancellation_is_durable() -> None:
 
     assert run is not None and run.status is RunStatus.CANCELLED
     assert [event.event_type for event in events][-1] == "review.cancelled"
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_workflow_event_stream_replays_persisted_evidence() -> None:
+    async with httpx.AsyncClient(
+        base_url="http://127.0.0.1:8000", timeout=15, headers=auth_headers()
+    ) as client:
+        created = await client.post(
+            "/vendors",
+            json={
+                "external_reference": f"event-stream-{uuid.uuid4()}",
+                "legal_name": "Event Stream Vendor",
+                "jurisdiction": "US",
+                "contact_email": "events@example.invalid",
+            },
+        )
+        created.raise_for_status()
+        vendor_id = created.json()["id"]
+        started = await client.post(
+            f"/vendors/{vendor_id}/onboarding", json={"idempotency_key": f"stream-{uuid.uuid4()}"}
+        )
+        started.raise_for_status()
+        run_id = started.json()["id"]
+
+        async def waiting_for_approval() -> None:
+            response = await client.get(f"/workflow-runs/{run_id}")
+            response.raise_for_status()
+            assert response.json()["phase"] == "waiting_for_approval"
+
+        await eventually(waiting_for_approval)
+        received_event: dict[str, Any] | None = None
+        async with client.stream(
+            "GET", f"/api/v1/workflow-runs/{run_id}/events/stream?after_sequence=0"
+        ) as response:
+            response.raise_for_status()
+            assert response.headers["content-type"].startswith("text/event-stream")
+            async for line in response.aiter_lines():
+                if line.startswith("data: "):
+                    parsed_event = cast(dict[str, Any], json.loads(line.removeprefix("data: ")))
+                    received_event = parsed_event
+                    if parsed_event["event_type"] == "approval.requested":
+                        break
+
+        assert received_event is not None
+        assert received_event["sequence"] == 30
+        assert received_event["payload"]["risk_score"] == 25
+        cancelled = await client.delete(f"/workflow-runs/{run_id}")
+        assert cancelled.status_code == 202
+
+        async def workflow_cancelled() -> None:
+            response = await client.get(f"/workflow-runs/{run_id}")
+            response.raise_for_status()
+            assert response.json()["phase"] == "cancelled"
+
+        await eventually(workflow_cancelled)

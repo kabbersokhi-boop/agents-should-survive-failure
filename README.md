@@ -52,6 +52,12 @@ To exercise the workflow, create a vendor, start onboarding, then submit the hum
 the returned IDs. `GET /workflow-runs/{run_id}` exposes the durable phase, and `DELETE` on that path
 cancels a pending review. The API schema at `/docs` contains the precise request contracts.
 
+Authenticated clients with `runs:read` can follow persisted run evidence through
+`GET /api/v1/workflow-runs/{run_id}/events/stream`. The endpoint is Server-Sent Events with a
+monotonic event sequence as its cursor: pass `after_sequence` for an initial replay or send the
+standard `Last-Event-ID` header to resume. Event data contains only bounded persisted evidence, not
+provider prompts, credentials, or private model reasoning.
+
 Run the deterministic behavioral-contract suite against the local database with an explicit key:
 
 ```bash

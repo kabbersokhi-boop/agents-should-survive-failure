@@ -412,3 +412,20 @@ expiring keys, revoke a key by safe identifier, and disable a principal. Plainte
 still printed only by bootstrap; lifecycle output and audit records contain only safe identifiers,
 scopes, and expiry metadata. A PostgreSQL integration test proves creation, revocation, principal
 disablement, and their three audit records. Ruff, Pyright, and 113 unit/security tests passed.
+
+## 2026-07-15 Phase A Corrected Final Gate
+
+After the requirement-level corrections, the full local Phase A gate passed again: 106 unit tests
+at 81% coverage, seven security tests, clean Ruff/Pyright, Compose validation, Gitleaks, and
+`pip-audit`. The clean isolated Compose gate passed 18 integration tests, including API-key
+lifecycle persistence and immutable agent/tool contract enforcement; it also completed the complete
+migration lifecycle and deterministic evaluation run `a57f60f2-7924-4a41-aded-be594e4ea627`.
+The normal stack was rebuilt from the corrected image and readiness reports PostgreSQL and Temporal
+as `ok`.
+
+## 2026-07-15 Phase A Audit Correction: Database Error Contracts
+
+The API now maps database uniqueness/relational conflicts to structured `409 conflict` responses
+and expected database operational failures to a safe `503 dependency_unavailable` response. Neither
+handler exposes SQL, database addresses, or credentials. Focused API handler, Ruff, and Pyright
+tests passed.

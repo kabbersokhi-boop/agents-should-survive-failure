@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 from httpx import ASGITransport, AsyncClient, Response
+from sqlalchemy.exc import IntegrityError, OperationalError
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message
 
@@ -14,6 +15,8 @@ from agents_should_survive_failure.api import (
     RequestBodyLimitMiddleware,
     audit_authorization_denial,
     create_app,
+    database_integrity_error,
+    database_unavailable_error,
     get_authenticated_principal,
     get_database,
     get_dependencies,
@@ -90,6 +93,29 @@ async def test_readiness_fails_closed_without_leaking_error_text() -> None:
         "detail": "ConnectionError",
     }
     assert "credential-bearing" not in response.text
+
+
+@pytest.mark.asyncio
+async def test_database_errors_use_safe_structured_api_contracts() -> None:
+    request = authenticated_request()
+    request.state.request_id = "request-123"
+
+    conflict = await database_integrity_error(
+        request,
+        IntegrityError("insert", {}, Exception("duplicate external reference")),
+    )
+    unavailable = await database_unavailable_error(
+        request,
+        OperationalError("connect", {}, Exception("postgres password=not-safe")),
+    )
+
+    assert conflict.status_code == 409
+    assert conflict.body == (
+        b'{"code":"conflict","message":"request conflicts with existing state",'
+        b'"request_id":"request-123","field_errors":null}'
+    )
+    assert unavailable.status_code == 503
+    assert b"password" not in unavailable.body
 
 
 @pytest.mark.asyncio

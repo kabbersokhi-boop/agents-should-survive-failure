@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, generate_latest
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError, OperationalError
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from temporalio.client import WorkflowUpdateFailedError, WorkflowUpdateRPCTimeoutOrCancelledError
@@ -518,6 +519,32 @@ async def http_error(request: Request, error: HTTPException) -> JSONResponse:
         content=ApiErrorResponse(
             code=codes.get(error.status_code, "request_failed"),
             message=str(error.detail),
+            request_id=_request_id(request),
+        ).model_dump(),
+    )
+
+
+async def database_integrity_error(request: Request, error: IntegrityError) -> JSONResponse:
+    """Map database-enforced uniqueness and relational invariants to a safe conflict contract."""
+    del error
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content=ApiErrorResponse(
+            code="conflict",
+            message="request conflicts with existing state",
+            request_id=_request_id(request),
+        ).model_dump(),
+    )
+
+
+async def database_unavailable_error(request: Request, error: OperationalError) -> JSONResponse:
+    """Avoid leaking database endpoint details when an expected dependency is unavailable."""
+    del error
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content=ApiErrorResponse(
+            code="dependency_unavailable",
+            message="a required dependency is unavailable",
             request_id=_request_id(request),
         ).model_dump(),
     )
@@ -1230,6 +1257,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = app_settings
     app.add_exception_handler(RequestValidationError, validation_error)  # type: ignore[arg-type]
     app.add_exception_handler(HTTPException, http_error)  # type: ignore[arg-type]
+    app.add_exception_handler(IntegrityError, database_integrity_error)  # type: ignore[arg-type]
+    app.add_exception_handler(OperationalError, database_unavailable_error)  # type: ignore[arg-type]
 
     def add_v1_route(
         path: str,

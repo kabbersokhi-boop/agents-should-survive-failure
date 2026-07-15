@@ -451,3 +451,6 @@ security tests, Compose validation, Gitleaks, and dependency audit. Its long Com
 was interrupted by the terminal transport before a final status line, so the exact same integration
 files were subsequently run individually against the rebuilt normal stack and all 18 passed. No
 Phase B work has started.
+
+GitHub Actions for commit `859c510` passed all required jobs: [quality, docker, and integration]
+(https://github.com/kabbersokhi-boop/agents-should-survive-failure/actions/runs/29434215741).

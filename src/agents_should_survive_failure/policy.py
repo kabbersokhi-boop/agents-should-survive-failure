@@ -5,22 +5,18 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agents_should_survive_failure.metrics import EMBEDDING_CALLS, EMBEDDING_LATENCY
 from agents_should_survive_failure.persistence.models import PolicyDocument
 from agents_should_survive_failure.providers import (
     DeterministicEmbeddingProvider,
     EmbeddingProvider,
 )
 
-# Tool grants belong to the platform, never to agent-provided call arguments or mutable agent
-# configuration. New registered agent versions require an explicit policy review and entry here.
-_AGENT_TOOL_POLICIES: dict[tuple[str, str], frozenset[str]] = {
-    ("vendor-onboarding", "1"): frozenset({"vendors:read", "policy:read", "email:send"}),
-}
-
 
 def agent_tool_permissions(*, name: str, version: str) -> frozenset[str]:
-    """Return the immutable platform grants for one registered agent version."""
-    return _AGENT_TOOL_POLICIES.get((name, version), frozenset())
+    """Compatibility helper; execution authorization is persisted in run snapshots."""
+    del name, version
+    return frozenset()
 
 
 @dataclass(frozen=True)
@@ -38,7 +34,22 @@ class PolicyRetriever:
     async def retrieve(
         self, session: AsyncSession, query: str, *, limit: int = 3
     ) -> list[PolicyCitation]:
-        embedding = (await self._embedding_provider.embed(query, input_type="query")).vector
+        import time
+
+        started = time.perf_counter()
+        try:
+            response = await self._embedding_provider.embed(query, input_type="query")
+        except Exception:
+            EMBEDDING_CALLS.labels("unknown", "unknown", "failed").inc()
+            EMBEDDING_LATENCY.labels("unknown", "unknown", "failed").observe(
+                time.perf_counter() - started
+            )
+            raise
+        EMBEDDING_CALLS.labels(response.provider, response.model, "succeeded").inc()
+        EMBEDDING_LATENCY.labels(response.provider, response.model, "succeeded").observe(
+            time.perf_counter() - started
+        )
+        embedding = response.vector
         documents = await session.scalars(
             select(PolicyDocument)
             .order_by(PolicyDocument.embedding.cosine_distance(embedding))

@@ -6,6 +6,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agents_should_survive_failure.metrics import EVALUATION_CASES
 from agents_should_survive_failure.persistence.models import (
     EvaluationCase,
     EvaluationResult,
@@ -50,6 +51,7 @@ class EvaluationRunner:
                 and case.expected_outcome.get("requires_approval") is True
             )
             all_cases_passed = all_cases_passed and passed
+            EVALUATION_CASES.labels("passed" if passed else "failed").inc()
             session.add(
                 EvaluationResult(
                     evaluation_run_id=run.id,

@@ -16,9 +16,9 @@ the citation identifiers, titles, and source URIs as an append-only workflow eve
 model-call summary separately. The prompt explicitly prohibits approval recommendations.
 
 Provider failures are recorded as failed model-call evidence but do not alter the deterministic risk
-score or prevent the workflow from proceeding to human approval.
+score or prevent the workflow from proceeding to authorized approval.
 
 ## Consequences
 
-Each explanation has durable policy provenance without storing private reasoning. Human approval
+Each explanation has durable policy provenance without storing private reasoning. Authorized approval
 remains the sole authorization boundary for vendor onboarding.

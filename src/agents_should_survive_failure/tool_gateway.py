@@ -18,11 +18,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from agents_should_survive_failure.metrics import TOOL_CALLS, TOOL_LATENCY
 from agents_should_survive_failure.persistence.models import (
     Agent,
+    AgentToolGrant,
     ApprovalDecision,
     ApprovalRequest,
     ApprovalStatus,
     InvocationStatus,
-    PolicyDocument,
+    RunToolGrantSnapshot,
     SyntheticEmailMessage,
     ToolDefinition,
     ToolInvocation,
@@ -30,7 +31,7 @@ from agents_should_survive_failure.persistence.models import (
     Vendor,
 )
 from agents_should_survive_failure.persistence.session import Database
-from agents_should_survive_failure.policy import agent_tool_permissions
+from agents_should_survive_failure.policy import PolicyRetriever
 
 
 class ToolDeniedError(PermissionError):
@@ -97,6 +98,7 @@ class PolicyCitationOutput(BaseModel):
     document_id: str
     title: str
     source_uri: str
+    content: str = Field(max_length=4000)
 
 
 class PolicySearchOutput(BaseModel):
@@ -160,22 +162,18 @@ class ToolGateway:
         }
 
     async def capabilities(self, session: AsyncSession, *, agent_id: str) -> list[ToolCapability]:
-        agent = await session.get(Agent, agent_id)
-        if agent is None:
-            return []
-        permissions = agent_tool_permissions(name=agent.name, version=agent.version)
+        grants = (
+            await session.scalars(select(AgentToolGrant).where(AgentToolGrant.agent_id == agent_id))
+        ).all()
+        granted_ids = {grant.tool_definition_id for grant in grants}
         tools = (
             await session.scalars(
                 select(ToolDefinition)
-                .where(ToolDefinition.enabled.is_(True))
+                .where(ToolDefinition.enabled.is_(True), ToolDefinition.id.in_(granted_ids))
                 .order_by(ToolDefinition.name)
             )
         ).all()
-        return [
-            ToolCapability(tool.name, tool.version, tuple(tool.permissions))
-            for tool in tools
-            if set(tool.permissions).issubset(permissions)
-        ]
+        return [ToolCapability(tool.name, tool.version, tuple(tool.permissions)) for tool in tools]
 
     async def invoke_vendor_lookup(
         self,
@@ -257,13 +255,13 @@ class ToolGateway:
 
         resolved_correlation_id = correlation_id or f"{workflow_run_id}:{idempotency_key}"
         agent = await session.get(Agent, agent_id)
-        if (
-            agent is None
-            or not tool.enabled
-            or not set(tool.permissions).issubset(
-                agent_tool_permissions(name=agent.name, version=agent.version)
+        grant = await session.scalar(
+            select(RunToolGrantSnapshot).where(
+                RunToolGrantSnapshot.workflow_run_id == workflow_run_id,
+                RunToolGrantSnapshot.tool_definition_id == tool.id,
             )
-        ):
+        )
+        if agent is None or not tool.enabled or grant is None:
             await self._record_terminal_attempt(
                 session=session,
                 workflow_run_id=workflow_run_id,
@@ -588,28 +586,16 @@ class ToolGateway:
     ) -> dict[str, Any]:
         del invocation
         request = cast(PolicySearchInput, input)
-        query_terms = [term.lower() for term in request.query.split() if term]
-        documents = (
-            await session.scalars(
-                select(PolicyDocument).order_by(PolicyDocument.title, PolicyDocument.chunk_index)
-            )
-        ).all()
-        matching = [
-            document
-            for document in documents
-            if any(
-                term in document.title.lower() or term in document.content.lower()
-                for term in query_terms
-            )
-        ][: request.limit]
+        citations = await PolicyRetriever().retrieve(session, request.query, limit=request.limit)
         return {
             "citations": [
                 {
-                    "document_id": str(document.id),
-                    "title": document.title,
-                    "source_uri": document.source_uri,
+                    "document_id": citation.document_id,
+                    "title": citation.title,
+                    "source_uri": citation.source_uri,
+                    "content": citation.content[:4000],
                 }
-                for document in matching
+                for citation in citations
             ]
         }
 

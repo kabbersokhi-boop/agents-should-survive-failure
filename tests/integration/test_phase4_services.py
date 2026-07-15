@@ -3,11 +3,12 @@ import uuid
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from agents_should_survive_failure.evaluation import EvaluationRunner
 from agents_should_survive_failure.model_evidence import ModelEvidenceService
 from agents_should_survive_failure.persistence.models import (
+    AgentToolGrant,
     ApprovalDecision,
     ApprovalRequest,
     ApprovalStatus,
@@ -16,6 +17,7 @@ from agents_should_survive_failure.persistence.models import (
     InvocationStatus,
     ModelCall,
     RunStatus,
+    RunToolGrantSnapshot,
     ToolDefinition,
     ToolInvocation,
     ToolRunBinding,
@@ -29,8 +31,8 @@ from agents_should_survive_failure.policy import PolicyRetriever
 from agents_should_survive_failure.providers import DeterministicModelProvider
 from agents_should_survive_failure.tool_gateway import (
     ToolApprovalRequiredError,
+    ToolDeniedError,
     ToolGateway,
-    ToolVersionMismatchError,
 )
 
 
@@ -68,6 +70,7 @@ async def test_policy_tool_and_evaluation_services_persist_evidence() -> None:
             )
             session.add(workflow_run)
             await session.flush()
+            await snapshot_run_grants(session, workflow_run)
             citations = await PolicyRetriever().retrieve(session, "vendor approval", limit=10)
             await ModelEvidenceService(DeterministicModelProvider()).explain(
                 session,
@@ -143,6 +146,7 @@ async def test_tool_gateway_denies_missing_permission() -> None:
             )
             session.add(run)
             await session.flush()
+            await snapshot_run_grants(session, run)
             with pytest.raises(PermissionError):
                 await ToolGateway().invoke_vendor_lookup(
                     session,
@@ -190,6 +194,7 @@ async def test_denied_tool_attempt_survives_the_calling_transaction_rollback() -
             )
             session.add(run)
             await session.flush()
+            await snapshot_run_grants(session, run)
             run_id = run.id
             original = await session.scalar(
                 select(ToolDefinition).where(
@@ -224,7 +229,7 @@ async def test_denied_tool_attempt_survives_the_calling_transaction_rollback() -
                 idempotency_key="pinned-tool-v1",
             )
         assert first.result == {"found": False}
-        with pytest.raises(ToolVersionMismatchError):
+        with pytest.raises(ToolDeniedError):
             async with database.session() as session:
                 await ToolGateway(database).invoke(
                     session,
@@ -267,8 +272,8 @@ async def test_denied_tool_attempt_survives_the_calling_transaction_rollback() -
         assert binding.tool_name == "vendor_database_query"
         assert binding.tool_definition_id == seed_id("tool:vendor-database-query:v1")
         assert version_mismatch is not None
-        assert version_mismatch.status is InvocationStatus.FAILED
-        assert version_mismatch.error_category == "version_mismatch"
+        assert version_mismatch.status is InvocationStatus.DENIED
+        assert version_mismatch.error_category == "policy_denied"
         with pytest.raises(RuntimeError):
             async with database.session() as session:
                 await ToolGateway(database).invoke(
@@ -330,6 +335,7 @@ async def test_governed_policy_and_synthetic_email_tools_are_durable() -> None:
             )
             session.add(run)
             await session.flush()
+            await snapshot_run_grants(session, run)
             gateway = ToolGateway()
             policy = await gateway.invoke(
                 session,
@@ -432,3 +438,20 @@ async def test_governed_policy_and_synthetic_email_tools_are_durable() -> None:
         assert calls[2].correlation_id == f"{run.id}:email-after-approval"
     finally:
         await engine.dispose()
+
+
+async def snapshot_run_grants(session: AsyncSession, run: WorkflowRun) -> None:
+    """Manual fixtures bypass the start coordinator, so model its immutable snapshot explicitly."""
+    grants = (
+        await session.scalars(select(AgentToolGrant).where(AgentToolGrant.agent_id == run.agent_id))
+    ).all()
+    for grant in grants:
+        session.add(
+            RunToolGrantSnapshot(
+                workflow_run_id=run.id,
+                tool_definition_id=grant.tool_definition_id,
+                policy_version=grant.policy_version,
+                policy_hash=grant.policy_hash,
+            )
+        )
+    await session.flush()

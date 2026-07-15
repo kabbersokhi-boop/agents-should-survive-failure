@@ -62,6 +62,19 @@ async def test_vendor_onboarding_survives_worker_restart_and_records_approval() 
         )
         created.raise_for_status()
         vendor_id = created.json()["id"]
+        duplicate = await client.post(
+            "/api/v1/vendors",
+            json={
+                "external_reference": reference,
+                "legal_name": "Duplicate Durable Workflow Vendor",
+                "jurisdiction": "US",
+                "contact_email": "duplicate@example.invalid",
+            },
+        )
+        assert duplicate.status_code == 409
+        assert duplicate.json()["code"] == "conflict"
+        for forbidden in ("sql", "postgres", "password", "asyncpg", "127.0.0.1"):
+            assert forbidden not in duplicate.text.lower()
         started = await client.post(
             f"/vendors/{vendor_id}/onboarding", json={"idempotency_key": idempotency_key}
         )

@@ -30,6 +30,7 @@ def test_model_metadata_and_seeds_cover_required_schema() -> None:
         "auth_principals",
         "api_keys",
         "agents",
+        "agent_tool_grants",
         "workflow_runs",
         "workflow_start_attempts",
         "workflow_events",
@@ -39,6 +40,7 @@ def test_model_metadata_and_seeds_cover_required_schema() -> None:
         "approval_requests",
         "approval_decisions",
         "tool_definitions",
+        "run_tool_grant_snapshots",
         "tool_run_bindings",
         "tool_invocations",
         "synthetic_email_messages",
@@ -51,7 +53,7 @@ def test_model_metadata_and_seeds_cover_required_schema() -> None:
     }
 
     assert set(Base.metadata.tables) == expected_tables
-    assert len(seed_rows()) == 8
+    assert len(seed_rows()) == 11
     assert seed_id("stable") == seed_id("stable")
     assert utc_now().tzinfo is not None
 

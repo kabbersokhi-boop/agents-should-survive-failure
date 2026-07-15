@@ -26,6 +26,7 @@ from agents_should_survive_failure.dependencies import (
     check_dependencies,
     create_resources,
 )
+from agents_should_survive_failure.evaluation import EvaluationRunner
 from agents_should_survive_failure.observability import configure_logging, configure_tracing
 from agents_should_survive_failure.persistence.models import (
     Agent,
@@ -352,6 +353,10 @@ class EvaluationRunPage(BaseModel):
     offset: int
 
 
+class EvaluationExecuteRequest(StrictRequestModel):
+    idempotency_key: str = Field(min_length=1, max_length=240, pattern=r"^[A-Za-z0-9._:-]+$")
+
+
 class ApprovalRequestBody(StrictRequestModel):
     approval_request_id: UUID
     expected_version: int = Field(ge=1)
@@ -393,6 +398,9 @@ async def audit_authorization_denial(
         return
     route = request.scope.get("route")
     route_path = getattr(route, "path", "unmatched")
+    from agents_should_survive_failure.metrics import AUTHORIZATION_DENIALS
+
+    AUTHORIZATION_DENIALS.labels(route_path).inc()
     database = Database(resources.engine)
     async with database.session() as session:
         await AuditEventRepository(session).append(
@@ -552,19 +560,25 @@ async def database_unavailable_error(request: Request, error: OperationalError) 
 
 async def create_vendor(
     payload: VendorCreateRequest,
+    request: Request,
     database: Annotated[Database, Depends(get_database)],
-) -> VendorResponse:
-    async with database.session() as session:
-        vendor = await VendorRepository(session).add(
-            Vendor(
-                external_reference=payload.external_reference,
-                legal_name=payload.legal_name,
-                jurisdiction=payload.jurisdiction.upper(),
-                contact_email=payload.contact_email,
-                status=VendorStatus.SUBMITTED,
+) -> Any:
+    try:
+        async with database.session() as session:
+            vendor = await VendorRepository(session).add(
+                Vendor(
+                    external_reference=payload.external_reference,
+                    legal_name=payload.legal_name,
+                    jurisdiction=payload.jurisdiction.upper(),
+                    contact_email=payload.contact_email,
+                    status=VendorStatus.SUBMITTED,
+                )
             )
-        )
-        return VendorResponse(id=vendor.id, status=vendor.status, risk_score=vendor.risk_score)
+            return VendorResponse(id=vendor.id, status=vendor.status, risk_score=vendor.risk_score)
+    except IntegrityError as error:
+        return await database_integrity_error(request, error)
+    except OperationalError as error:
+        return await database_unavailable_error(request, error)
 
 
 async def start_onboarding(
@@ -1199,6 +1213,23 @@ async def list_evaluations(
     )
 
 
+async def execute_evaluation(
+    payload: EvaluationExecuteRequest,
+    database: Annotated[Database, Depends(get_database)],
+    principal: Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)],
+) -> EvaluationRunResponse:
+    """Run deterministic evaluation cases in the API process for observable local verification."""
+    async with database.session() as session:
+        run = await EvaluationRunner().run_vendor_onboarding(
+            session,
+            requested_by_id=str(principal.id),
+            idempotency_key=payload.idempotency_key,
+        )
+        return EvaluationRunResponse(
+            id=run.id, status=run.status.value, configuration=run.configuration
+        )
+
+
 async def cancel_onboarding(
     run_id: UUID,
     request: Request,
@@ -1468,6 +1499,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         methods=["GET"],
         scopes=("evaluations:read",),
         response_model=EvaluationReportResponse,
+    )
+    app.add_api_route(
+        "/api/v1/evaluations/execute",
+        execute_evaluation,
+        methods=["POST"],
+        response_model=EvaluationRunResponse,
+        dependencies=[Depends(require_scopes("evaluations:execute"))],
     )
     app.add_api_route(
         "/api/v1/evaluations",

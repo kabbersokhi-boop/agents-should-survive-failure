@@ -3,7 +3,7 @@
 A durable control plane for governed AI workflows.
 
 This reference implementation demonstrates a vendor-onboarding workflow that combines durable
-orchestration, policy retrieval, model explanations, human approval, and auditable state changes.
+orchestration, policy retrieval, model explanations, authorized approval, and auditable state changes.
 It is designed to make consequential workflow decisions deterministic while models interpret
 bounded evidence.
 

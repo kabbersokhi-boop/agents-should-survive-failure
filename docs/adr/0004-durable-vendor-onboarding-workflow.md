@@ -5,7 +5,7 @@
 
 ## Context
 
-Vendor onboarding spans deterministic assessment, a human approval pause, and final application
+Vendor onboarding spans deterministic assessment, an authorized approval pause, and final application
 writes. A process restart while approval is pending must not lose the pending decision or allow
 the model layer to make the final authorization decision.
 

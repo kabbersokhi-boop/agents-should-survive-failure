@@ -45,6 +45,8 @@ class FakeSession:
 
     async def scalar(self, statement: object) -> object | None:
         rendered = str(statement)
+        if "run_tool_grant_snapshots" in rendered:
+            return SimpleNamespace(policy_version="1", policy_hash="test")
         if "tool_run_bindings" in rendered:
             if self._last_tool_id is None:
                 return None
@@ -245,9 +247,12 @@ async def test_tool_gateway_validates_inputs_and_idempotency_arguments() -> None
 @pytest.mark.asyncio
 async def test_tool_capabilities_are_negotiated_from_platform_agent_policy() -> None:
     permitted = SimpleNamespace(
-        name="vendor_database_query", version="v1", enabled=True, permissions=["vendors:read"]
+        name="vendor_database_query",
+        version="v1",
+        enabled=True,
+        permissions=["vendors:read"],
+        tool_definition_id=uuid.uuid4(),
     )
-    denied = SimpleNamespace(name="other", version="v1", enabled=True, permissions=["other:read"])
     agent = SimpleNamespace(
         name="vendor-onboarding",
         version="1",
@@ -255,7 +260,7 @@ async def test_tool_capabilities_are_negotiated_from_platform_agent_policy() -> 
     )
 
     capabilities = await ToolGateway().capabilities(
-        cast(AsyncSession, FakeSession([], [permitted, denied], agent=agent)),
+        cast(AsyncSession, FakeSession([], [permitted], agent=agent)),
         agent_id=str(uuid.uuid4()),
     )
 

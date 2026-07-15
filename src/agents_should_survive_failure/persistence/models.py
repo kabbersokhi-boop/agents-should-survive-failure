@@ -392,6 +392,44 @@ class ToolDefinition(IdMixin, TimestampMixin, Base):
     )
 
 
+class AgentToolGrant(IdMixin, TimestampMixin, Base):
+    """Reviewed immutable capability grant for one registered agent version."""
+
+    __tablename__ = "agent_tool_grants"
+    __table_args__ = (
+        UniqueConstraint("agent_id", "tool_definition_id", name="uq_agent_tool_grant"),
+    )
+
+    agent_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("agents.id", ondelete="RESTRICT"), nullable=False
+    )
+    tool_definition_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tool_definitions.id", ondelete="RESTRICT"), nullable=False
+    )
+    policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    policy_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class RunToolGrantSnapshot(IdMixin, Base):
+    """Grant selected at run creation; this is the authorization source during execution."""
+
+    __tablename__ = "run_tool_grant_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "workflow_run_id", "tool_definition_id", name="uq_run_tool_grant_snapshot"
+        ),
+    )
+
+    workflow_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    tool_definition_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tool_definitions.id", ondelete="RESTRICT"), nullable=False
+    )
+    policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    policy_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
 class ToolRunBinding(IdMixin, TimestampMixin, Base):
     """The immutable tool definition selected for a logical tool name in one run."""
 

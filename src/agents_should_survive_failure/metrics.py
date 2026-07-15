@@ -28,6 +28,22 @@ MODEL_LATENCY = Histogram(
     "Model call latency.",
     ("provider", "model", "outcome"),
 )
+MODEL_TOKENS = Counter(
+    "agents_model_tokens_total", "Model tokens where reported.", ("provider", "model", "direction")
+)
+MODEL_ESTIMATED_COST = Counter(
+    "agents_model_estimated_cost_usd_total",
+    "Estimated model cost where available.",
+    ("provider", "model"),
+)
+EMBEDDING_CALLS = Counter(
+    "agents_embedding_calls_total",
+    "Embedding calls by provider, model, and outcome.",
+    ("provider", "model", "outcome"),
+)
+EMBEDDING_LATENCY = Histogram(
+    "agents_embedding_latency_seconds", "Embedding call latency.", ("provider", "model", "outcome")
+)
 TOOL_CALLS = Counter(
     "agents_tool_calls_total",
     "Governed tool invocations by registered tool and outcome.",
@@ -43,6 +59,23 @@ APPROVAL_REQUESTS = Counter(
 )
 APPROVAL_DECISIONS = Counter(
     "agents_approval_decisions_total", "Approval decisions persisted.", ("outcome",)
+)
+APPROVAL_WAIT_DURATION = Histogram(
+    "agents_approval_wait_duration_seconds", "Time an approval remained pending.", ("outcome",)
+)
+ACTIVITY_RETRIES = Counter(
+    "agents_activity_retries_total", "Temporal activity retries observed.", ("activity",)
+)
+DUPLICATE_SIDE_EFFECT_PREVENTED = Counter(
+    "agents_duplicate_side_effect_prevented_total",
+    "Duplicate business effects prevented.",
+    ("effect",),
+)
+AUTHORIZATION_DENIALS = Counter(
+    "agents_authorization_denials_total", "Authenticated authorization denials.", ("route",)
+)
+EVALUATION_CASES = Counter(
+    "agents_evaluation_cases_total", "Evaluation case outcomes.", ("outcome",)
 )
 SANDBOX_EXECUTIONS = Counter(
     "agents_sandbox_executions_total", "Sandbox execution outcomes.", ("outcome",)

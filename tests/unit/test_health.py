@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message
 
+from agents_should_survive_failure import api as api_module
 from agents_should_survive_failure.api import (
     RequestBodyLimitMiddleware,
     audit_authorization_denial,
@@ -116,6 +117,63 @@ async def test_database_errors_use_safe_structured_api_contracts() -> None:
     )
     assert unavailable.status_code == 503
     assert b"password" not in unavailable.body
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("error", "status_code", "code"),
+    [
+        (IntegrityError("insert", {}, Exception("duplicate key SQL text")), 409, "conflict"),
+        (
+            OperationalError("connect", {}, Exception("postgres://user:password@db.internal")),
+            503,
+            "dependency_unavailable",
+        ),
+    ],
+)
+async def test_vendor_endpoint_maps_database_errors_without_leaking_details(
+    monkeypatch: pytest.MonkeyPatch, error: Exception, status_code: int, code: str
+) -> None:
+    class Session:
+        async def __aenter__(self) -> "Session":
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            return None
+
+    class Database:
+        def session(self) -> Session:
+            return Session()
+
+    class FailingVendors:
+        def __init__(self, session: object) -> None:
+            del session
+
+        async def add(self, vendor: object) -> object:
+            del vendor
+            raise error
+
+    app = create_app()
+    app.dependency_overrides[get_database] = lambda: Database()
+    app.dependency_overrides[get_authenticated_principal] = lambda: AuthenticatedPrincipal(
+        uuid4(), uuid4(), frozenset({"admin"})
+    )
+    monkeypatch.setattr(api_module, "VendorRepository", FailingVendors)
+    response = await post(
+        app,
+        "/api/v1/vendors",
+        {
+            "external_reference": "V-100",
+            "legal_name": "Vendor",
+            "jurisdiction": "US",
+            "contact_email": "vendor@example.invalid",
+        },
+    )
+    assert response.status_code == status_code
+    assert response.json()["code"] == code
+    assert response.json()["request_id"] == "request-123"
+    for forbidden in ("sql", "password", "db.internal", "postgres", "asyncpg"):
+        assert forbidden not in response.text.lower()
 
 
 @pytest.mark.asyncio

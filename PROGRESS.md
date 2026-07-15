@@ -429,3 +429,25 @@ The API now maps database uniqueness/relational conflicts to structured `409 con
 and expected database operational failures to a safe `503 dependency_unavailable` response. Neither
 handler exposes SQL, database addresses, or credentials. Focused API handler, Ruff, and Pyright
 tests passed.
+
+## 2026-07-15 Phase A Final Correction Pass
+
+| Check | Result |
+| --- | --- |
+| Governed reference tools | Passed: `vendor.lookup` validates the reviewed vendor identity; `policy.search` uses pgvector retrieval and supplies bounded returned policy content to the model prompt; `email.send` remains governed after approval. |
+| Required-tool failure | Passed: missing, denied, malformed, or unavailable required tools persist `FAILED` run state, a `review.failed` event, and an audit record before the activity returns a non-retryable Temporal failure. |
+| Immutable run policy | Passed: migration head `f1a2b3c4d5e6` adds immutable reviewed grants and copies them into run snapshots at durable start. Existing runs deny later tool versions not in their snapshot. Upgrade, downgrade, and re-upgrade passed. |
+| API database contracts | Passed: real duplicate vendor creation returns safe structured `409`; endpoint-level injected database unavailability returns safe structured `503`; tests prove no SQL, driver, host, or credential detail leaks. |
+| Observability | Passed with real local data: Prometheus recorded embedding calls, model input/output tokens, approval wait duration, evaluation pass, and authenticated authorization denial. Grafana panels query these metrics. |
+| Unit tests | Passed: 110 tests, 81% coverage. |
+| Security tests | Passed: 7 tests. |
+| Integration tests | Passed: 18 tests across all six integration files: 11 persistence/governed-tool, 4 auth/workflow, 1 Compose infrastructure, and 2 sandbox enforcement. |
+| Static and supply-chain checks | Passed: Ruff, Pyright, Compose validation, Gitleaks, and `pip-audit` (no known vulnerabilities). |
+| Evaluation | API evaluation run `ae18fd8f-dea7-48a7-ad10-2e686b280c75` succeeded. The local CLI run `ae543155-bc5b-425f-b595-304f85d50b8b` also succeeded. |
+| Service readiness | Passed: API reported PostgreSQL and Temporal `ok` after the rebuilt stack started. |
+
+The `make verify` invocation completed lint, type checking, 110 unit tests at 81% coverage,
+security tests, Compose validation, Gitleaks, and dependency audit. Its long Compose-output stream
+was interrupted by the terminal transport before a final status line, so the exact same integration
+files were subsequently run individually against the rebuilt normal stack and all 18 passed. No
+Phase B work has started.

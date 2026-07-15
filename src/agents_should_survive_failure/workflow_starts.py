@@ -15,8 +15,10 @@ from temporalio.exceptions import WorkflowAlreadyStartedError
 
 from agents_should_survive_failure.metrics import RUN_STARTS
 from agents_should_survive_failure.persistence.models import (
+    AgentToolGrant,
     AuditEvent,
     RunStatus,
+    RunToolGrantSnapshot,
     WorkflowRun,
     WorkflowStartAttempt,
     WorkflowStartStatus,
@@ -138,6 +140,20 @@ class WorkflowStartCoordinator:
                         status=WorkflowStartStatus.PENDING,
                     )
                 )
+                grants = (
+                    await session.scalars(
+                        select(AgentToolGrant).where(AgentToolGrant.agent_id == agent_id)
+                    )
+                ).all()
+                for grant in grants:
+                    session.add(
+                        RunToolGrantSnapshot(
+                            workflow_run_id=run_id,
+                            tool_definition_id=grant.tool_definition_id,
+                            policy_version=grant.policy_version,
+                            policy_hash=grant.policy_hash,
+                        )
+                    )
                 await AuditEventRepository(session).append(
                     AuditEvent(
                         workflow_run_id=run_id,

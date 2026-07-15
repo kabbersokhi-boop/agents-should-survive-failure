@@ -6,6 +6,7 @@ from uuid import UUID
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agents_should_survive_failure.mcp_adapter import GovernedMCPAdapter
 from agents_should_survive_failure.persistence.models import (
     ApprovalStatus,
     InvocationStatus,
@@ -53,6 +54,28 @@ class FakeDatabase:
         return self._session
 
 
+class RequiredTools:
+    async def call(self, session: object, **kwargs: object) -> object:
+        del session
+        tool_name = kwargs["tool_name"]
+        if tool_name == "vendor.lookup":
+            return SimpleNamespace(
+                result={"found": True, "vendor_id": "00000000-0000-0000-0000-000000000020"}
+            )
+        return SimpleNamespace(
+            result={
+                "citations": [
+                    {
+                        "document_id": "policy-1",
+                        "title": "Policy",
+                        "source_uri": "test://policy",
+                        "content": "Approval policy.",
+                    }
+                ]
+            }
+        )
+
+
 @pytest.fixture
 def activity_info(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
@@ -71,8 +94,13 @@ async def test_begin_review_transitions_submitted_vendor(
         status=RunStatus.PENDING,
         started_at=None,
         requested_by_id=UUID("00000000-0000-0000-0000-000000000030"),
+        agent_id=UUID("00000000-0000-0000-0000-000000000040"),
     )
-    vendor = SimpleNamespace(status=VendorStatus.SUBMITTED)
+    vendor = SimpleNamespace(
+        status=VendorStatus.SUBMITTED,
+        external_reference="V-100",
+        id=UUID("00000000-0000-0000-0000-000000000020"),
+    )
 
     class Runs:
         async def get(self, run_id: object) -> object:
@@ -94,7 +122,9 @@ async def test_begin_review_transitions_submitted_vendor(
 
     monkeypatch.setattr(activity_module, "WorkflowRunRepository", make_runs)
     monkeypatch.setattr(activity_module, "VendorRepository", make_vendors)
-    onboarding = activity_module.VendorOnboardingActivities(cast(Database, FakeDatabase(session)))
+    onboarding = activity_module.VendorOnboardingActivities(
+        cast(Database, FakeDatabase(session)), mcp_adapter=cast(GovernedMCPAdapter, RequiredTools())
+    )
 
     async def append(*args: object, **kwargs: object) -> None:
         events.append(str(args[2]))
@@ -138,7 +168,11 @@ async def test_assess_risk_uses_deterministic_jurisdiction_rule(
         return Vendors()
 
     def make_runs(_: object) -> object:
-        return object()
+        class Runs:
+            async def get(self, run_id: object) -> object:
+                return SimpleNamespace(agent_id=UUID("00000000-0000-0000-0000-000000000040"))
+
+        return Runs()
 
     class Retriever:
         async def retrieve(self, session: object, query: str) -> list[object]:
@@ -148,6 +182,7 @@ async def test_assess_risk_uses_deterministic_jurisdiction_rule(
     onboarding = activity_module.VendorOnboardingActivities(
         cast(Database, FakeDatabase(session)),
         policy_retriever=cast(activity_module.PolicyRetriever, Retriever()),
+        mcp_adapter=cast(GovernedMCPAdapter, RequiredTools()),
     )
     monkeypatch.setattr(activity_module, "VendorRepository", make_vendors)
     monkeypatch.setattr(activity_module, "WorkflowRunRepository", make_runs)
@@ -171,7 +206,12 @@ async def test_assess_risk_uses_deterministic_jurisdiction_rule(
     assert vendor.risk_score == 65
     assert events[1] == (
         "risk.policy_context",
-        {"citations": [], "model_explanation_available": True},
+        {
+            "citations": [
+                {"document_id": "policy-1", "title": "Policy", "source_uri": "test://policy"}
+            ],
+            "model_explanation_available": True,
+        },
     )
 
 
@@ -222,7 +262,12 @@ async def test_assess_risk_records_policy_citations_when_model_is_unavailable(
 
     def make_runs(session: object) -> object:
         del session
-        return object()
+
+        class Runs:
+            async def get(self, run_id: object) -> object:
+                return SimpleNamespace(agent_id=UUID("00000000-0000-0000-0000-000000000040"))
+
+        return Runs()
 
     monkeypatch.setattr(activity_module, "VendorRepository", make_vendors)
     monkeypatch.setattr(activity_module, "WorkflowRunRepository", make_runs)
@@ -230,6 +275,7 @@ async def test_assess_risk_records_policy_citations_when_model_is_unavailable(
         cast(Database, FakeDatabase(session)),
         model_provider=cast(activity_module.ModelProvider, FailingModelProvider()),
         policy_retriever=cast(activity_module.PolicyRetriever, Retriever()),
+        mcp_adapter=cast(GovernedMCPAdapter, RequiredTools()),
     )
     events: list[tuple[str, dict[str, object]]] = []
 
@@ -251,11 +297,7 @@ async def test_assess_risk_records_policy_citations_when_model_is_unavailable(
     assert vendor.risk_score == 25
     assert events[1][1] == {
         "citations": [
-            {
-                "document_id": "policy-1",
-                "title": "Vendor Approval Policy",
-                "source_uri": "policy://vendor-approval",
-            }
+            {"document_id": "policy-1", "title": "Policy", "source_uri": "test://policy"}
         ],
         "model_explanation_available": False,
     }
@@ -374,6 +416,65 @@ async def test_append_event_skips_existing_sequence() -> None:
     )
 
     assert runs.appended == []
+
+
+@pytest.mark.asyncio
+async def test_required_tool_failure_is_durable_before_activity_fails(
+    monkeypatch: pytest.MonkeyPatch, activity_info: None
+) -> None:
+    session = FakeSession()
+    run = SimpleNamespace(
+        status=RunStatus.PENDING,
+        started_at=None,
+        requested_by_id=None,
+        agent_id=UUID("00000000-0000-0000-0000-000000000040"),
+        result_summary=None,
+    )
+    vendor = SimpleNamespace(
+        id=UUID("00000000-0000-0000-0000-000000000020"),
+        status=VendorStatus.SUBMITTED,
+        external_reference="V-100",
+    )
+
+    class Runs:
+        async def get(self, run_id: object) -> object:
+            return run
+
+        async def events(self, run_id: object) -> list[object]:
+            return []
+
+        async def append_event(self, event: object) -> None:
+            session.add(event)
+
+    class Vendors:
+        async def get(self, vendor_id: object, *, for_update: bool = False) -> object:
+            assert for_update
+            return vendor
+
+    def make_runs(session_: object) -> Runs:
+        del session_
+        return Runs()
+
+    def make_vendors(session_: object) -> Vendors:
+        del session_
+        return Vendors()
+
+    monkeypatch.setattr(activity_module, "WorkflowRunRepository", make_runs)
+    monkeypatch.setattr(activity_module, "VendorRepository", make_vendors)
+    onboarding = activity_module.VendorOnboardingActivities(cast(Database, FakeDatabase(session)))
+    monkeypatch.setattr(onboarding, "_audit", _done)
+
+    with pytest.raises(activity_module.ApplicationError, match="required governed tool failed"):
+        await onboarding.begin_review(
+            VendorOnboardingInput(
+                run_id="00000000-0000-0000-0000-000000000010",
+                vendor_id="00000000-0000-0000-0000-000000000020",
+            )
+        )
+
+    assert run.status is RunStatus.FAILED
+    assert run.result_summary == {"failure": "required_tool_failed", "tool": "vendor.lookup"}
+    assert any(cast(Any, event).event_type == "review.failed" for event in session.added)
 
 
 @pytest.mark.asyncio

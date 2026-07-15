@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from agents_should_survive_failure.persistence.models import (
     Agent,
     AgentStatus,
+    AgentToolGrant,
     AuthPrincipal,
     EvaluationCase,
     PolicyDocument,
@@ -29,7 +30,15 @@ def seed_id(name: str) -> uuid.UUID:
 
 def seed_rows() -> Sequence[
     tuple[
-        type[User | Agent | AuthPrincipal | ToolDefinition | EvaluationCase | PolicyDocument],
+        type[
+            User
+            | Agent
+            | AgentToolGrant
+            | AuthPrincipal
+            | ToolDefinition
+            | EvaluationCase
+            | PolicyDocument
+        ],
         dict[str, object],
     ]
 ]:
@@ -96,6 +105,16 @@ def seed_rows() -> Sequence[
             },
         ),
         (
+            AgentToolGrant,
+            {
+                "id": seed_id("agent-tool-grant:vendor-onboarding:v1:vendor"),
+                "agent_id": seed_id("agent:vendor-onboarding:v1"),
+                "tool_definition_id": seed_id("tool:vendor-database-query:v1"),
+                "policy_version": "1",
+                "policy_hash": "d6a183a8ad68d8aafdfced0f5b1d14de51ae91de2c9da1fd99989f3182a64cd0",
+            },
+        ),
+        (
             ToolDefinition,
             {
                 "id": seed_id("tool:internal-policy-search:v1"),
@@ -119,6 +138,16 @@ def seed_rows() -> Sequence[
                 "timeout_seconds": 10,
                 "approval_required": False,
                 "enabled": True,
+            },
+        ),
+        (
+            AgentToolGrant,
+            {
+                "id": seed_id("agent-tool-grant:vendor-onboarding:v1:policy"),
+                "agent_id": seed_id("agent:vendor-onboarding:v1"),
+                "tool_definition_id": seed_id("tool:internal-policy-search:v1"),
+                "policy_version": "1",
+                "policy_hash": "d6a183a8ad68d8aafdfced0f5b1d14de51ae91de2c9da1fd99989f3182a64cd0",
             },
         ),
         (
@@ -152,6 +181,16 @@ def seed_rows() -> Sequence[
             },
         ),
         (
+            AgentToolGrant,
+            {
+                "id": seed_id("agent-tool-grant:vendor-onboarding:v1:email"),
+                "agent_id": seed_id("agent:vendor-onboarding:v1"),
+                "tool_definition_id": seed_id("tool:synthetic-email-send:v1"),
+                "policy_version": "1",
+                "policy_hash": "d6a183a8ad68d8aafdfced0f5b1d14de51ae91de2c9da1fd99989f3182a64cd0",
+            },
+        ),
+        (
             EvaluationCase,
             {
                 "id": seed_id("evaluation:complete-low-risk-vendor:v1"),
@@ -173,7 +212,9 @@ def seed_rows() -> Sequence[
                 "title": "Vendor Approval Policy",
                 "source_uri": "seed://policy/vendor-approval",
                 "chunk_index": 0,
-                "content": "All vendors require a human approval after deterministic risk review.",
+                "content": (
+                    "All vendors require an authorized approval after deterministic risk review."
+                ),
                 "content_sha256": "c" * 64,
                 "embedding_model": "deterministic-embedding-2048d-v1",
                 "embedding": [1.0] + [0.0] * 2047,
@@ -187,7 +228,7 @@ async def seed_database(engine: AsyncEngine) -> None:
     async with engine.begin() as connection:
         for model, values in seed_rows():
             statement = insert(model).values(**values)
-            if model in {Agent, ToolDefinition}:
+            if model in {Agent, AgentToolGrant, ToolDefinition}:
                 await connection.execute(
                     statement.on_conflict_do_nothing(index_elements=[model.id])
                 )

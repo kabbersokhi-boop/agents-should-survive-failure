@@ -6,12 +6,16 @@ from dataclasses import asdict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from temporalio import activity
+from temporalio.exceptions import ApplicationError
 
 from agents_should_survive_failure.mcp_adapter import GovernedMCPAdapter, MCPExecutionContext
 from agents_should_survive_failure.metrics import (
     ACTIVE_RUNS,
+    ACTIVITY_RETRIES,
     APPROVAL_DECISIONS,
     APPROVAL_REQUESTS,
+    APPROVAL_WAIT_DURATION,
+    DUPLICATE_SIDE_EFFECT_PREVENTED,
     RUN_OUTCOMES,
 )
 from agents_should_survive_failure.model_evidence import ModelEvidenceService
@@ -53,7 +57,7 @@ class VendorOnboardingActivities:
     ) -> None:
         self._database = database
         self._model_provider = model_provider or DeterministicModelProvider()
-        self._policy_retriever = policy_retriever or PolicyRetriever()
+        del policy_retriever
         self._mcp_adapter = mcp_adapter
 
     @staticmethod
@@ -62,8 +66,10 @@ class VendorOnboardingActivities:
 
     @activity.defn(name="vendor_onboarding.begin_review")
     async def begin_review(self, input: VendorOnboardingInput) -> None:
+        self._observe_retry("vendor_onboarding.begin_review")
         run_id = self._id(input.run_id)
         vendor_id = self._id(input.vendor_id)
+        required_tool_failure: tuple[str, str] | None = None
         async with self._database.session() as session:
             runs = WorkflowRunRepository(session)
             vendors = VendorRepository(session)
@@ -77,40 +83,56 @@ class VendorOnboardingActivities:
                 ACTIVE_RUNS.labels("running").inc()
             if vendor.status is VendorStatus.SUBMITTED:
                 vendor.status = VendorStatus.UNDER_REVIEW
-            if self._mcp_adapter is not None:
-                await self._mcp_adapter.call(
-                    session,
-                    context=MCPExecutionContext(
-                        workflow_run_id=str(run_id),
-                        agent_id=str(run.agent_id),
-                        correlation_id=f"{run_id}:review",
-                    ),
-                    tool_name="vendor.lookup",
-                    arguments={"external_reference": vendor.external_reference},
-                    idempotency_key=f"{run_id}:vendor-lookup",
+            if self._mcp_adapter is None:
+                required_tool_failure = ("vendor.lookup", "gateway_unavailable")
+            else:
+                try:
+                    result = await self._mcp_adapter.call(
+                        session,
+                        context=MCPExecutionContext(
+                            workflow_run_id=str(run_id),
+                            agent_id=str(run.agent_id),
+                            correlation_id=f"{run_id}:review",
+                        ),
+                        tool_name="vendor.lookup",
+                        arguments={"external_reference": vendor.external_reference},
+                        idempotency_key=f"{run_id}:vendor-lookup",
+                    )
+                except Exception:
+                    required_tool_failure = ("vendor.lookup", "unavailable")
+                else:
+                    lookup = result.result
+                    if not lookup.get("found") or lookup.get("vendor_id") != str(vendor_id):
+                        required_tool_failure = ("vendor.lookup", "identity_mismatch")
+            if required_tool_failure is None:
+                await self._append_event(
+                    runs,
+                    run_id,
+                    "review.started",
+                    "Vendor review started.",
+                    {"vendor_id": input.vendor_id},
+                    sequence=10,
                 )
-            await self._append_event(
-                runs,
-                run_id,
-                "review.started",
-                "Vendor review started.",
-                {"vendor_id": input.vendor_id},
-                sequence=10,
-            )
-            await self._audit(
-                session,
-                run_id,
-                "vendor.review.start",
-                "vendor",
-                vendor_id,
-                "Vendor review started.",
-                actor_id=run.requested_by_id,
-            )
+                await self._audit(
+                    session,
+                    run_id,
+                    "vendor.review.start",
+                    "vendor",
+                    vendor_id,
+                    "Vendor review started.",
+                    actor_id=run.requested_by_id,
+                )
+            else:
+                await self._required_tool_failed(session, run_id, *required_tool_failure)
+        if required_tool_failure is not None:
+            raise ApplicationError("required governed tool failed", non_retryable=True)
 
     @activity.defn(name="vendor_onboarding.assess_risk")
     async def assess_risk(self, input: VendorOnboardingInput) -> RiskAssessment:
+        self._observe_retry("vendor_onboarding.assess_risk")
         vendor_id = self._id(input.vendor_id)
         run_id = self._id(input.run_id)
+        required_tool_failure: tuple[str, str] | None = None
         async with self._database.session() as session:
             vendor = await VendorRepository(session).get(vendor_id, for_update=True)
             if vendor is None:
@@ -121,69 +143,83 @@ class VendorOnboardingActivities:
                 score=score,
                 summary=f"Deterministic jurisdiction risk score: {score}.",
             )
-            citations = await self._policy_retriever.retrieve(
-                session, "vendor onboarding approval policy"
-            )
-            if self._mcp_adapter is not None:
-                run = await WorkflowRunRepository(session).get(run_id)
-                if run is None:
-                    raise ValueError("workflow run does not exist")
-                await self._mcp_adapter.call(
-                    session,
-                    context=MCPExecutionContext(
-                        workflow_run_id=str(run_id),
-                        agent_id=str(run.agent_id),
-                        correlation_id=f"{run_id}:risk",
-                    ),
-                    tool_name="policy.search",
-                    arguments={"query": "vendor onboarding approval policy", "limit": 10},
-                    idempotency_key=f"{run_id}:policy-search",
+            run = await WorkflowRunRepository(session).get(run_id)
+            if run is None:
+                raise ValueError("workflow run does not exist")
+            citations: list[dict[str, object]] = []
+            if self._mcp_adapter is None:
+                required_tool_failure = ("policy.search", "gateway_unavailable")
+            else:
+                try:
+                    result = await self._mcp_adapter.call(
+                        session,
+                        context=MCPExecutionContext(
+                            workflow_run_id=str(run_id),
+                            agent_id=str(run.agent_id),
+                            correlation_id=f"{run_id}:risk",
+                        ),
+                        tool_name="policy.search",
+                        arguments={"query": "vendor onboarding approval policy", "limit": 10},
+                        idempotency_key=f"{run_id}:policy-search",
+                    )
+                except Exception:
+                    required_tool_failure = ("policy.search", "unavailable")
+                else:
+                    citations = result.result.get("citations", [])
+                    if not citations:
+                        required_tool_failure = ("policy.search", "no_policy_evidence")
+            if required_tool_failure is not None:
+                await self._required_tool_failed(session, run_id, *required_tool_failure)
+            else:
+                citation_evidence = [
+                    {
+                        "document_id": citation["document_id"],
+                        "title": citation["title"],
+                        "source_uri": citation["source_uri"],
+                    }
+                    for citation in citations
+                ]
+                explanation_available = True
+                try:
+                    await ModelEvidenceService(self._model_provider).explain(
+                        session,
+                        workflow_run_id=run_id,
+                        prompt=self._risk_explanation_prompt(
+                            jurisdiction=vendor.jurisdiction,
+                            score=score,
+                            policy_context="\n".join(
+                                str(citation["content"]) for citation in citations
+                            ),
+                        ),
+                        correlation_id=f"{run_id}:risk-assessment",
+                    )
+                except RuntimeError:
+                    explanation_available = False
+                await self._append_event(
+                    WorkflowRunRepository(session),
+                    run_id,
+                    "risk.assessed",
+                    assessment.summary,
+                    asdict(assessment),
+                    sequence=20,
                 )
-            citation_evidence = [
-                {
-                    "document_id": citation.document_id,
-                    "title": citation.title,
-                    "source_uri": citation.source_uri,
-                }
-                for citation in citations
-            ]
-            explanation_available = True
-            try:
-                await ModelEvidenceService(self._model_provider).explain(
-                    session,
-                    workflow_run_id=run_id,
-                    prompt=self._risk_explanation_prompt(
-                        jurisdiction=vendor.jurisdiction,
-                        score=score,
-                        policy_context="\n".join(citation.content for citation in citations),
-                    ),
-                    correlation_id=f"{run_id}:risk-assessment",
+                await self._append_event(
+                    WorkflowRunRepository(session),
+                    run_id,
+                    "risk.policy_context",
+                    "Risk explanation grounded in retrieved policy evidence.",
+                    {
+                        "citations": citation_evidence,
+                        "model_explanation_available": explanation_available,
+                    },
+                    sequence=25,
                 )
-            except RuntimeError:
-                explanation_available = False
-            await self._append_event(
-                WorkflowRunRepository(session),
-                run_id,
-                "risk.assessed",
-                assessment.summary,
-                asdict(assessment),
-                sequence=20,
-            )
-            await self._append_event(
-                WorkflowRunRepository(session),
-                run_id,
-                "risk.policy_context",
-                "Risk explanation grounded in retrieved policy evidence.",
-                {
-                    "citations": citation_evidence,
-                    "model_explanation_available": explanation_available,
-                },
-                sequence=25,
-            )
-            await self._audit(
-                session, run_id, "vendor.risk.assess", "vendor", vendor_id, assessment.summary
-            )
-            return assessment
+                await self._audit(
+                    session, run_id, "vendor.risk.assess", "vendor", vendor_id, assessment.summary
+                )
+        if required_tool_failure is not None:
+            raise ApplicationError("required governed tool failed", non_retryable=True)
+        return assessment
 
     @staticmethod
     def _risk_explanation_prompt(*, jurisdiction: str, score: int, policy_context: str) -> str:
@@ -230,7 +266,7 @@ class VendorOnboardingActivities:
                 WorkflowRunRepository(session),
                 run_id,
                 "approval.requested",
-                "Human approval requested.",
+                "Authorized approval requested.",
                 {"approval_request_id": str(request.id), "risk_score": assessment.score},
                 sequence=30,
             )
@@ -240,7 +276,7 @@ class VendorOnboardingActivities:
                 "approval.request.create",
                 "approval_request",
                 request.id,
-                "Human approval requested.",
+                "Authorized approval requested.",
             )
             return str(request.id)
 
@@ -248,6 +284,7 @@ class VendorOnboardingActivities:
     async def record_decision(
         self, input: VendorOnboardingInput, decision: ApprovalDecisionInput
     ) -> None:
+        self._observe_retry("vendor_onboarding.record_decision")
         run_id = self._id(input.run_id)
         vendor_id = self._id(input.vendor_id)
         approver_id = self._id(decision.decided_by_id)
@@ -282,6 +319,7 @@ class VendorOnboardingActivities:
                     raise ValueError(
                         "approval idempotency key conflicts with the persisted decision"
                     )
+                DUPLICATE_SIDE_EFFECT_PREVENTED.labels("approval_decision").inc()
                 return
             if (
                 request.status is not ApprovalStatus.PENDING
@@ -301,6 +339,9 @@ class VendorOnboardingActivities:
             vendor.status = VendorStatus.APPROVED if approved else VendorStatus.REJECTED
             run.status = RunStatus.SUCCEEDED if approved else RunStatus.REJECTED
             APPROVAL_DECISIONS.labels(decision.decision.value).inc()
+            APPROVAL_WAIT_DURATION.labels(decision.decision.value).observe(
+                max(0.0, (activity.info().started_time - request.created_at).total_seconds())
+            )
             RUN_OUTCOMES.labels(run.status.value).inc()
             ACTIVE_RUNS.labels("waiting").dec()
             run.result_summary = {
@@ -320,6 +361,8 @@ class VendorOnboardingActivities:
                             approval_request_id=request.id,
                         )
                     )
+                else:
+                    DUPLICATE_SIDE_EFFECT_PREVENTED.labels("approved_vendor_projection").inc()
                 if self._mcp_adapter is not None:
                     await self._mcp_adapter.call(
                         session,
@@ -340,7 +383,7 @@ class VendorOnboardingActivities:
                 WorkflowRunRepository(session),
                 run_id,
                 "approval.decided",
-                f"Vendor {decision.decision.value} by human approver.",
+                f"Vendor {decision.decision.value} by authorized approver.",
                 {"decision": decision.decision.value, "approval_request_id": str(request.id)},
                 sequence=40,
             )
@@ -350,7 +393,7 @@ class VendorOnboardingActivities:
                 "approval.decision.record",
                 "approval_request",
                 request.id,
-                f"Vendor {decision.decision.value} by human approver.",
+                f"Vendor {decision.decision.value} by authorized approver.",
                 actor_id=approver_id,
             )
 
@@ -410,6 +453,37 @@ class VendorOnboardingActivities:
                 summary=summary,
                 payload=payload,
             )
+        )
+
+    @staticmethod
+    def _observe_retry(activity_name: str) -> None:
+        if getattr(activity.info(), "attempt", 1) > 1:
+            ACTIVITY_RETRIES.labels(activity_name).inc()
+
+    async def _required_tool_failed(
+        self, session: AsyncSession, run_id: uuid.UUID, tool_name: str, category: str
+    ) -> None:
+        run = await WorkflowRunRepository(session).get(run_id)
+        if run is not None:
+            run.status = RunStatus.FAILED
+            run.result_summary = {"failure": "required_tool_failed", "tool": tool_name}
+            RUN_OUTCOMES.labels("failed").inc()
+            ACTIVE_RUNS.labels("running").dec()
+        await self._audit(
+            session,
+            run_id,
+            "tool.required.failure",
+            "workflow_run",
+            run_id,
+            f"Required governed tool {tool_name} failed: {category}.",
+        )
+        await self._append_event(
+            WorkflowRunRepository(session),
+            run_id,
+            "review.failed",
+            "Required governed tool failed.",
+            {"tool": tool_name, "category": category},
+            sequence=15 if tool_name == "vendor.lookup" else 25,
         )
 
     async def _audit(

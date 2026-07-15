@@ -41,6 +41,7 @@ from agents_should_survive_failure.workflow_starts import (
 
 EXPECTED_TABLES = {
     "agents",
+    "agent_tool_grants",
     "approval_decisions",
     "approval_requests",
     "approved_vendors",
@@ -51,6 +52,7 @@ EXPECTED_TABLES = {
     "model_calls",
     "policy_documents",
     "tool_definitions",
+    "run_tool_grant_snapshots",
     "tool_invocations",
     "synthetic_email_messages",
     "users",

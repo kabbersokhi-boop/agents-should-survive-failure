@@ -6,7 +6,11 @@ import uuid
 from opentelemetry import trace
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from agents_should_survive_failure.metrics import MODEL_CALLS, MODEL_LATENCY
+from agents_should_survive_failure.metrics import (
+    MODEL_CALLS,
+    MODEL_LATENCY,
+    MODEL_TOKENS,
+)
 from agents_should_survive_failure.persistence.models import InvocationStatus, ModelCall
 from agents_should_survive_failure.providers import (
     ModelProvider,
@@ -53,6 +57,8 @@ class ModelEvidenceService:
         latency = time.perf_counter() - started
         MODEL_CALLS.labels(response.provider, response.model, "succeeded").inc()
         MODEL_LATENCY.labels(response.provider, response.model, "succeeded").observe(latency)
+        MODEL_TOKENS.labels(response.provider, response.model, "input").inc(response.input_tokens)
+        MODEL_TOKENS.labels(response.provider, response.model, "output").inc(response.output_tokens)
         session.add(
             ModelCall(
                 workflow_run_id=workflow_run_id,

@@ -97,6 +97,42 @@
       "targets": [{"expr": "agents_active_runs", "legendFormat": "{{state}}", "refId": "A"}],
       "title": "Active workflow state",
       "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+      "id": 11,
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le, provider, model, outcome) (rate(agents_embedding_latency_seconds_bucket[5m])))", "legendFormat": "{{provider}}/{{model}} {{outcome}} p95", "refId": "A"}],
+      "title": "Embedding latency and failures",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32},
+      "id": 12,
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (le, outcome) (rate(agents_approval_wait_duration_seconds_bucket[5m])))", "legendFormat": "{{outcome}} p95", "refId": "A"}],
+      "title": "Approval wait duration",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 40},
+      "id": 13,
+      "targets": [{"expr": "sum by (outcome) (rate(agents_evaluation_cases_total[5m]))", "legendFormat": "{{outcome}}", "refId": "A"}, {"expr": "sum by (route) (rate(agents_authorization_denials_total[5m]))", "legendFormat": "denied {{route}}", "refId": "B"}],
+      "title": "Evaluation and authorization denials",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 40},
+      "id": 14,
+      "targets": [{"expr": "sum by (provider, model, direction) (rate(agents_model_tokens_total[5m]))", "legendFormat": "{{provider}}/{{model}} {{direction}}", "refId": "A"}, {"expr": "sum by (activity) (rate(agents_activity_retries_total[5m]))", "legendFormat": "retry {{activity}}", "refId": "B"}, {"expr": "sum by (effect) (rate(agents_duplicate_side_effect_prevented_total[5m]))", "legendFormat": "prevented {{effect}}", "refId": "C"}],
+      "title": "Tokens, activity retries, duplicate prevention",
+      "type": "timeseries"
     }
   ],
   "schemaVersion": 41,

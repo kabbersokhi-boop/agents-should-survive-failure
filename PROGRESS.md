@@ -446,11 +446,12 @@ tests passed.
 | Evaluation | API evaluation run `ae18fd8f-dea7-48a7-ad10-2e686b280c75` succeeded. The local CLI run `ae543155-bc5b-425f-b595-304f85d50b8b` also succeeded. |
 | Service readiness | Passed: API reported PostgreSQL and Temporal `ok` after the rebuilt stack started. |
 
-The `make verify` invocation completed lint, type checking, 110 unit tests at 81% coverage,
-security tests, Compose validation, Gitleaks, and dependency audit. Its long Compose-output stream
-was interrupted by the terminal transport before a final status line, so the exact same integration
-files were subsequently run individually against the rebuilt normal stack and all 18 passed. No
-Phase B work has started.
+The full `make verify` gate passed cleanly on the final correction source state: Ruff, Pyright,
+110 unit tests at 81% coverage, seven security tests, Compose validation, Gitleaks, `pip-audit`,
+the complete upgrade/downgrade/re-upgrade migration lifecycle at head `f1a2b3c4d5e6`, 18 isolated
+Compose integration tests, and deterministic evaluation run
+`6b8370d4-cd98-44d8-81ac-fcbbe56a714e`. The isolated services reached their configured healthy
+states before testing and were cleaned up afterwards. No Phase B work has started.
 
 GitHub Actions for commit `859c510` passed all required jobs: [quality, docker, and integration]
 (https://github.com/kabbersokhi-boop/agents-should-survive-failure/actions/runs/29434215741).

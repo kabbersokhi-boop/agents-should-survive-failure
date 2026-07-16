@@ -29,7 +29,12 @@ from agents_should_survive_failure.agent_registry import (
     parse_registration,
     register_agent,
 )
-from agents_should_survive_failure.auth import AuthenticatedPrincipal, resolve_api_key
+from agents_should_survive_failure.auth import (
+    ApprovalAuthorizationDenied,
+    AuthenticatedPrincipal,
+    assert_approval_decision_authorized,
+    resolve_api_key,
+)
 from agents_should_survive_failure.dependencies import (
     DependencySet,
     RuntimeResources,
@@ -804,6 +809,10 @@ async def decide_onboarding(
     database: Annotated[Database, Depends(get_database)],
     principal: Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)],
 ) -> Response:
+    try:
+        assert_approval_decision_authorized(principal)
+    except ApprovalAuthorizationDenied as error:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(error)) from None
     async with database.session() as session:
         run = await WorkflowRunRepository(session).get(run_id)
         if run is None:

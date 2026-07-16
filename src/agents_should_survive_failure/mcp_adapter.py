@@ -67,6 +67,33 @@ class GovernedMCPAdapter:
             correlation_id=f"{context.correlation_id}:{tool_name}",
         )
 
+    async def record_injected_failure(
+        self,
+        session: AsyncSession,
+        *,
+        context: MCPExecutionContext,
+        tool_name: str,
+        arguments: dict[str, Any],
+        idempotency_key: str,
+        error_category: str,
+    ) -> None:
+        """Persist a controlled adapter-boundary failure through the governed gateway."""
+
+        target = self._TOOL_VERSIONS.get(tool_name)
+        if target is None:
+            raise ValueError("requested MCP tool is not registered")
+        gateway_name, version = target
+        await self._gateway.record_injected_failure(
+            session,
+            workflow_run_id=context.workflow_run_id,
+            tool_name=gateway_name,
+            tool_version=version,
+            arguments=arguments,
+            idempotency_key=idempotency_key,
+            correlation_id=f"{context.correlation_id}:{tool_name}",
+            error_category=error_category,
+        )
+
     def server(self, session: AsyncSession, *, context: MCPExecutionContext) -> FastMCP:
         """Create a run-scoped FastMCP server with no identity fields in its wire schema."""
 

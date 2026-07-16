@@ -57,6 +57,19 @@ class AuthenticatedPrincipal:
         return "admin" in self.scopes or set(required_scopes).issubset(self.scopes)
 
 
+class ApprovalAuthorizationDenied(PermissionError):
+    """The authenticated principal cannot submit a consequential approval decision."""
+
+
+def assert_approval_decision_authorized(principal: AuthenticatedPrincipal) -> None:
+    """Apply the approval authority rule at both HTTP and non-HTTP control-plane boundaries."""
+
+    if not principal.allows("approvals:decide"):
+        raise ApprovalAuthorizationDenied("insufficient scope")
+    if principal.principal_type not in {PrincipalType.USER, PrincipalType.SERVICE}:
+        raise ApprovalAuthorizationDenied("principal type is not permitted")
+
+
 def validate_scopes(scopes: list[str]) -> list[str]:
     normalized = sorted(set(scopes))
     unknown = set(normalized).difference(API_KEY_SCOPES)

@@ -125,7 +125,21 @@ class VendorOnboardingActivities:
                         idempotency_key=f"{run_id}:vendor-lookup",
                     )
                 except Exception as error:
-                    required_tool_failure = ("vendor.lookup", classify_failure(error))
+                    failure = classify_failure(error)
+                    if not failure.retryable:
+                        await self._mcp_adapter.record_injected_failure(
+                            session,
+                            context=MCPExecutionContext(
+                                workflow_run_id=str(run_id),
+                                agent_id=str(run.agent_id),
+                                correlation_id=f"{run_id}:review",
+                            ),
+                            tool_name="vendor.lookup",
+                            arguments={"external_reference": vendor.external_reference},
+                            idempotency_key=f"{run_id}:vendor-lookup",
+                            error_category="execution_failed",
+                        )
+                    required_tool_failure = ("vendor.lookup", failure)
                 else:
                     lookup = result.result
                     if not lookup.get("found") or lookup.get("vendor_id") != str(vendor_id):
@@ -199,7 +213,21 @@ class VendorOnboardingActivities:
                         idempotency_key=f"{run_id}:policy-search",
                     )
                 except Exception as error:
-                    required_tool_failure = ("policy.search", classify_failure(error))
+                    failure = classify_failure(error)
+                    if not failure.retryable:
+                        await self._mcp_adapter.record_injected_failure(
+                            session,
+                            context=MCPExecutionContext(
+                                workflow_run_id=str(run_id),
+                                agent_id=str(run.agent_id),
+                                correlation_id=f"{run_id}:risk",
+                            ),
+                            tool_name="policy.search",
+                            arguments={"query": "vendor onboarding approval policy", "limit": 10},
+                            idempotency_key=f"{run_id}:policy-search",
+                            error_category="execution_failed",
+                        )
+                    required_tool_failure = ("policy.search", failure)
                 else:
                     citations = result.result.get("citations", [])
                     if not citations:
@@ -533,6 +561,10 @@ class VendorOnboardingActivities:
         self, session: AsyncSession, run_id: uuid.UUID, tool_name: str, failure: PlatformFailure
     ) -> None:
         category = failure.category.value
+        if tool_name == "policy.search" and not failure.retryable:
+            category = "policy_retrieval_failed"
+        elif failure.category is FailureCategory.AUTHORIZATION_DENIED:
+            category = "tool_permission_denied"
         if failure.retryable:
             await self._audit(
                 session,

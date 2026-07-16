@@ -16,6 +16,11 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from agents_should_survive_failure.auth import (
+    ApprovalAuthorizationDenied,
+    AuthenticatedPrincipal,
+    assert_approval_decision_authorized,
+)
 from agents_should_survive_failure.evaluation_scenarios import (
     ApprovalDecision,
     CancellationPoint,
@@ -44,6 +49,7 @@ from agents_should_survive_failure.persistence.models import (
     FaultInjectionConsumption,
     InvocationStatus,
     ModelCall,
+    PrincipalType,
     RunStatus,
     SyntheticEmailMessage,
     ToolDefinition,
@@ -552,6 +558,18 @@ class EvaluationRunner:
         for index, attempt in enumerate(definition.driver.approval_attempts):
             if attempt.timing.value == "before_request":
                 continue
+            if attempt.actor.value == "unauthorized":
+                unauthorized_principal = AuthenticatedPrincipal(
+                    id=requested_by_id,
+                    key_id=uuid.uuid4(),
+                    scopes=frozenset({"runs:read"}),
+                    principal_type=PrincipalType.USER,
+                )
+                try:
+                    assert_approval_decision_authorized(unauthorized_principal)
+                except ApprovalAuthorizationDenied:
+                    continue
+                raise RuntimeError("unauthorized approval probe was unexpectedly authorized")
             key = accepted_key if attempt.idempotency_key_mode.value == "reuse_previous" else (
                 f"evaluation:{workflow_run.id}:decision:{index}"
             )
@@ -572,7 +590,12 @@ class EvaluationRunner:
                 idempotency_key=key,
             )
             try:
-                await handle.execute_update("decide", payload, id=key)
+                await self._execute_accepted_update(
+                    handle,
+                    payload,
+                    timeout_seconds=timeout_seconds,
+                    required=attempt.expected_effect.value == "accepted",
+                )
             except Exception:
                 # Rejected probes are evidence-bearing only when the production API/service
                 # persists them. The accepted reviewed action below still drives the workflow.
@@ -587,6 +610,37 @@ class EvaluationRunner:
             else RunStatus.REJECTED
         )
         await self._wait_for_status(database, workflow_run.id, {expected_status}, timeout_seconds)
+
+    @staticmethod
+    async def _execute_accepted_update(
+        handle: Any,
+        payload: ApprovalDecisionInput,
+        *,
+        timeout_seconds: float,
+        required: bool,
+    ) -> None:
+        """Retry a reviewed accepted update while a retried wait activity becomes visible.
+
+        The same workflow-update ID and approval idempotency key make this safe if a successful
+        update acknowledgement is lost. Rejected probes stay single-shot so their evidence is not
+        distorted by evaluator retries.
+        """
+
+        if not required:
+            await handle.execute_update("decide", payload, id=payload.idempotency_key)
+            return
+        deadline = time.monotonic() + min(timeout_seconds, 10.0)
+        last_error: Exception | None = None
+        while time.monotonic() < deadline:
+            try:
+                await handle.execute_update("decide", payload, id=payload.idempotency_key)
+                return
+            except Exception as error:
+                last_error = error
+                await _sleep_poll()
+        if last_error is not None:
+            raise last_error
+        raise TimeoutError("approval update did not complete")
 
     @staticmethod
     async def _drive_early_approval_attempts(
@@ -669,7 +723,12 @@ class EvaluationRunner:
             except Exception:
                 await _sleep_poll()
                 continue
-            if getattr(status, "phase", None) == "waiting_for_approval":
+            phase: object | None
+            if isinstance(status, dict):
+                phase = cast(dict[str, object], status).get("phase")
+            else:
+                phase = getattr(status, "phase", None)
+            if phase == "waiting_for_approval":
                 return
             await _sleep_poll()
         raise TimeoutError("evaluation workflow did not enter the approval wait phase")

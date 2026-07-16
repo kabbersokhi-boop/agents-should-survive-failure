@@ -195,6 +195,48 @@ class ToolGateway:
             idempotency_key=idempotency_key,
         )
 
+    async def record_injected_failure(
+        self,
+        session: AsyncSession,
+        *,
+        workflow_run_id: str,
+        tool_name: str,
+        tool_version: str,
+        arguments: dict[str, Any],
+        idempotency_key: str,
+        correlation_id: str,
+        error_category: str,
+    ) -> None:
+        """Record a fault-injected adapter failure after gateway request validation begins."""
+
+        tool = await session.scalar(
+            select(ToolDefinition).where(
+                ToolDefinition.name == tool_name,
+                ToolDefinition.version == tool_version,
+            )
+        )
+        if tool is None:
+            raise ToolUnavailableError("injected failure references an unregistered tool")
+        existing = await session.scalar(
+            select(ToolInvocation).where(
+                ToolInvocation.workflow_run_id == workflow_run_id,
+                ToolInvocation.idempotency_key == idempotency_key,
+            )
+        )
+        if existing is not None:
+            return
+        await self._record_terminal_attempt(
+            session=session,
+            workflow_run_id=workflow_run_id,
+            tool=tool,
+            idempotency_key=idempotency_key,
+            arguments=arguments,
+            fingerprint=canonical_argument_fingerprint(arguments),
+            correlation_id=correlation_id,
+            status=InvocationStatus.FAILED,
+            error_category=error_category,
+        )
+
     async def invoke(
         self,
         session: AsyncSession,

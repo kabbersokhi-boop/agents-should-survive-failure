@@ -713,7 +713,13 @@ async def start_onboarding(
         if vendor is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="vendor not found")
     resources: RuntimeResources = request.app.state.resources
-    coordinator = WorkflowStartCoordinator(database, resources.temporal_client)
+    coordinator = WorkflowStartCoordinator(
+        database,
+        resources.temporal_client,
+        fault_injector=FaultInjector(
+            database, enabled=request.app.state.settings.fault_injection_enabled
+        ),
+    )
     try:
         run = await coordinator.create_or_get(
             vendor_id=vendor_id,
@@ -760,7 +766,13 @@ async def start_managed_agent(
     if agent is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="managed agent not found")
     resources: RuntimeResources = request.app.state.resources
-    coordinator = WorkflowStartCoordinator(database, resources.temporal_client)
+    coordinator = WorkflowStartCoordinator(
+        database,
+        resources.temporal_client,
+        fault_injector=FaultInjector(
+            database, enabled=request.app.state.settings.fault_injection_enabled
+        ),
+    )
     try:
         run = await coordinator.create_or_get_managed_agent(
             requested_by_id=principal.id,

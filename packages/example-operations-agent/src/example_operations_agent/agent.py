@@ -43,7 +43,12 @@ class OperationsInvestigationAgent:
                 "approved_follow_up": {"type": "boolean"},
             },
         },
-        required_capabilities=(Capability.TOOLS, Capability.CHECKPOINTS, Capability.ARTIFACTS),
+        required_capabilities=(
+            Capability.APPROVALS,
+            Capability.TOOLS,
+            Capability.CHECKPOINTS,
+            Capability.ARTIFACTS,
+        ),
         tools=(ToolDeclaration(name="internal_policy_search", version="1"),),
         checkpoint_supported=True,
         artifact_supported=True,
@@ -74,11 +79,19 @@ class OperationsInvestigationAgent:
             idempotency_key=f"operations-investigation:{incident_id}:policy-search",
         )
         await context.check_cancelled()
+        requires_approval = task.input.get("requires_approval", False)
+        if not isinstance(requires_approval, bool):
+            raise ValueError("requires_approval must be a boolean")
+        approved_follow_up = False
+        if requires_approval:
+            approved_follow_up = await context.request_approval(
+                f"Authorize the requested operational follow-up for incident {incident_id}."
+            )
         report = {
             "incident_id": incident_id,
             "question": question,
             "evidence": dict(evidence),
-            "approved_follow_up": False,
+            "approved_follow_up": approved_follow_up,
         }
         artifact = AgentArtifact(
             name=f"investigation-{incident_id}.json",

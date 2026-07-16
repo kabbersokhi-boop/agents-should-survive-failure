@@ -37,6 +37,7 @@ docker compose up --build --detach
 uv run pytest -m integration tests/integration
 if ! evaluation_output="$(docker compose exec -T api /app/.venv/bin/python -c 'from agents_should_survive_failure.persistence.cli import evaluate_main; evaluate_main("release-gate-v1")')"; then
   printf '%s\n' "$evaluation_output" >&2
+  docker compose exec -T postgres psql -U temporal -d agents -c "select case_slug, status, summary from evaluation_results where evaluation_run_id = (select id from evaluation_runs where idempotency_key = 'release-gate-v1' order by created_at desc limit 1) order by case_slug;" >&2 || true
   exit 1
 fi
 printf '%s\n' "$evaluation_output"

@@ -55,6 +55,7 @@ async def run_worker() -> None:
             Database(resources.engine),
             ToolGateway(Database(resources.engine)),
             build_model_provider(settings),
+            resources.temporal_client,
         )
         worker = Worker(
             resources.temporal_client,

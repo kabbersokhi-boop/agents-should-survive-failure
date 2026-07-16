@@ -28,6 +28,7 @@ from agents_should_survive_failure.persistence.models import (
 )
 from agents_should_survive_failure.persistence.repositories import AuditEventRepository
 from agents_should_survive_failure.persistence.session import Database
+from agents_should_survive_failure.runtime_state import consume_budget
 from agents_should_survive_failure.workflows.contracts import (
     TASK_QUEUE,
     ManagedAgentInput,
@@ -41,6 +42,8 @@ START_LEASE = timedelta(seconds=30)
 
 class TemporalWorkflowClient(Protocol):
     async def start_workflow(self, workflow: Any, arg: Any, *, id: str, task_queue: str) -> Any: ...
+
+    def get_workflow_handle(self, workflow_id: str) -> Any: ...
 
 
 class RequestFingerprintConflict(Exception):
@@ -284,6 +287,11 @@ class WorkflowStartCoordinator:
                         )
                     )
                 if parent_run_id is not None:
+                    await consume_budget(
+                        session,
+                        workflow_run_id=parent_run_id,
+                        amount={"child_agents": 1, "steps": 1},
+                    )
                     session.add(
                         RunDelegation(
                             parent_workflow_run_id=parent_run_id,

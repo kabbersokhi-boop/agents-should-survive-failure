@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import uuid
 from collections.abc import Mapping
@@ -20,7 +21,7 @@ from agents_should_survive_failure_sdk import (
     CapabilityDenied,
     CheckpointReference,
 )
-from sqlalchemy import select
+from sqlalchemy import func, select
 from temporalio import activity
 
 from agents_should_survive_failure.agent_discovery import load_installed_agent
@@ -28,11 +29,15 @@ from agents_should_survive_failure.failures import temporal_failure
 from agents_should_survive_failure.model_evidence import ModelEvidenceService
 from agents_should_survive_failure.persistence.models import (
     Agent,
+    AgentStatus,
+    AgentToolGrant,
     ApprovalRequest,
     ApprovalStatus,
     AuditEvent,
     RunBudget,
+    RunDelegation,
     RunStatus,
+    RunToolGrantSnapshot,
     WorkflowEvent,
     WorkflowRun,
 )
@@ -48,6 +53,10 @@ from agents_should_survive_failure.runtime_state import (
     save_checkpoint,
 )
 from agents_should_survive_failure.tool_gateway import ToolGateway
+from agents_should_survive_failure.workflow_starts import (
+    TemporalWorkflowClient,
+    WorkflowStartCoordinator,
+)
 from agents_should_survive_failure.workflows.contracts import ManagedAgentInput
 
 
@@ -63,6 +72,7 @@ class ManagedActivityContext:
         metadata: AgentMetadata,
         gateway: ToolGateway,
         model_provider: ModelProvider,
+        temporal_client: TemporalWorkflowClient,
     ) -> None:
         self._database = database
         self._run_id = run_id
@@ -70,6 +80,7 @@ class ManagedActivityContext:
         self._metadata = metadata
         self._gateway = gateway
         self._model_provider = model_provider
+        self._temporal_client = temporal_client
 
     @property
     def run_id(self) -> str:
@@ -298,8 +309,125 @@ class ManagedActivityContext:
     async def delegate(
         self, agent_slug: str, task: AgentTask, *, budget: BudgetRequirements
     ) -> AgentResult:
-        del agent_slug, task, budget
-        raise CapabilityDenied("managed-agent delegation is not available in this activity action")
+        if not self._has_capability(Capability.DELEGATION):
+            raise CapabilityDenied("delegation capability is not declared")
+        policy = self._metadata.delegation_policy
+        if agent_slug not in policy.allowed_agent_slugs:
+            raise CapabilityDenied("child agent is not allowed by the pinned delegation policy")
+        task_payload = dict(task.input)
+        requested_limits = _budget_limits(budget)
+        request_digest = hashlib.sha256(
+            json.dumps(
+                {
+                    "agent_slug": agent_slug,
+                    "budget": requested_limits,
+                    "task": task_payload,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ).hexdigest()
+        idempotency_key = f"{self._run_id}:delegate:{request_digest}"
+        async with self._database.session() as session:
+            parent = await session.scalar(
+                select(WorkflowRun).where(WorkflowRun.id == self._run_id).with_for_update()
+            )
+            if parent is None:
+                raise ValueError("managed agent parent run does not exist")
+            if parent.status is RunStatus.CANCELLED:
+                raise CancellationRequested("run was cancelled")
+            child = await session.scalar(
+                select(Agent)
+                .where(
+                    Agent.name == agent_slug,
+                    Agent.workflow_type == "managed_agent",
+                    Agent.status == AgentStatus.ACTIVE,
+                )
+                .order_by(Agent.created_at.desc(), Agent.id.desc())
+            )
+            if child is None:
+                raise CapabilityDenied("allowed child agent is not installed and enabled")
+            child_metadata = AgentMetadata.model_validate(child.manifest)
+            child_depth = parent.delegation_depth + 1
+            if child_depth > policy.max_depth or child_depth > budget.max_delegation_depth:
+                raise CapabilityDenied("delegation exceeds the pinned maximum depth")
+            child_count = await session.scalar(
+                select(func.count())
+                .select_from(RunDelegation)
+                .where(RunDelegation.parent_workflow_run_id == parent.id)
+            )
+            if child_count is None or child_count >= policy.max_fan_out:
+                raise CapabilityDenied("delegation exceeds the pinned maximum fan-out")
+            ancestor_agent_ids = {parent.agent_id}
+            ancestor = parent
+            while ancestor.parent_workflow_run_id is not None:
+                ancestor = await session.get(WorkflowRun, ancestor.parent_workflow_run_id)
+                if ancestor is None:
+                    raise ValueError("delegation lineage is incomplete")
+                ancestor_agent_ids.add(ancestor.agent_id)
+            if child.id in ancestor_agent_ids:
+                raise CapabilityDenied("delegation would introduce an agent cycle")
+            parent_budget = await session.scalar(
+                select(RunBudget)
+                .where(RunBudget.workflow_run_id == parent.id)
+                .with_for_update()
+            )
+            if parent_budget is None:
+                raise ValueError("parent budget is not initialized")
+            child_maximum = _budget_limits(child_metadata.budget_defaults)
+            for name, value in requested_limits.items():
+                remaining = parent_budget.limits.get(name, 0) - parent_budget.consumed.get(name, 0)
+                if value > remaining or value > child_maximum.get(name, 0):
+                    raise CapabilityDenied("delegated budget exceeds parent or child authority")
+            parent_tool_ids = set(
+                (
+                    await session.scalars(
+                        select(RunToolGrantSnapshot.tool_definition_id).where(
+                            RunToolGrantSnapshot.workflow_run_id == parent.id
+                        )
+                    )
+                ).all()
+            )
+            child_tool_ids = set(
+                (
+                    await session.scalars(
+                        select(AgentToolGrant.tool_definition_id).where(
+                            AgentToolGrant.agent_id == child.id
+                        )
+                    )
+                ).all()
+            )
+            if not child_tool_ids.issubset(parent_tool_ids):
+                raise CapabilityDenied(
+                    "child tool grants are not attenuated by the parent snapshot"
+                )
+            requested_by_id = parent.requested_by_id
+            root_run_id = parent.root_workflow_run_id
+        coordinator = WorkflowStartCoordinator(self._database, self._temporal_client)
+        child_run = await coordinator.create_or_get_managed_agent(
+            requested_by_id=requested_by_id,
+            agent_id=child.id,
+            task=cast(dict[str, object], task_payload),
+            idempotency_key=idempotency_key,
+            parent_run_id=self._run_id,
+            root_run_id=root_run_id,
+            delegation_depth=child_depth,
+            delegated_budget_limits=requested_limits,
+            allowed_tool_definition_ids=child_tool_ids,
+        )
+        await coordinator.start(child_run.id)
+        handle = self._temporal_client.get_workflow_handle(child_run.temporal_workflow_id)
+        child_result = await handle.result()
+        if child_result is None:
+            raise CancellationRequested("delegated child run was cancelled")
+        if not isinstance(child_result, dict):
+            raise ValueError("delegated child run returned an invalid result")
+        child_result_data = cast(dict[str, object], child_result)
+        output = child_result_data.get("output")
+        summary = child_result_data.get("summary")
+        if not isinstance(output, dict) or not isinstance(summary, str):
+            raise ValueError("delegated child run returned an invalid result")
+        return AgentResult(output=cast(dict[str, Any], output), summary=summary)
 
     async def call_model(self, input: Mapping[str, Any]) -> Mapping[str, Any]:
         if not self._has_capability(Capability.MODELS):
@@ -364,11 +492,16 @@ class ManagedAgentActivities:
     """Execute installed trusted agent packages only through constrained public SDK services."""
 
     def __init__(
-        self, database: Database, gateway: ToolGateway, model_provider: ModelProvider
+        self,
+        database: Database,
+        gateway: ToolGateway,
+        model_provider: ModelProvider,
+        temporal_client: TemporalWorkflowClient,
     ) -> None:
         self._database = database
         self._gateway = gateway
         self._model_provider = model_provider
+        self._temporal_client = temporal_client
 
     @activity.defn(name="managed_agent.execute")
     async def execute(self, input: ManagedAgentInput) -> dict[str, object]:
@@ -415,6 +548,7 @@ class ManagedAgentActivities:
                 metadata=agent.metadata,
                 gateway=self._gateway,
                 model_provider=self._model_provider,
+                temporal_client=self._temporal_client,
             )
             result = await agent.run(AgentTask(input=cast(dict[str, Any], task_input)), context)
             for artifact in result.artifacts:

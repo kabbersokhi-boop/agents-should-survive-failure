@@ -1,6 +1,6 @@
 [project]
 name = "agents-should-survive-failure-sdk"
-version = "1.0.0"
+version = "0.1.0"
 description = "Public typed contracts for Agents Should Survive Failure managed agents."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"

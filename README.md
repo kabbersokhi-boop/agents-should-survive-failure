@@ -1,103 +1,109 @@
 # Agents Should Survive Failure
 
-A durable control plane for governed AI workflows.
+Agents Should Survive Failure is a production-style reference implementation for governed,
+durable AI workflows. It demonstrates how Temporal, PostgreSQL, idempotent effects, and bounded
+model/tool interfaces can keep a consequential workflow correct across retries and worker loss.
+It is not a production-ready hosted platform or a compliance product.
 
-This reference implementation demonstrates a vendor-onboarding workflow that combines durable
-orchestration, policy retrieval, model explanations, authorized approval, and auditable state changes.
-It is designed to make consequential workflow decisions deterministic while models interpret
-bounded evidence.
+## What It Demonstrates
 
-## Capabilities
+The mature flagship workflow is vendor onboarding. Temporal coordinates review, deterministic risk
+assessment, policy retrieval, a human approval update, an approved-vendor projection, and a
+synthetic email. PostgreSQL owns durable domain state, append-only audit evidence, idempotency
+keys, and run-scoped tool grants.
 
-- Durable, restart-safe vendor onboarding through Temporal workflows, validated approval updates,
-  and cancellation signals.
-- PostgreSQL-backed application state, append-only audit evidence, and optimistic concurrency.
-- Permissioned, idempotent tool invocation with explicit authorization boundaries.
-- Policy retrieval with cited source material and 2,048-dimensional semantic embeddings.
-- NVIDIA NIM adapters for Mistral Medium 3.5 128B explanations and Nemotron embeddings.
-- Explicit model completion limits and bounded persisted explanation summaries.
-- Structured logs, request IDs, Prometheus metrics, OpenTelemetry traces, and readiness checks.
-- Read-only workflow evidence API for ordered state changes, policy citations, and model-call
-  metadata.
-- A reviewed, versioned 24-case Phase B evaluation catalog with strict validation and stable hashes.
-- Read-only reports for persisted evaluation outcomes; real Temporal execution is scheduled for Phase B2.
-- Reproducible local infrastructure: API, worker, PostgreSQL/pgvector, Temporal, Grafana,
-  Prometheus, and Tempo.
+The reviewed 24-case evaluation suite executes the real Temporal workflow against the Compose
+stack. The release gate exports bounded JSON and Markdown evidence from that execution, including
+workflow-run IDs and aggregate outcome data. The current release evidence is written to
+`artifacts/evaluations/` by the integration gate and attached to the GitHub release.
+
+`make test-worker-crash` performs a separate OS-level proof: it waits until an approved-vendor
+projection and synthetic email have committed, kills the real Docker worker with `SIGKILL` during
+the configured post-commit acknowledgement delay, starts a replacement worker, and verifies one
+approval decision, one projection, one email, unique workflow-event sequences, and stable tool
+idempotency.
 
 ## Architecture
 
-Temporal owns durable workflow execution. PostgreSQL owns domain state and evidence. Model and
-embedding providers sit behind explicit contracts, allowing deterministic local verification and
-NVIDIA NIM runtime integration without coupling workflow logic to a provider SDK. See the
-[architecture decisions](docs/adr) for the design record.
+- Temporal owns workflow execution history, retries, updates, and durable cancellation signals.
+- PostgreSQL owns vendors, approvals, projections, synthetic effects, audit records, run state,
+  checkpoints, artifacts, budgets, and evaluation evidence.
+- Governed local tools enforce run-pinned grants and durable invocation idempotency.
+- The model provider is advisory only; deterministic code owns authorization and writes.
+- The public SDK defines trusted, operator-installed managed-agent contracts. The generic managed
+  runtime executes agent code in a Temporal activity with persisted checkpoints, artifacts,
+  budgets, events, and governed tools.
 
-## Quick start
+## Quickstart
 
 Prerequisites: Python 3.12, [uv](https://docs.astral.sh/uv/), Docker, and Docker Compose.
 
 ```bash
-make setup
-make verify
+uv python install 3.12
+uv sync --frozen --all-groups
 make up
-curl http://127.0.0.1:8000/health/live
 curl http://127.0.0.1:8000/health/ready
 ```
 
-`make up` builds and starts the local platform. API startup migrates the application database to
-Alembic head and loads idempotent development seeds. The API is at port 8000, Temporal UI at 8080,
-Prometheus at 9090, Grafana at 3000, and Tempo at 3200. `make down` stops it without deleting local
-volumes. See the [local development runbook](docs/runbooks/local-development.md).
+The API is at port 8000 and Temporal UI is at port 8080. `make down` stops the local stack. See
+the [local development runbook](docs/runbooks/local-development.md) for the API workflow steps.
 
-To exercise the workflow, create a vendor, start onboarding, then submit the human decision using
-the returned IDs. `GET /workflow-runs/{run_id}` exposes the durable phase, and `DELETE` on that path
-cancels a pending review. The API schema at `/docs` contains the precise request contracts.
-
-Authenticated clients with `runs:read` can follow persisted run evidence through
-`GET /api/v1/workflow-runs/{run_id}/events/stream`. The endpoint is Server-Sent Events with a
-monotonic event sequence as its cursor: pass `after_sequence` for an initial replay or send the
-standard `Last-Event-ID` header to resume. Event data contains only bounded persisted evidence, not
-provider prompts, credentials, or private model reasoning.
-
-Validate the reviewed Phase B scenario catalog without infrastructure:
+## Evaluation And Evidence
 
 ```bash
 make validate-evaluation-dataset
+EVALUATION_IDEMPOTENCY_KEY=local-evaluation make evaluate
+EVALUATION_RUN_ID=<evaluation-run-id> make evaluation-report
+make test-integration
+make test-worker-crash
 ```
 
-See the [reviewed case matrix](docs/evaluation-cases-v1.md) for the 24 scenario slugs and expected
-terminal outcomes. `make evaluate` currently verifies that all 24 persisted catalog rows exactly
-match the packaged contracts and hashes. It intentionally records `workflow_executed=false`; it
-does **not** execute Temporal or prove failure survival. Phase B2 will replace that integrity runner
-with real workflow execution while retaining the versioned suite and immutable result snapshots.
+Reports deliberately exclude credentials, database URLs, prompts, private tool arguments, and
+model chain-of-thought. Generated evidence is available at
+[`artifacts/evaluations/`](artifacts/evaluations/) after `make test-integration`; the release also
+attaches the JSON and Markdown files as assets.
 
-## Model Configuration
+## SDK Preview And Operations Agent
 
-Copy the safe names from `.env.example` into an untracked `.env`. To use NVIDIA NIM locally, set
-`MODEL_PROVIDER=nvidia_nim`, `NVIDIA_API_KEY`, `NVIDIA_BASE_URL`,
-`NVIDIA_MODEL=mistralai/mistral-medium-3.5-128b`, and
-`NVIDIA_EMBEDDING_MODEL=nvidia/llama-nemotron-embed-1b-v2`, plus an optional
-`NVIDIA_TIMEOUT_SECONDS`. The worker then records only bounded
-model summaries and usage data; it never grants approvals. Run `make reindex-policies` after a
-migration to generate live policy embeddings. CI requires no credentials and uses the explicit
-deterministic provider.
+The managed-agent SDK/runtime is a preview, not a stable platform contract. Build and validate the
+standalone SDK and independently packaged Operations Investigation Agent with:
 
-For a local credential check, set those variables in an untracked `.env`, then run
-`make nim-smoke-test` and `make nim-embedding-smoke-test`. These manual commands do not run in
-public pull requests and print metadata only, never the credential or model response body.
+```bash
+make sdk-build test-sdk-install
+make external-agent-build test-external-agent
+make test-managed-agent
+```
 
-## Governance Boundaries
-
-- Deterministic code owns validation, scoring, authorization, transitions, retries, budgets, and
-  final writes.
-- Models interpret and explain evidence but cannot authorize consequential actions.
-- Temporal execution history and PostgreSQL application records have separate ownership.
-- No private reasoning or chain-of-thought is stored or exposed.
+The Operations Investigation Agent is a trusted package discovered through the
+`agents_should_survive_failure.agents` entry-point group. The production-stack proof registers its
+manifest through the authenticated API, starts a real managed Temporal workflow, calls the governed
+`internal_policy_search` tool, persists a checkpoint and digest-verified artifact, records budget
+consumption and events, and checks the expected output on the non-approval path.
 
 ## Verification
 
-`make verify` runs formatting, static analysis, unit coverage, Compose validation, secret scanning,
-reversible migrations, and integration checks. Use `make migrate`, `make downgrade`, and `make
-seed` for database lifecycle operations outside Compose.
+`make verify` runs formatting and lint checks, strict Pyright, dataset validation, coverage,
+security tests, Compose validation, Gitleaks, dependency audit, migration lifecycle checks,
+integration tests, one real evaluation/report export, the worker-kill proof, SDK/package checks,
+managed-agent proof, SBOM generation, and cleanup.
+
+NVIDIA NIM live checks remain manual and credential-gated:
+
+```bash
+make nim-smoke-test
+make nim-embedding-smoke-test
+```
+
+## Limitations
+
+- Vendor onboarding is the mature reference workflow; the managed-agent SDK/runtime is preview.
+- Delegation code is experimental and is not release-proven.
+- External packages are trusted, operator-installed code. Docker is not a complete hostile-code
+  isolation boundary.
+- NVIDIA NIM live testing requires operator credentials and is not part of public CI.
+- This project is neither a real compliance product nor claimed production ready.
+
+See [limitations](docs/limitations.md) and [the threat model](docs/threat-model.md).
 
 ## License
 

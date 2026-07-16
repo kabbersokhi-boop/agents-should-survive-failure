@@ -4,7 +4,7 @@ requires-python = "==3.12.*"
 
 [[package]]
 name = "agents-should-survive-failure"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "agents-should-survive-failure-sdk" },
@@ -79,7 +79,7 @@ dev = [
 
 [[package]]
 name = "agents-should-survive-failure-sdk"
-version = "1.0.0"
+version = "0.1.0"
 source = { directory = "packages/agents-should-survive-failure-sdk" }
 dependencies = [
     { name = "pydantic" },

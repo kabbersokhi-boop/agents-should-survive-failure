@@ -1,11 +1,11 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup format lint typecheck test test-unit test-security test-integration dependency-audit sbom-backend sbom-container sbom sdk-build test-sdk-install external-agent-build test-external-agent verify validate-evaluation-dataset dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate evaluation-report nim-smoke-test nim-embedding-smoke-test bootstrap-api-key revoke-api-key disable-principal recover-workflow-starts sandbox-demo
+.PHONY: help setup format lint typecheck test test-unit test-security test-integration test-worker-crash test-managed-agent dependency-audit sbom-backend sbom-sdk sbom-container sbom sdk-build test-sdk-install external-agent-build test-external-agent verify validate-evaluation-dataset dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate evaluation-report nim-smoke-test nim-embedding-smoke-test bootstrap-api-key revoke-api-key disable-principal recover-workflow-starts sandbox-demo
 
 help:
 	@printf '%s\n' 'setup         Install locked development dependencies' \
 	  'dev           Run the local API with reload' \
-	  'up/down       Start or stop the Phase 0 Compose skeleton' \
+	  'up/down       Start or stop the local Compose reference stack' \
 	  'format        Format Python source' \
 	  'lint          Check formatting and lint rules' \
 	  'typecheck     Run strict Pyright checks' \
@@ -16,7 +16,7 @@ help:
 	  'downgrade     Downgrade the application database by one revision' \
 	  'seed          Load idempotent local demonstration records' \
 	  'reindex-policies Generate configured-provider embeddings for policy documents' \
-	  'validate-evaluation-dataset Validate the reviewed Phase B evaluation catalog' \
+	  'validate-evaluation-dataset Validate the reviewed 24-case evaluation catalog' \
 	  'evaluate      Execute and score the reviewed production workflow evaluation suite' \
 	  'evaluation-report Export JSON and Markdown artifacts for one evaluation run' \
 	  'nim-smoke-test Run a manual credential-gated NVIDIA NIM model smoke test' \
@@ -33,7 +33,9 @@ help:
 	  'test-sdk-install Build and install the SDK in a clean Python 3.12 environment' \
 	  'external-agent-build Build the independent operations-agent wheel and source distribution' \
 	  'test-external-agent Prove clean external-wheel installation and entry-point discovery' \
-	  'verify        Run the complete Phase 0 quality gate'
+	  'test-worker-crash Prove OS-level worker termination preserves exactly-once effects' \
+	  'test-managed-agent Prove the external Operations Agent on the production stack' \
+	  'verify        Run the complete release quality gate'
 
 setup:
 	uv sync --frozen --all-groups
@@ -125,11 +127,17 @@ sbom-backend:
 	mkdir -p artifacts
 	uv run cyclonedx-py environment .venv --output-format json --output-file artifacts/backend.sbom.json
 
+sbom-sdk:
+	mkdir -p artifacts
+	uv venv --clear /tmp/asf-sdk-sbom --python 3.12
+	uv pip install --offline --python /tmp/asf-sdk-sbom/bin/python packages/agents-should-survive-failure-sdk
+	uv run cyclonedx-py environment /tmp/asf-sdk-sbom --output-format json --output-file artifacts/sdk.sbom.json
+
 sbom-container:
 	mkdir -p artifacts
 	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock:ro -v "$(CURDIR)/artifacts:/artifacts" anchore/syft:v1.31.0 agents-control-plane:local -o cyclonedx-json=/artifacts/container.sbom.json
 
-sbom: sbom-backend sbom-container
+sbom: sbom-backend sbom-sdk sbom-container
 
 sdk-build:
 	uv build --offline packages/agents-should-survive-failure-sdk
@@ -143,7 +151,13 @@ external-agent-build:
 test-external-agent: sdk-build external-agent-build
 	bash scripts/test_external_agent.sh
 
-verify: lint typecheck validate-evaluation-dataset test test-security compose-check secret-scan dependency-audit test-integration
+test-worker-crash:
+	bash scripts/test_worker_crash.sh
+
+test-managed-agent:
+	bash scripts/test_managed_agent.sh
+
+verify: lint typecheck validate-evaluation-dataset test test-security compose-check secret-scan dependency-audit sdk-build test-sdk-install external-agent-build test-external-agent test-integration
 
 up:
 	docker compose up --build -d

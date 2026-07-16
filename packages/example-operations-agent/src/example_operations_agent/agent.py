@@ -21,7 +21,7 @@ class OperationsInvestigationAgent:
 
     metadata = AgentMetadata(
         slug="operations-investigation",
-        version="1.0.0",
+        version="0.1.0",
         display_name="Operations Investigation",
         description=(
             "Investigates a bounded operational incident through governed evidence retrieval."
@@ -34,14 +34,18 @@ class OperationsInvestigationAgent:
                 "question": {"type": "string"},
                 "requires_approval": {"type": "boolean"},
             },
+            "additionalProperties": False,
         },
         output_schema={
             "type": "object",
             "required": ["incident_id", "approved_follow_up"],
             "properties": {
                 "incident_id": {"type": "string"},
+                "question": {"type": "string"},
+                "evidence": {"type": "object"},
                 "approved_follow_up": {"type": "boolean"},
             },
+            "additionalProperties": False,
         },
         required_capabilities=(
             Capability.APPROVALS,

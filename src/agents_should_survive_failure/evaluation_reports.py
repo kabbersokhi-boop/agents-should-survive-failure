@@ -45,9 +45,7 @@ async def build_report_payload(database: Database, evaluation_run_id: UUID) -> d
     cases = [_case_payload(result) for result in results]
     statuses = Counter(case["status"] for case in cases)
     failure_categories = Counter(
-        str(case["failure_category"])
-        for case in cases
-        if case["failure_category"] is not None
+        str(case["failure_category"]) for case in cases if case["failure_category"] is not None
     )
     durations = [case["duration_ms"] for case in cases if case["duration_ms"] is not None]
     passed = statuses["passed"]

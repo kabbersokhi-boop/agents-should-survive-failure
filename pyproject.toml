@@ -1,13 +1,13 @@
 [project]
 name = "agents-should-survive-failure"
-version = "0.1.0"
+version = "0.2.0"
 description = "A durable, observable and secure control plane for long-running AI agents."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = "Apache-2.0"
 authors = [{ name = "Kabir Sokhi" }]
 dependencies = [
-  "agents-should-survive-failure-sdk==1.0.0",
+  "agents-should-survive-failure-sdk==0.1.0",
   "alembic==1.16.5",
   "asyncpg==0.31.0",
   "fastapi==0.139.0",

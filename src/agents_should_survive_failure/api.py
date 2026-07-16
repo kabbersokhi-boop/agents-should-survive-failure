@@ -1173,9 +1173,7 @@ async def run_budget(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="workflow run not found"
             )
-        budget = await session.scalar(
-            select(RunBudget).where(RunBudget.workflow_run_id == run_id)
-        )
+        budget = await session.scalar(select(RunBudget).where(RunBudget.workflow_run_id == run_id))
     if budget is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="run budget is not initialized"

@@ -26,6 +26,7 @@ from temporalio import activity
 
 from agents_should_survive_failure.agent_discovery import load_installed_agent
 from agents_should_survive_failure.failures import temporal_failure
+from agents_should_survive_failure.json_schema import validate_json_schema
 from agents_should_survive_failure.model_evidence import ModelEvidenceService
 from agents_should_survive_failure.persistence.models import (
     Agent,
@@ -217,9 +218,8 @@ class ManagedActivityContext:
     async def save_checkpoint(
         self, name: str, schema_version: str, value: Mapping[str, Any]
     ) -> CheckpointReference:
-        if (
-            not self._metadata.checkpoint_supported
-            or not self._has_capability(Capability.CHECKPOINTS)
+        if not self._metadata.checkpoint_supported or not self._has_capability(
+            Capability.CHECKPOINTS
         ):
             raise CapabilityDenied("checkpoint capability is not declared")
         async with self._database.session() as session:
@@ -368,9 +368,7 @@ class ManagedActivityContext:
             if child.id in ancestor_agent_ids:
                 raise CapabilityDenied("delegation would introduce an agent cycle")
             parent_budget = await session.scalar(
-                select(RunBudget)
-                .where(RunBudget.workflow_run_id == parent.id)
-                .with_for_update()
+                select(RunBudget).where(RunBudget.workflow_run_id == parent.id).with_for_update()
             )
             if parent_budget is None:
                 raise ValueError("parent budget is not initialized")
@@ -530,6 +528,11 @@ class ManagedAgentActivities:
                 task_input = run.input_summary.get("task")
                 if not isinstance(task_input, dict):
                     raise ValueError("managed agent task is invalid")
+                validate_json_schema(
+                    cast(dict[str, object], task_input),
+                    dict(agent.metadata.input_schema),
+                    label="task input",
+                )
                 run.status = RunStatus.RUNNING
                 existing_budget = await session.scalar(
                     select(RunBudget).where(RunBudget.workflow_run_id == run.id)
@@ -551,6 +554,9 @@ class ManagedAgentActivities:
                 temporal_client=self._temporal_client,
             )
             result = await agent.run(AgentTask(input=cast(dict[str, Any], task_input)), context)
+            validate_json_schema(
+                dict(result.output), dict(agent.metadata.output_schema), label="agent output"
+            )
             for artifact in result.artifacts:
                 await context.create_artifact(artifact)
             async with self._database.session() as session:

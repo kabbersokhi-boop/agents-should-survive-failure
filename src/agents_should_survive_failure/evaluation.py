@@ -431,9 +431,7 @@ class EvaluationRunner:
         token = uuid.uuid4().hex
         vendor_id = await self._create_isolated_vendor(database, definition, token)
         allowed_ids = await self._allowed_tool_ids(database, definition)
-        coordinator = WorkflowStartCoordinator(
-            database, temporal_client, fault_injector=injector
-        )
+        coordinator = WorkflowStartCoordinator(database, temporal_client, fault_injector=injector)
         workflow_run = await coordinator.create_or_get(
             vendor_id=vendor_id,
             requested_by_id=requested_by_id,
@@ -541,9 +539,7 @@ class EvaluationRunner:
             )
             return
         handle = temporal_client.get_workflow_handle(workflow_run.temporal_workflow_id)
-        await self._drive_early_approval_attempts(
-            handle, workflow_run, definition, requested_by_id
-        )
+        await self._drive_early_approval_attempts(handle, workflow_run, definition, requested_by_id)
         await self._drive_tool_attempts(database, workflow_run, definition)
         approval = await self._wait_for_approval(database, workflow_run.id, timeout_seconds)
         await self._wait_for_approval_phase(handle, timeout_seconds)
@@ -570,8 +566,10 @@ class EvaluationRunner:
                 except ApprovalAuthorizationDenied:
                     continue
                 raise RuntimeError("unauthorized approval probe was unexpectedly authorized")
-            key = accepted_key if attempt.idempotency_key_mode.value == "reuse_previous" else (
-                f"evaluation:{workflow_run.id}:decision:{index}"
+            key = (
+                accepted_key
+                if attempt.idempotency_key_mode.value == "reuse_previous"
+                else (f"evaluation:{workflow_run.id}:decision:{index}")
             )
             if key is None:
                 raise RuntimeError("evaluation replay lacks an accepted idempotency key")
@@ -921,9 +919,8 @@ class EvaluationRunner:
         if actual_events != [event.value for event in expected.expected_event_types]:
             mismatches.append("workflow_event_types")
         sequences = actual["workflow_event_sequences"]
-        if (
-            expected.duplicate_prevention.workflow_event_sequences_unique
-            and len(sequences) != len(set(sequences))
+        if expected.duplicate_prevention.workflow_event_sequences_unique and len(sequences) != len(
+            set(sequences)
         ):
             mismatches.append("workflow_event_sequences_not_unique")
         if actual["approval_decision_count"] > expected.duplicate_prevention.approval_decisions_max:
@@ -969,9 +966,7 @@ class EvaluationRunner:
                     case_content_sha256=evaluation_case.content_sha256,
                     workflow_run_id=workflow_run_id,
                     status=(
-                        EvaluationResultStatus.PASSED
-                        if passed
-                        else EvaluationResultStatus.FAILED
+                        EvaluationResultStatus.PASSED if passed else EvaluationResultStatus.FAILED
                     ),
                     score=Decimal("1.0000") if passed else Decimal("0.0000"),
                     expected_outcome=definition.expected_outcome.model_dump(mode="json"),

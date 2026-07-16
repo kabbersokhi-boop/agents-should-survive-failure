@@ -6,7 +6,7 @@ import json
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 from uuid import UUID, uuid4
 
 import structlog
@@ -62,6 +62,7 @@ from agents_should_survive_failure.persistence.models import (
     RunArtifact,
     RunBudget,
     RunCheckpoint,
+    RunDelegation,
     RunStatus,
     ToolInvocation,
     Vendor,
@@ -1728,6 +1729,7 @@ async def cancel_onboarding(
     database: Annotated[Database, Depends(get_database)],
     principal: Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)],
 ) -> Response:
+    cancellation_targets: list[tuple[str, str]] = []
     async with database.session() as session:
         run = await WorkflowRunRepository(session).get(run_id)
         if run is None:
@@ -1736,9 +1738,42 @@ async def cancel_onboarding(
             )
         temporal_workflow_id = run.temporal_workflow_id
         workflow_type = getattr(run, "workflow_type", "vendor_onboarding")
+        cancellation_targets.append((temporal_workflow_id, workflow_type))
         if workflow_type == "managed_agent" and run.status not in TERMINAL_RUN_STATUSES:
             run.status = RunStatus.CANCELLED
             run.result_summary = {"summary": "Cancelled by authenticated operator request."}
+            pending_parent_ids: list[UUID] = [run.id]
+            seen_run_ids = {run.id}
+            while pending_parent_ids:
+                child_ids = (
+                    await session.scalars(
+                        select(RunDelegation.child_workflow_run_id).where(
+                            RunDelegation.parent_workflow_run_id.in_(pending_parent_ids)
+                        )
+                    )
+                ).all()
+                pending_parent_ids = []
+                if not child_ids:
+                    continue
+                children = cast(
+                    list[WorkflowRun],
+                    (
+                        await session.scalars(
+                            select(WorkflowRun).where(WorkflowRun.id.in_(child_ids))
+                        )
+                    ).all(),
+                )
+                for child in children:
+                    if child.id in seen_run_ids:
+                        continue
+                    seen_run_ids.add(child.id)
+                    pending_parent_ids.append(child.id)
+                    if child.status not in TERMINAL_RUN_STATUSES:
+                        child.status = RunStatus.CANCELLED
+                        child.result_summary = {
+                            "summary": "Cancelled because its delegated parent was cancelled."
+                        }
+                    cancellation_targets.append((child.temporal_workflow_id, child.workflow_type))
         audit_key = f"{run.id}:api.workflow.cancel.request:{principal.id}"
         audits = AuditEventRepository(session)
         if await audits.get_by_idempotency_key(audit_key) is None:
@@ -1755,9 +1790,10 @@ async def cancel_onboarding(
                 )
             )
     resources: RuntimeResources = request.app.state.resources
-    signal: str | Callable[..., object]
-    signal = VendorOnboardingWorkflow.cancel if workflow_type == "vendor_onboarding" else "cancel"
-    await resources.temporal_client.get_workflow_handle(temporal_workflow_id).signal(signal)
+    for workflow_id, target_type in cancellation_targets:
+        signal: str | Callable[..., object]
+        signal = VendorOnboardingWorkflow.cancel if target_type == "vendor_onboarding" else "cancel"
+        await resources.temporal_client.get_workflow_handle(workflow_id).signal(signal)
     return Response(status_code=status.HTTP_202_ACCEPTED)
 
 

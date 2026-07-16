@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from temporalio.exceptions import WorkflowAlreadyStartedError
 
+from agents_should_survive_failure.fault_injection import FaultInjector, FaultPoint
 from agents_should_survive_failure.metrics import RUN_STARTS
 from agents_should_survive_failure.persistence.models import (
     AgentToolGrant,
@@ -116,11 +117,13 @@ class WorkflowStartCoordinator:
         *,
         lease_duration: timedelta = START_LEASE,
         now: Callable[[], Any] = utc_now,
+        fault_injector: FaultInjector | None = None,
     ) -> None:
         self._database = database
         self._temporal_client = temporal_client
         self._lease_duration = lease_duration
         self._now = now
+        self._fault_injector = fault_injector
 
     async def create_or_get(
         self,
@@ -360,6 +363,11 @@ class WorkflowStartCoordinator:
                     id=claim.run.temporal_workflow_id,
                     task_queue=TASK_QUEUE,
                 )
+                if self._fault_injector is not None:
+                    await self._fault_injector.inject(
+                        fault_point=FaultPoint.WORKFLOW_START_HANDOFF,
+                        scope_key=str(claim.run.id),
+                    )
         except WorkflowAlreadyStartedError:
             await self._mark_started(run_id, claim.token)
             RUN_STARTS.labels("already_started").inc()

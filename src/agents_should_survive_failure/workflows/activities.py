@@ -321,6 +321,7 @@ class VendorOnboardingActivities:
         vendor_id = self._id(input.vendor_id)
         approver_id = self._id(decision.decided_by_id)
         approval_request_id = self._id(decision.approval_request_id)
+        committed_effect = False
         async with self._database.session() as session:
             request = await session.scalar(
                 select(ApprovalRequest)
@@ -427,6 +428,12 @@ class VendorOnboardingActivities:
                 request.id,
                 f"Vendor {decision.decision.value} by authorized approver.",
                 actor_id=approver_id,
+            )
+            committed_effect = True
+        if committed_effect and self._fault_injector is not None:
+            await self._fault_injector.inject(
+                fault_point=FaultPoint.POST_COMMIT_HANDOFF,
+                scope_key=str(run_id),
             )
 
     @activity.defn(name="vendor_onboarding.cancel_review")

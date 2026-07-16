@@ -1,12 +1,14 @@
 """Persistence lifecycle command line entry points."""
 
 import asyncio
+from pathlib import Path
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from agents_should_survive_failure.dependencies import create_resources
 from agents_should_survive_failure.evaluation import EvaluationRunner
+from agents_should_survive_failure.evaluation_reports import export_reports
 from agents_should_survive_failure.persistence.models import EvaluationStatus
 from agents_should_survive_failure.persistence.seed import seed_database, seed_id
 from agents_should_survive_failure.persistence.session import Database
@@ -71,6 +73,23 @@ def evaluate_main(idempotency_key: str) -> None:
     run_id, status = asyncio.run(_evaluate_vendor_onboarding(idempotency_key))
     if status is EvaluationStatus.FAILED:
         raise SystemExit(f"Evaluation run {run_id} failed production workflow evidence checks.")
+
+
+async def _export_evaluation_reports(evaluation_run_id: UUID, output_directory: Path) -> None:
+    engine = create_async_engine(get_settings().database_url)
+    try:
+        json_path, markdown_path = await export_reports(
+            Database(engine), evaluation_run_id, output_directory
+        )
+    finally:
+        await engine.dispose()
+    print(f"Wrote evaluation reports: {json_path} and {markdown_path}")
+
+
+def evaluation_report_main(
+    evaluation_run_id: str, output_directory: str = "artifacts/evaluations"
+) -> None:
+    asyncio.run(_export_evaluation_reports(UUID(evaluation_run_id), Path(output_directory)))
 
 
 if __name__ == "__main__":

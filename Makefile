@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup format lint typecheck test test-unit test-security test-integration dependency-audit sbom-backend sbom-container sbom sdk-build test-sdk-install external-agent-build test-external-agent verify validate-evaluation-dataset dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate nim-smoke-test nim-embedding-smoke-test bootstrap-api-key revoke-api-key disable-principal recover-workflow-starts sandbox-demo
+.PHONY: help setup format lint typecheck test test-unit test-security test-integration dependency-audit sbom-backend sbom-container sbom sdk-build test-sdk-install external-agent-build test-external-agent verify validate-evaluation-dataset dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate evaluation-report nim-smoke-test nim-embedding-smoke-test bootstrap-api-key revoke-api-key disable-principal recover-workflow-starts sandbox-demo
 
 help:
 	@printf '%s\n' 'setup         Install locked development dependencies' \
@@ -18,6 +18,7 @@ help:
 	  'reindex-policies Generate configured-provider embeddings for policy documents' \
 	  'validate-evaluation-dataset Validate the reviewed Phase B evaluation catalog' \
 	  'evaluate      Execute and score the reviewed production workflow evaluation suite' \
+	  'evaluation-report Export JSON and Markdown artifacts for one evaluation run' \
 	  'nim-smoke-test Run a manual credential-gated NVIDIA NIM model smoke test' \
 	  'nim-embedding-smoke-test Run a manual credential-gated NVIDIA NIM embedding smoke test' \
 	  'bootstrap-api-key Create a scoped local API key and print it once; supports optional expiry' \
@@ -79,6 +80,10 @@ validate-evaluation-dataset:
 evaluate:
 	@test -n "$(EVALUATION_IDEMPOTENCY_KEY)" || (echo 'Set EVALUATION_IDEMPOTENCY_KEY to run evaluations.' >&2; exit 2)
 	docker compose exec -T api /app/.venv/bin/python -c 'from agents_should_survive_failure.persistence.cli import evaluate_main; evaluate_main("$(EVALUATION_IDEMPOTENCY_KEY)")'
+
+evaluation-report:
+	@test -n "$(EVALUATION_RUN_ID)" || (echo 'Set EVALUATION_RUN_ID to export reports.' >&2; exit 2)
+	docker compose exec -T api /app/.venv/bin/python -c 'from agents_should_survive_failure.persistence.cli import evaluation_report_main; evaluation_report_main("$(EVALUATION_RUN_ID)")'
 
 nim-smoke-test:
 	uv run python -c 'from agents_should_survive_failure.nim_smoke import model_main; model_main()'

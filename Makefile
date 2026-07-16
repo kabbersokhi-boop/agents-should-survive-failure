@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup format lint typecheck test test-unit test-security test-integration dependency-audit sbom-backend sbom-container sbom sdk-build test-sdk-install verify validate-evaluation-dataset dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate nim-smoke-test nim-embedding-smoke-test bootstrap-api-key revoke-api-key disable-principal recover-workflow-starts sandbox-demo
+.PHONY: help setup format lint typecheck test test-unit test-security test-integration dependency-audit sbom-backend sbom-container sbom sdk-build test-sdk-install external-agent-build test-external-agent verify validate-evaluation-dataset dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate nim-smoke-test nim-embedding-smoke-test bootstrap-api-key revoke-api-key disable-principal recover-workflow-starts sandbox-demo
 
 help:
 	@printf '%s\n' 'setup         Install locked development dependencies' \
@@ -30,6 +30,8 @@ help:
 	  'sbom          Generate backend and local container CycloneDX SBOM artifacts' \
 	  'sdk-build     Build the standalone public SDK wheel and source distribution' \
 	  'test-sdk-install Build and install the SDK in a clean Python 3.12 environment' \
+	  'external-agent-build Build the independent operations-agent wheel and source distribution' \
+	  'test-external-agent Prove clean external-wheel installation and entry-point discovery' \
 	  'verify        Run the complete Phase 0 quality gate'
 
 setup:
@@ -129,6 +131,12 @@ sdk-build:
 
 test-sdk-install: sdk-build
 	bash scripts/test_sdk_install.sh
+
+external-agent-build:
+	uv build --offline packages/example-operations-agent
+
+test-external-agent: sdk-build external-agent-build
+	bash scripts/test_external_agent.sh
 
 verify: lint typecheck validate-evaluation-dataset test test-security compose-check secret-scan dependency-audit test-integration
 

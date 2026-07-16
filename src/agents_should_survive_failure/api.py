@@ -19,6 +19,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from temporalio.client import WorkflowUpdateFailedError, WorkflowUpdateRPCTimeoutOrCancelledError
 
+from agents_should_survive_failure.agent_discovery import AgentDiscoveryError, discovered_agents
 from agents_should_survive_failure.agent_registry import (
     AgentManifestError,
     AgentRegistrationConflict,
@@ -1128,6 +1129,38 @@ async def create_agent_registration(
     return agent_response(agent)
 
 
+async def discover_agent_registrations(
+    database: Annotated[Database, Depends(get_database)],
+) -> list[AgentResponse]:
+    """Register every validated trusted package installed in the control-plane environment."""
+
+    try:
+        discovered = discovered_agents()
+    except AgentDiscoveryError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"installed managed-agent discovery failed: {error}",
+        ) from None
+    async with database.session() as session:
+        registered: list[Agent] = []
+        for installed in discovered:
+            try:
+                registered.append(
+                    await register_agent(session, registration=installed.registration)
+                )
+            except MissingDeclaredTool as error:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                    detail=str(error),
+                ) from None
+            except AgentRegistrationConflict:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="agent version is already registered with different content",
+                ) from None
+    return [agent_response(agent) for agent in registered]
+
+
 async def agent_detail(
     agent_id: UUID,
     database: Annotated[Database, Depends(get_database)],
@@ -1763,6 +1796,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         create_agent_registration,
         methods=["POST"],
         response_model=AgentResponse,
+        dependencies=[Depends(require_scopes("agents:write"))],
+    )
+    app.add_api_route(
+        "/api/v1/agents/discover",
+        discover_agent_registrations,
+        methods=["POST"],
+        response_model=list[AgentResponse],
         dependencies=[Depends(require_scopes("agents:write"))],
     )
     app.add_api_route(

@@ -1,0 +1,18 @@
+[project]
+name = "example-operations-agent"
+version = "1.0.0"
+description = "Reference operations investigation managed agent for Agents Should Survive Failure."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = "Apache-2.0"
+dependencies = ["agents-should-survive-failure-sdk>=1.0.0,<2.0.0"]
+
+[project.entry-points."agents_should_survive_failure.agents"]
+operations-investigation = "example_operations_agent.agent:OperationsInvestigationAgent"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/example_operations_agent"]

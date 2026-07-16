@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
 import uuid
 from collections.abc import Mapping
 from typing import Any, cast
@@ -22,6 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from temporalio import activity
 
+from agents_should_survive_failure.agent_discovery import load_installed_agent
 from agents_should_survive_failure.failures import temporal_failure
 from agents_should_survive_failure.persistence.models import (
     Agent,
@@ -214,15 +214,6 @@ def _budget_limits(requirements: BudgetRequirements) -> dict[str, int]:
     }
 
 
-def _load_agent(entry_point: str) -> ManagedAgent:
-    module_name, symbol = entry_point.split(":", maxsplit=1)
-    candidate: Any = getattr(importlib.import_module(module_name), symbol)
-    agent = candidate() if isinstance(candidate, type) else candidate
-    if not isinstance(agent, ManagedAgent):
-        raise ValueError("registered entry point does not implement ManagedAgent")
-    return agent
-
-
 class ManagedAgentActivities:
     """Execute installed trusted agent packages only through constrained public SDK services."""
 
@@ -241,7 +232,10 @@ class ManagedAgentActivities:
                 agent_row = await session.get(Agent, run.agent_id)
                 if agent_row is None or agent_row.workflow_type != "managed_agent":
                     raise ValueError("managed agent version is unavailable")
-                agent = _load_agent(agent_row.entry_point)
+                agent = load_installed_agent(
+                    package_name=agent_row.package_name,
+                    entry_point=agent_row.entry_point,
+                )
                 if (
                     agent.metadata.slug != agent_row.name
                     or agent.metadata.version != agent_row.version

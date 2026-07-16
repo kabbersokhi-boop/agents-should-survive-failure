@@ -37,6 +37,7 @@ from agents_should_survive_failure.runtime_state import (
     create_artifact,
     initialize_budget,
     load_checkpoint,
+    read_artifact,
     save_checkpoint,
 )
 from agents_should_survive_failure.tool_gateway import ToolGateway
@@ -176,6 +177,23 @@ class ManagedActivityContext:
             digest_sha256=created.digest_sha256,
             content_type=created.content_type,
             size_bytes=created.size_bytes,
+        )
+
+    async def read_artifact(self, artifact_id: str) -> AgentArtifact:
+        try:
+            artifact_uuid = uuid.UUID(artifact_id)
+        except ValueError as error:
+            raise CapabilityDenied("artifact identifier is invalid") from error
+        artifact = await read_artifact(
+            self._session,
+            workflow_run_id=self._run.id,
+            agent_id=self._run.agent_id,
+            artifact_id=artifact_uuid,
+        )
+        return AgentArtifact(
+            name=artifact.name,
+            content_type=artifact.content_type,
+            content=artifact.content,
         )
 
     async def remaining_budget(self) -> Mapping[str, int]:

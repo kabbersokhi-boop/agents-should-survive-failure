@@ -1,9 +1,11 @@
 """Control-plane API application."""
 
 import asyncio
+import hashlib
 import json
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID, uuid4
 
@@ -57,6 +59,9 @@ from agents_should_survive_failure.persistence.models import (
     FaultInjectionPlan,
     ModelCall,
     PrincipalType,
+    RunArtifact,
+    RunBudget,
+    RunCheckpoint,
     RunStatus,
     ToolInvocation,
     Vendor,
@@ -284,6 +289,34 @@ class AgentRegistrationRequest(StrictRequestModel):
     manifest: dict[str, object]
     package_name: str = Field(min_length=1, max_length=120)
     entry_point: str = Field(min_length=1, max_length=240)
+
+
+class CheckpointResponse(BaseModel):
+    id: UUID
+    workflow_run_id: UUID
+    agent_id: UUID
+    name: str
+    schema_version: str
+    digest_sha256: str
+    size_bytes: int
+
+
+class ArtifactResponse(BaseModel):
+    id: UUID
+    workflow_run_id: UUID
+    agent_id: UUID
+    parent_artifact_id: UUID | None
+    name: str
+    content_type: str
+    digest_sha256: str
+    size_bytes: int
+
+
+class BudgetResponse(BaseModel):
+    workflow_run_id: UUID
+    limits: dict[str, int]
+    consumed: dict[str, int]
+    exhausted_at: datetime | None
 
 
 class ApprovalResponse(BaseModel):
@@ -932,6 +965,40 @@ def tool_invocation_response(call: ToolInvocation) -> ToolInvocationResponse:
     )
 
 
+def checkpoint_response(checkpoint: RunCheckpoint) -> CheckpointResponse:
+    return CheckpointResponse(
+        id=checkpoint.id,
+        workflow_run_id=checkpoint.workflow_run_id,
+        agent_id=checkpoint.agent_id,
+        name=checkpoint.name,
+        schema_version=checkpoint.schema_version,
+        digest_sha256=checkpoint.digest_sha256,
+        size_bytes=checkpoint.size_bytes,
+    )
+
+
+def artifact_response(artifact: RunArtifact) -> ArtifactResponse:
+    return ArtifactResponse(
+        id=artifact.id,
+        workflow_run_id=artifact.workflow_run_id,
+        agent_id=artifact.agent_id,
+        parent_artifact_id=artifact.parent_artifact_id,
+        name=artifact.name,
+        content_type=artifact.content_type,
+        digest_sha256=artifact.digest_sha256,
+        size_bytes=artifact.size_bytes,
+    )
+
+
+def budget_response(budget: RunBudget) -> BudgetResponse:
+    return BudgetResponse(
+        workflow_run_id=budget.workflow_run_id,
+        limits=budget.limits,
+        consumed=budget.consumed,
+        exhausted_at=budget.exhausted_at,
+    )
+
+
 async def list_workflow_runs(
     database: Annotated[Database, Depends(get_database)],
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
@@ -960,6 +1027,84 @@ async def workflow_run_detail(
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="workflow run not found")
     return workflow_run_response(run)
+
+
+async def list_run_checkpoints(
+    run_id: UUID,
+    database: Annotated[Database, Depends(get_database)],
+) -> list[CheckpointResponse]:
+    async with database.session() as session:
+        if await session.get(WorkflowRun, run_id) is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="workflow run not found"
+            )
+        checkpoints = (
+            await session.scalars(
+                select(RunCheckpoint)
+                .where(RunCheckpoint.workflow_run_id == run_id)
+                .order_by(RunCheckpoint.name)
+            )
+        ).all()
+    return [checkpoint_response(checkpoint) for checkpoint in checkpoints]
+
+
+async def list_run_artifacts(
+    run_id: UUID,
+    database: Annotated[Database, Depends(get_database)],
+) -> list[ArtifactResponse]:
+    async with database.session() as session:
+        if await session.get(WorkflowRun, run_id) is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="workflow run not found"
+            )
+        artifacts = (
+            await session.scalars(
+                select(RunArtifact)
+                .where(RunArtifact.workflow_run_id == run_id)
+                .order_by(RunArtifact.created_at, RunArtifact.id)
+            )
+        ).all()
+    return [artifact_response(artifact) for artifact in artifacts]
+
+
+async def download_run_artifact(
+    run_id: UUID,
+    artifact_id: UUID,
+    database: Annotated[Database, Depends(get_database)],
+) -> Response:
+    async with database.session() as session:
+        artifact = await session.get(RunArtifact, artifact_id)
+    if artifact is None or artifact.workflow_run_id != run_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="artifact not found")
+    if hashlib.sha256(artifact.content).hexdigest() != artifact.digest_sha256:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="artifact integrity validation failed",
+        )
+    return Response(
+        content=artifact.content,
+        media_type=artifact.content_type,
+        headers={"Content-Disposition": f'attachment; filename="{artifact.name}"'},
+    )
+
+
+async def run_budget(
+    run_id: UUID,
+    database: Annotated[Database, Depends(get_database)],
+) -> BudgetResponse:
+    async with database.session() as session:
+        if await session.get(WorkflowRun, run_id) is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="workflow run not found"
+            )
+        budget = await session.scalar(
+            select(RunBudget).where(RunBudget.workflow_run_id == run_id)
+        )
+    if budget is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="run budget is not initialized"
+        )
+    return budget_response(budget)
 
 
 async def list_run_events(
@@ -1562,6 +1707,10 @@ async def cancel_onboarding(
                 status_code=status.HTTP_404_NOT_FOUND, detail="workflow run not found"
             )
         temporal_workflow_id = run.temporal_workflow_id
+        workflow_type = getattr(run, "workflow_type", "vendor_onboarding")
+        if workflow_type == "managed_agent" and run.status not in TERMINAL_RUN_STATUSES:
+            run.status = RunStatus.CANCELLED
+            run.result_summary = {"summary": "Cancelled by authenticated operator request."}
         audit_key = f"{run.id}:api.workflow.cancel.request:{principal.id}"
         audits = AuditEventRepository(session)
         if await audits.get_by_idempotency_key(audit_key) is None:
@@ -1578,9 +1727,9 @@ async def cancel_onboarding(
                 )
             )
     resources: RuntimeResources = request.app.state.resources
-    await resources.temporal_client.get_workflow_handle(temporal_workflow_id).signal(
-        VendorOnboardingWorkflow.cancel
-    )
+    signal: str | Callable[..., object]
+    signal = VendorOnboardingWorkflow.cancel if workflow_type == "vendor_onboarding" else "cancel"
+    await resources.temporal_client.get_workflow_handle(temporal_workflow_id).signal(signal)
     return Response(status_code=status.HTTP_202_ACCEPTED)
 
 
@@ -1700,6 +1849,33 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         methods=["GET"],
         response_model=WorkflowRunDetailResponse,
         dependencies=[Depends(require_scopes("runs:read"))],
+    )
+    add_v1_route(
+        "/workflow-runs/{run_id}/checkpoints",
+        list_run_checkpoints,
+        methods=["GET"],
+        scopes=("runs:read",),
+        response_model=list[CheckpointResponse],
+    )
+    add_v1_route(
+        "/workflow-runs/{run_id}/artifacts",
+        list_run_artifacts,
+        methods=["GET"],
+        scopes=("runs:read",),
+        response_model=list[ArtifactResponse],
+    )
+    add_v1_route(
+        "/workflow-runs/{run_id}/artifacts/{artifact_id}",
+        download_run_artifact,
+        methods=["GET"],
+        scopes=("runs:read",),
+    )
+    add_v1_route(
+        "/workflow-runs/{run_id}/budget",
+        run_budget,
+        methods=["GET"],
+        scopes=("runs:read",),
+        response_model=BudgetResponse,
     )
     app.add_api_route(
         "/api/v1/workflow-runs/{run_id}/events",

@@ -8,11 +8,12 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agents_should_survive_failure.failures import FailureCategory, PlatformFailure
-from agents_should_survive_failure.persistence.models import RunBudget
+from agents_should_survive_failure.persistence.models import RunArtifact, RunBudget
 from agents_should_survive_failure.runtime_state import (
     RuntimeStateValidationError,
     consume_budget,
     create_artifact,
+    read_artifact,
     save_checkpoint,
 )
 
@@ -88,3 +89,31 @@ async def test_budget_rejects_exhaustion_without_incrementing_usage() -> None:
 
     assert raised.value.category is FailureCategory.BUDGET_EXHAUSTED
     assert budget.consumed == {"tool_calls": 1}
+
+
+@pytest.mark.asyncio
+async def test_artifact_read_rejects_tampered_inline_bytes() -> None:
+    artifact = RunArtifact(
+        id=UUID("00000000-0000-0000-0000-000000000003"),
+        workflow_run_id=RUN_ID,
+        agent_id=AGENT_ID,
+        parent_artifact_id=None,
+        name="investigation.json",
+        content_type="application/json",
+        digest_sha256="0" * 64,
+        size_bytes=2,
+        content=b"{}",
+    )
+
+    class ArtifactSession:
+        async def get(self, model: object, identifier: object) -> object | None:
+            del model, identifier
+            return artifact
+
+    with pytest.raises(RuntimeStateValidationError, match="integrity"):
+        await read_artifact(
+            cast(AsyncSession, ArtifactSession()),
+            workflow_run_id=RUN_ID,
+            agent_id=AGENT_ID,
+            artifact_id=artifact.id,
+        )

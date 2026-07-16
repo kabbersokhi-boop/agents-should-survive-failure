@@ -161,48 +161,64 @@ class RunContext(Protocol):
     @property
     def run_id(self) -> str:
         """Return the durable platform run identifier."""
+        ...
 
     @property
     def correlation_id(self) -> str:
         """Return the trace and audit correlation identifier."""
+        ...
 
     async def emit_event(
         self, event_type: str, summary: str, payload: Mapping[str, JsonValue]
     ) -> None:
         """Persist bounded agent progress evidence."""
+        ...
 
     async def call_tool(
         self, name: str, arguments: Mapping[str, JsonValue], *, idempotency_key: str
     ) -> Mapping[str, JsonValue]:
         """Call a run-pinned governed tool through the platform gateway."""
+        ...
 
     async def request_approval(self, summary: str) -> bool:
         """Wait durably for an authorized approval decision."""
+        ...
 
     async def save_checkpoint(
         self, name: str, schema_version: str, value: Mapping[str, JsonValue]
     ) -> CheckpointReference:
         """Save a validated, versioned checkpoint idempotently."""
+        ...
 
     async def load_checkpoint(self, name: str) -> Mapping[str, JsonValue] | None:
         """Load the latest named checkpoint for this pinned agent version."""
+        ...
 
     async def create_artifact(self, artifact: AgentArtifact) -> ArtifactReference:
         """Store a bounded artifact with platform-managed provenance and integrity."""
+        ...
+
+    async def read_artifact(self, artifact_id: str) -> AgentArtifact:
+        """Read a run-owned artifact after the platform verifies its integrity and provenance."""
+        ...
 
     async def remaining_budget(self) -> Mapping[str, int]:
         """Return the remaining deterministic budget counters."""
+        ...
 
     async def check_cancelled(self) -> None:
         """Raise ``CancellationRequested`` when the durable run is cancelled."""
+        ...
 
     async def delegate(
         self, agent_slug: str, task: AgentTask, *, budget: BudgetRequirements
     ) -> AgentResult:
         """Start an allowed child agent with attenuated authority and budget."""
+        ...
 
     async def call_model(self, input: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
         """Call an allowed platform model without receiving provider credentials."""
+        ...
 
 
 @runtime_checkable
@@ -213,3 +229,4 @@ class ManagedAgent(Protocol):
 
     async def run(self, task: AgentTask, context: RunContext) -> AgentResult:
         """Execute one task using only the constrained ``RunContext`` services."""
+        ...

@@ -154,6 +154,27 @@ async def create_artifact(
     return artifact
 
 
+async def read_artifact(
+    session: AsyncSession,
+    *,
+    workflow_run_id: uuid.UUID,
+    agent_id: uuid.UUID,
+    artifact_id: uuid.UUID,
+) -> RunArtifact:
+    """Return a run-owned artifact only after validating its immutable bytes and provenance."""
+
+    artifact = await session.get(RunArtifact, artifact_id)
+    if (
+        artifact is None
+        or artifact.workflow_run_id != workflow_run_id
+        or artifact.agent_id != agent_id
+    ):
+        raise RuntimeStateValidationError("artifact does not belong to the pinned run agent")
+    if hashlib.sha256(artifact.content).hexdigest() != artifact.digest_sha256:
+        raise RuntimeStateValidationError("artifact integrity validation failed")
+    return artifact
+
+
 async def initialize_budget(
     session: AsyncSession, *, workflow_run_id: uuid.UUID, limits: dict[str, int]
 ) -> RunBudget:

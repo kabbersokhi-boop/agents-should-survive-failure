@@ -36,6 +36,9 @@ class ManagedAgentWorkflow:
             start_to_close_timeout=timedelta(minutes=5),
             retry_policy=MANAGED_AGENT_RETRY,
         )
+        if result.get("cancelled") is True:
+            self._phase = "cancelled"
+            return None
         self._phase = "completed"
         return result
 

@@ -205,8 +205,8 @@ class ManagedActivityContext:
         return {key: limit - budget.consumed.get(key, 0) for key, limit in budget.limits.items()}
 
     async def check_cancelled(self) -> None:
-        run = await self._session.get(WorkflowRun, self._run.id)
-        if run is not None and run.status is RunStatus.CANCELLED:
+        await self._session.refresh(self._run)
+        if self._run.status is RunStatus.CANCELLED:
             raise CancellationRequested("run was cancelled")
 
     async def delegate(
@@ -277,6 +277,9 @@ class ManagedAgentActivities:
                     gateway=self._gateway,
                 )
                 result = await agent.run(AgentTask(input=cast(dict[str, Any], task_input)), context)
+                await session.refresh(run)
+                if run.status is RunStatus.CANCELLED:
+                    return {"cancelled": True}
                 for artifact in result.artifacts:
                     await context.create_artifact(artifact)
                 run.status = RunStatus.SUCCEEDED

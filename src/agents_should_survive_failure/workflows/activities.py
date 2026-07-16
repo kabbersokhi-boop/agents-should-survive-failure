@@ -81,6 +81,13 @@ class VendorOnboardingActivities:
         self._observe_retry("vendor_onboarding.begin_review")
         run_id = self._id(input.run_id)
         vendor_id = self._id(input.vendor_id)
+        if self._fault_injector is not None:
+            await self._fault_injector.inject(
+                fault_point=FaultPoint.ACTIVE_ACTIVITY, scope_key=str(run_id)
+            )
+            await self._fault_injector.inject(
+                fault_point=FaultPoint.DATABASE_OPERATION, scope_key=str(run_id)
+            )
         required_tool_failure: tuple[str, PlatformFailure] | None = None
         async with self._database.session() as session:
             runs = WorkflowRunRepository(session)
@@ -212,7 +219,12 @@ class VendorOnboardingActivities:
                     for citation in citations
                 ]
                 explanation_available = True
+                correlation_id = f"{run_id}:risk-assessment"
                 try:
+                    if self._fault_injector is not None:
+                        await self._fault_injector.inject(
+                            fault_point=FaultPoint.PROVIDER_CALL, scope_key=str(run_id)
+                        )
                     await ModelEvidenceService(self._model_provider).explain(
                         session,
                         workflow_run_id=run_id,
@@ -223,9 +235,17 @@ class VendorOnboardingActivities:
                                 str(citation["content"]) for citation in citations
                             ),
                         ),
-                        correlation_id=f"{run_id}:risk-assessment",
+                        correlation_id=correlation_id,
                     )
-                except RuntimeError:
+                except PlatformFailure as error:
+                    explanation_available = False
+                    ModelEvidenceService.record_failure(
+                        session,
+                        workflow_run_id=run_id,
+                        correlation_id=correlation_id,
+                        error_category=error.category.value,
+                    )
+                except Exception:
                     explanation_available = False
                 await self._append_event(
                     WorkflowRunRepository(session),
@@ -310,7 +330,14 @@ class VendorOnboardingActivities:
                 request.id,
                 "Authorized approval requested.",
             )
-            return str(request.id)
+            request_id = str(request.id)
+        # The request is durable before this injectable handoff. A retry proves the waiting
+        # state is reconstructed without creating a second approval request.
+        if self._fault_injector is not None:
+            await self._fault_injector.inject(
+                fault_point=FaultPoint.WAITING_FOR_APPROVAL, scope_key=str(run_id)
+            )
+        return request_id
 
     @activity.defn(name="vendor_onboarding.record_decision")
     async def record_decision(
@@ -431,10 +458,11 @@ class VendorOnboardingActivities:
             )
             committed_effect = True
         if committed_effect and self._fault_injector is not None:
-            await self._fault_injector.inject(
-                fault_point=FaultPoint.POST_COMMIT_HANDOFF,
-                scope_key=str(run_id),
-            )
+            for fault_point in (
+                FaultPoint.PROJECTION_POST_COMMIT_HANDOFF,
+                FaultPoint.EMAIL_POST_COMMIT_HANDOFF,
+            ):
+                await self._fault_injector.inject(fault_point=fault_point, scope_key=str(run_id))
 
     @activity.defn(name="vendor_onboarding.cancel_review")
     async def cancel_review(self, input: VendorOnboardingInput) -> None:

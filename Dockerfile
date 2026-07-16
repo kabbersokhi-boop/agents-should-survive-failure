@@ -4,6 +4,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
 RUN pip install --no-cache-dir uv==0.11.16
 COPY pyproject.toml uv.lock README.md ./
+COPY packages/agents-should-survive-failure-sdk ./packages/agents-should-survive-failure-sdk
 COPY src ./src
 RUN uv sync --frozen --no-dev
 COPY alembic.ini ./

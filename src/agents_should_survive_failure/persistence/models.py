@@ -133,6 +133,12 @@ class FaultPlanStatus(enum.StrEnum):
     CLEARED = "cleared"
 
 
+def _fault_plan_status_values(_: type[FaultPlanStatus]) -> list[str]:
+    """Match the lowercase labels created by the fault-plan migration."""
+
+    return [item.value for item in FaultPlanStatus]
+
+
 class User(IdMixin, TimestampMixin, Base):
     __tablename__ = "users"
 
@@ -635,7 +641,12 @@ class FaultInjectionPlan(IdMixin, TimestampMixin, Base):
     remaining_triggers: Mapped[int] = mapped_column(Integer, nullable=False)
     delay_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     status: Mapped[FaultPlanStatus] = mapped_column(
-        Enum(FaultPlanStatus, name="fault_plan_status"), nullable=False
+        Enum(
+            FaultPlanStatus,
+            name="fault_plan_status",
+            values_callable=_fault_plan_status_values,
+        ),
+        nullable=False,
     )
     safe_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
 

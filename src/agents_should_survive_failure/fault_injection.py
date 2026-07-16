@@ -21,13 +21,16 @@ from agents_should_survive_failure.persistence.session import Database
 class FaultPoint(StrEnum):
     """Production-owned named fault boundaries; arbitrary fault strings are not supported."""
 
-    VENDOR_LOOKUP = "vendor_onboarding.vendor_lookup"
-    POLICY_RETRIEVAL = "vendor_onboarding.policy_retrieval"
-    POST_COMMIT_HANDOFF = "vendor_onboarding.post_commit_handoff"
-    WORKFLOW_START_HANDOFF = "workflow_start.handoff"
-    DATABASE_OPERATION = "database.operation"
-    PROVIDER_CALL = "provider.call"
-    MCP_CALL = "mcp.call"
+    VENDOR_LOOKUP = "tool.vendor_database_query.before_execute"
+    POLICY_RETRIEVAL = "tool.internal_policy_search.before_execute"
+    ACTIVE_ACTIVITY = "worker.active_activity"
+    WAITING_FOR_APPROVAL = "worker.waiting_for_approval"
+    EMAIL_POST_COMMIT_HANDOFF = "email.send.after_commit_before_ack"
+    PROJECTION_POST_COMMIT_HANDOFF = "projection.after_commit_before_ack"
+    WORKFLOW_START_HANDOFF = "workflow_start.after_temporal_accept"
+    DATABASE_OPERATION = "database.activity_transaction.before_commit"
+    PROVIDER_CALL = "provider.risk_explanation.before_execute"
+    MCP_CALL = "mcp.call.before_execute"
 
 
 class FaultAction(StrEnum):

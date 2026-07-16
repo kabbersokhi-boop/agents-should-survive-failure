@@ -73,3 +73,25 @@ class ModelEvidenceService:
             )
         )
         return response
+
+    @staticmethod
+    def record_failure(
+        session: AsyncSession,
+        *,
+        workflow_run_id: uuid.UUID,
+        correlation_id: str,
+        error_category: str,
+    ) -> None:
+        """Persist a sanitized failure when a platform boundary rejects a model call first."""
+
+        MODEL_CALLS.labels("unknown", "unknown", "failed").inc()
+        session.add(
+            ModelCall(
+                workflow_run_id=workflow_run_id,
+                provider="unknown",
+                model="unknown",
+                correlation_id=correlation_id,
+                status=InvocationStatus.FAILED,
+                error_category=error_category[:80],
+            )
+        )

@@ -1648,31 +1648,34 @@ async def list_evaluations(
 
 async def execute_evaluation(
     payload: EvaluationExecuteRequest,
+    request: Request,
     database: Annotated[Database, Depends(get_database)],
     principal: Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)],
 ) -> EvaluationRunResponse:
-    """Run the explicitly limited B1 catalog-persistence integrity checks."""
-    async with database.session() as session:
-        try:
-            run = await EvaluationRunner().run_vendor_onboarding(
-                session,
-                requested_by_id=principal.id,
-                idempotency_key=payload.idempotency_key,
-            )
-        except EvaluationRequestFingerprintConflict:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="idempotency key was reused for a different evaluation request",
-            ) from None
-        return EvaluationRunResponse(
-            id=run.id,
-            suite_slug=run.suite_slug,
-            suite_version=run.suite_version,
-            suite_schema_version=run.suite_schema_version,
-            dataset_sha256=run.dataset_sha256,
-            status=run.status.value,
-            configuration=run.configuration,
+    """Execute the reviewed suite against installed production workflow components."""
+    try:
+        resources: RuntimeResources = request.app.state.resources
+        run = await EvaluationRunner().run_production_vendor_onboarding(
+            database,
+            resources.temporal_client,
+            requested_by_id=principal.id,
+            idempotency_key=payload.idempotency_key,
+            fault_injection_enabled=request.app.state.settings.fault_injection_enabled,
         )
+    except EvaluationRequestFingerprintConflict:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="idempotency key was reused for a different evaluation request",
+        ) from None
+    return EvaluationRunResponse(
+        id=run.id,
+        suite_slug=run.suite_slug,
+        suite_version=run.suite_version,
+        suite_schema_version=run.suite_schema_version,
+        dataset_sha256=run.dataset_sha256,
+        status=run.status.value,
+        configuration=run.configuration,
+    )
 
 
 def fault_plan_response(plan: FaultInjectionPlan) -> FaultPlanResponse:

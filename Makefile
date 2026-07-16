@@ -17,7 +17,7 @@ help:
 	  'seed          Load idempotent local demonstration records' \
 	  'reindex-policies Generate configured-provider embeddings for policy documents' \
 	  'validate-evaluation-dataset Validate the reviewed Phase B evaluation catalog' \
-	  'evaluate      Verify B1 catalog persistence integrity (no Temporal execution)' \
+	  'evaluate      Execute and score the reviewed production workflow evaluation suite' \
 	  'nim-smoke-test Run a manual credential-gated NVIDIA NIM model smoke test' \
 	  'nim-embedding-smoke-test Run a manual credential-gated NVIDIA NIM embedding smoke test' \
 	  'bootstrap-api-key Create a scoped local API key and print it once; supports optional expiry' \

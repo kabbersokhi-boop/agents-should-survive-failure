@@ -18,7 +18,7 @@ def test_evaluate_command_accepts_a_passing_run(monkeypatch: pytest.MonkeyPatch)
     cli.evaluate_main("release-1")
 
 
-def test_evaluate_command_fails_for_catalog_integrity_mismatch(
+def test_evaluate_command_fails_for_production_evidence_mismatch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     run_id = uuid.uuid4()
@@ -29,5 +29,5 @@ def test_evaluate_command_fails_for_catalog_integrity_mismatch(
 
     monkeypatch.setattr(cli, "_evaluate_vendor_onboarding", evaluate)
 
-    with pytest.raises(SystemExit, match="failed catalog-persistence integrity checks"):
+    with pytest.raises(SystemExit, match="failed production workflow evidence checks"):
         cli.evaluate_main("release-1")

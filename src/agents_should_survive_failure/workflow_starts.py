@@ -132,6 +132,7 @@ class WorkflowStartCoordinator:
         requested_by_id: uuid.UUID,
         agent_id: uuid.UUID,
         idempotency_key: str,
+        allowed_tool_definition_ids: set[uuid.UUID] | None = None,
     ) -> WorkflowRun:
         fingerprint = onboarding_request_fingerprint(vendor_id=vendor_id, agent_id=agent_id)
         run_id = uuid.uuid4()
@@ -166,11 +167,12 @@ class WorkflowStartCoordinator:
                         status=WorkflowStartStatus.PENDING,
                     )
                 )
-                grants = (
-                    await session.scalars(
-                        select(AgentToolGrant).where(AgentToolGrant.agent_id == agent_id)
+                grants_statement = select(AgentToolGrant).where(AgentToolGrant.agent_id == agent_id)
+                if allowed_tool_definition_ids is not None:
+                    grants_statement = grants_statement.where(
+                        AgentToolGrant.tool_definition_id.in_(allowed_tool_definition_ids)
                     )
-                ).all()
+                grants = (await session.scalars(grants_statement)).all()
                 for grant in grants:
                     session.add(
                         RunToolGrantSnapshot(

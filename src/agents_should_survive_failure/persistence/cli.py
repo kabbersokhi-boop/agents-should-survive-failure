@@ -3,11 +3,13 @@
 import asyncio
 from uuid import UUID
 
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import create_async_engine
 
+from agents_should_survive_failure.dependencies import create_resources
 from agents_should_survive_failure.evaluation import EvaluationRunner
 from agents_should_survive_failure.persistence.models import EvaluationStatus
 from agents_should_survive_failure.persistence.seed import seed_database, seed_id
+from agents_should_survive_failure.persistence.session import Database
 from agents_should_survive_failure.policy import PolicyEmbeddingService
 from agents_should_survive_failure.provider_factory import build_embedding_provider
 from agents_should_survive_failure.settings import get_settings
@@ -42,19 +44,19 @@ async def _reindex_policies() -> None:
 
 async def _evaluate_vendor_onboarding(idempotency_key: str) -> tuple[UUID, EvaluationStatus]:
     settings = get_settings()
-    engine = create_async_engine(settings.database_url)
-    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    resources = await create_resources(settings, lazy_temporal_client=False)
     try:
-        async with sessions.begin() as session:
-            run = await EvaluationRunner().run_vendor_onboarding(
-                session,
-                requested_by_id=seed_id("user:demo-operator"),
-                idempotency_key=idempotency_key,
-            )
+        run = await EvaluationRunner().run_production_vendor_onboarding(
+            Database(resources.engine),
+            resources.temporal_client,
+            requested_by_id=seed_id("user:demo-operator"),
+            idempotency_key=idempotency_key,
+            fault_injection_enabled=settings.fault_injection_enabled,
+        )
         print(f"Evaluation run {run.id} completed with status {run.status.value}.")
         return run.id, run.status
     finally:
-        await engine.dispose()
+        await resources.close()
 
 
 def main() -> None:
@@ -68,7 +70,7 @@ def reindex_main() -> None:
 def evaluate_main(idempotency_key: str) -> None:
     run_id, status = asyncio.run(_evaluate_vendor_onboarding(idempotency_key))
     if status is EvaluationStatus.FAILED:
-        raise SystemExit(f"Evaluation run {run_id} failed catalog-persistence integrity checks.")
+        raise SystemExit(f"Evaluation run {run_id} failed production workflow evidence checks.")
 
 
 if __name__ == "__main__":

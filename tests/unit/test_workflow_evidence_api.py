@@ -4,7 +4,7 @@ from typing import cast
 from uuid import UUID
 
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 
 from agents_should_survive_failure import api
 from agents_should_survive_failure.auth import AuthenticatedPrincipal
@@ -118,16 +118,20 @@ async def test_execute_evaluation_preserves_uuid_principal_and_suite_provenance(
     )
 
     class Runner:
-        async def run_vendor_onboarding(
+        async def run_production_vendor_onboarding(
             self,
-            session: object,
+            database: object,
+            temporal_client: object,
             *,
             requested_by_id: UUID,
             idempotency_key: str,
+            fault_injection_enabled: bool,
         ) -> SimpleNamespace:
-            assert isinstance(session, FakeSession)
+            assert isinstance(database, FakeDatabase)
+            assert temporal_client == "temporal-client"
             assert requested_by_id == principal.id
             assert idempotency_key == "phase-b1-unit"
+            assert fault_injection_enabled is True
             return SimpleNamespace(
                 id=RUN_ID,
                 suite_slug="vendor-onboarding-phase-b",
@@ -136,21 +140,30 @@ async def test_execute_evaluation_preserves_uuid_principal_and_suite_provenance(
                 dataset_sha256="a" * 64,
                 status=SimpleNamespace(value="succeeded"),
                 configuration={
-                    "execution_mode": "b1_catalog_persistence_integrity",
-                    "workflow_executed": False,
+                    "execution_mode": "production_temporal_workflow",
+                    "workflow_executed": True,
                 },
             )
 
     monkeypatch.setattr(api, "EvaluationRunner", Runner)
+    request = SimpleNamespace(
+        app=SimpleNamespace(
+            state=SimpleNamespace(
+                resources=SimpleNamespace(temporal_client="temporal-client"),
+                settings=SimpleNamespace(fault_injection_enabled=True),
+            )
+        )
+    )
     response = await api.execute_evaluation(
         api.EvaluationExecuteRequest(idempotency_key="phase-b1-unit"),
+        cast(Request, request),
         cast(Database, FakeDatabase(FakeSession([]))),
         principal,
     )
 
     assert response.id == RUN_ID
     assert response.suite_slug == "vendor-onboarding-phase-b"
-    assert response.configuration["workflow_executed"] is False
+    assert response.configuration["workflow_executed"] is True
 
 
 @pytest.mark.asyncio

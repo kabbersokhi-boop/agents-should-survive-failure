@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup format lint typecheck test test-unit test-security test-integration dependency-audit sbom-backend sbom-container sbom verify validate-evaluation-dataset dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate nim-smoke-test nim-embedding-smoke-test bootstrap-api-key revoke-api-key disable-principal recover-workflow-starts sandbox-demo
+.PHONY: help setup format lint typecheck test test-unit test-security test-integration dependency-audit sbom-backend sbom-container sbom sdk-build test-sdk-install verify validate-evaluation-dataset dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate nim-smoke-test nim-embedding-smoke-test bootstrap-api-key revoke-api-key disable-principal recover-workflow-starts sandbox-demo
 
 help:
 	@printf '%s\n' 'setup         Install locked development dependencies' \
@@ -28,6 +28,8 @@ help:
 	  'secret-scan   Scan tracked content with Gitleaks (Docker)' \
 	  'dependency-audit Scan locked production dependencies with pip-audit' \
 	  'sbom          Generate backend and local container CycloneDX SBOM artifacts' \
+	  'sdk-build     Build the standalone public SDK wheel and source distribution' \
+	  'test-sdk-install Build and install the SDK in a clean Python 3.12 environment' \
 	  'verify        Run the complete Phase 0 quality gate'
 
 setup:
@@ -121,6 +123,12 @@ sbom-container:
 	docker run --rm -v /var/run/docker.sock:/var/run/docker.sock:ro -v "$(CURDIR)/artifacts:/artifacts" anchore/syft:v1.31.0 agents-control-plane:local -o cyclonedx-json=/artifacts/container.sbom.json
 
 sbom: sbom-backend sbom-container
+
+sdk-build:
+	uv build packages/agents-should-survive-failure-sdk
+
+test-sdk-install: sdk-build
+	bash scripts/test_sdk_install.sh
 
 verify: lint typecheck validate-evaluation-dataset test test-security compose-check secret-scan dependency-audit test-integration
 

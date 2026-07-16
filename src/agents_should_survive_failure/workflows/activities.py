@@ -8,6 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from temporalio import activity
 from temporalio.exceptions import ApplicationError
 
+from agents_should_survive_failure.failures import (
+    FailureCategory,
+    PlatformFailure,
+    classify_failure,
+    temporal_failure,
+)
 from agents_should_survive_failure.mcp_adapter import GovernedMCPAdapter, MCPExecutionContext
 from agents_should_survive_failure.metrics import (
     ACTIVE_RUNS,
@@ -45,6 +51,8 @@ from agents_should_survive_failure.workflows.contracts import (
     WorkflowEventType,
 )
 
+__all__ = ["ApplicationError", "VendorOnboardingActivities"]
+
 
 class VendorOnboardingActivities:
     """Persist workflow effects atomically and make retries harmless."""
@@ -70,7 +78,7 @@ class VendorOnboardingActivities:
         self._observe_retry("vendor_onboarding.begin_review")
         run_id = self._id(input.run_id)
         vendor_id = self._id(input.vendor_id)
-        required_tool_failure: tuple[str, str] | None = None
+        required_tool_failure: tuple[str, PlatformFailure] | None = None
         async with self._database.session() as session:
             runs = WorkflowRunRepository(session)
             vendors = VendorRepository(session)
@@ -85,7 +93,10 @@ class VendorOnboardingActivities:
             if vendor.status is VendorStatus.SUBMITTED:
                 vendor.status = VendorStatus.UNDER_REVIEW
             if self._mcp_adapter is None:
-                required_tool_failure = ("vendor.lookup", "gateway_unavailable")
+                required_tool_failure = (
+                    "vendor.lookup",
+                    PlatformFailure(FailureCategory.TOOL_UNAVAILABLE, retryable=False),
+                )
             else:
                 try:
                     result = await self._mcp_adapter.call(
@@ -99,12 +110,15 @@ class VendorOnboardingActivities:
                         arguments={"external_reference": vendor.external_reference},
                         idempotency_key=f"{run_id}:vendor-lookup",
                     )
-                except Exception:
-                    required_tool_failure = ("vendor.lookup", "unavailable")
+                except Exception as error:
+                    required_tool_failure = ("vendor.lookup", classify_failure(error))
                 else:
                     lookup = result.result
                     if not lookup.get("found") or lookup.get("vendor_id") != str(vendor_id):
-                        required_tool_failure = ("vendor.lookup", "identity_mismatch")
+                        required_tool_failure = (
+                            "vendor.lookup",
+                            PlatformFailure(FailureCategory.IDENTITY_MISMATCH, retryable=False),
+                        )
             if required_tool_failure is None:
                 await self._append_event(
                     runs,
@@ -126,14 +140,14 @@ class VendorOnboardingActivities:
             else:
                 await self._required_tool_failed(session, run_id, *required_tool_failure)
         if required_tool_failure is not None:
-            raise ApplicationError("required governed tool failed", non_retryable=True)
+            raise temporal_failure(required_tool_failure[1])
 
     @activity.defn(name="vendor_onboarding.assess_risk")
     async def assess_risk(self, input: VendorOnboardingInput) -> RiskAssessment:
         self._observe_retry("vendor_onboarding.assess_risk")
         vendor_id = self._id(input.vendor_id)
         run_id = self._id(input.run_id)
-        required_tool_failure: tuple[str, str] | None = None
+        required_tool_failure: tuple[str, PlatformFailure] | None = None
         async with self._database.session() as session:
             vendor = await VendorRepository(session).get(vendor_id, for_update=True)
             if vendor is None:
@@ -149,7 +163,10 @@ class VendorOnboardingActivities:
                 raise ValueError("workflow run does not exist")
             citations: list[dict[str, object]] = []
             if self._mcp_adapter is None:
-                required_tool_failure = ("policy.search", "gateway_unavailable")
+                required_tool_failure = (
+                    "policy.search",
+                    PlatformFailure(FailureCategory.TOOL_UNAVAILABLE, retryable=False),
+                )
             else:
                 try:
                     result = await self._mcp_adapter.call(
@@ -163,12 +180,15 @@ class VendorOnboardingActivities:
                         arguments={"query": "vendor onboarding approval policy", "limit": 10},
                         idempotency_key=f"{run_id}:policy-search",
                     )
-                except Exception:
-                    required_tool_failure = ("policy.search", "unavailable")
+                except Exception as error:
+                    required_tool_failure = ("policy.search", classify_failure(error))
                 else:
                     citations = result.result.get("citations", [])
                     if not citations:
-                        required_tool_failure = ("policy.search", "no_policy_evidence")
+                        required_tool_failure = (
+                            "policy.search",
+                            PlatformFailure(FailureCategory.TOOL_UNAVAILABLE, retryable=False),
+                        )
             if required_tool_failure is not None:
                 await self._required_tool_failed(session, run_id, *required_tool_failure)
             else:
@@ -219,7 +239,7 @@ class VendorOnboardingActivities:
                     session, run_id, "vendor.risk.assess", "vendor", vendor_id, assessment.summary
                 )
         if required_tool_failure is not None:
-            raise ApplicationError("required governed tool failed", non_retryable=True)
+            raise temporal_failure(required_tool_failure[1])
         return assessment
 
     @staticmethod
@@ -464,8 +484,19 @@ class VendorOnboardingActivities:
             ACTIVITY_RETRIES.labels(activity_name).inc()
 
     async def _required_tool_failed(
-        self, session: AsyncSession, run_id: uuid.UUID, tool_name: str, category: str
+        self, session: AsyncSession, run_id: uuid.UUID, tool_name: str, failure: PlatformFailure
     ) -> None:
+        category = failure.category.value
+        if failure.retryable:
+            await self._audit(
+                session,
+                run_id,
+                "tool.required.retry",
+                "workflow_run",
+                run_id,
+                f"Required governed tool {tool_name} is retryable: {category}.",
+            )
+            return
         run = await WorkflowRunRepository(session).get(run_id)
         if run is not None:
             run.status = RunStatus.FAILED

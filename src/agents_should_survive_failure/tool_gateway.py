@@ -32,6 +32,7 @@ from agents_should_survive_failure.persistence.models import (
 )
 from agents_should_survive_failure.persistence.session import Database
 from agents_should_survive_failure.policy import PolicyRetriever
+from agents_should_survive_failure.workflows.contracts import GovernedToolName
 
 
 class ToolDeniedError(PermissionError):
@@ -144,17 +145,17 @@ class ToolGateway:
     def __init__(self, audit_database: Database | None = None) -> None:
         self._audit_database = audit_database
         self._registry: dict[str, RegisteredTool] = {
-            "vendor_database_query": RegisteredTool(
+            GovernedToolName.VENDOR_DATABASE_QUERY.value: RegisteredTool(
                 input_model=VendorLookupInput,
                 output_model=VendorLookupOutput,
                 handler=self._vendor_lookup,
             ),
-            "internal_policy_search": RegisteredTool(
+            GovernedToolName.INTERNAL_POLICY_SEARCH.value: RegisteredTool(
                 input_model=PolicySearchInput,
                 output_model=PolicySearchOutput,
                 handler=self._policy_search,
             ),
-            "synthetic_email_send": RegisteredTool(
+            GovernedToolName.SYNTHETIC_EMAIL_SEND.value: RegisteredTool(
                 input_model=SyntheticEmailInput,
                 output_model=SyntheticEmailOutput,
                 handler=self._synthetic_email_send,
@@ -188,7 +189,7 @@ class ToolGateway:
             session,
             workflow_run_id=workflow_run_id,
             agent_id=agent_id,
-            tool_name="vendor_database_query",
+            tool_name=GovernedToolName.VENDOR_DATABASE_QUERY.value,
             tool_version="1",
             arguments={"external_reference": external_reference},
             idempotency_key=idempotency_key,

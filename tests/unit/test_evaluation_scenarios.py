@@ -6,13 +6,14 @@ from pydantic import ValidationError
 
 from agents_should_survive_failure.evaluation_scenarios import (
     EvaluationSuiteDefinition,
-    GovernedToolName,
+    FaultCategory,
+    FaultPlan,
     ScenarioType,
-    WorkflowEventType,
     load_evaluation_suite,
     load_packaged_evaluation_suite,
     validate_packaged_evaluation_suite,
 )
+from agents_should_survive_failure.workflows.contracts import GovernedToolName, WorkflowEventType
 
 
 def test_packaged_suite_is_reviewed_complete_and_stable() -> None:
@@ -154,6 +155,29 @@ def test_suite_rejects_faults_that_can_repeat_indefinitely() -> None:
 
     with pytest.raises(ValidationError, match="consume-once semantics"):
         EvaluationSuiteDefinition.model_validate(payload)
+
+
+@pytest.mark.parametrize(
+    "category",
+    [FaultCategory.RETRYABLE, FaultCategory.PROCESS_TERMINATION, FaultCategory.AMBIGUOUS_HANDOFF],
+)
+def test_recovery_faults_require_retryable_semantics(category: FaultCategory) -> None:
+    with pytest.raises(ValidationError, match="retryable recovery faults"):
+        FaultPlan(
+            fault_point="test.fault",
+            category=category,
+            retryable=False,
+        )
+
+
+def test_permanent_faults_do_not_require_retries() -> None:
+    fault = FaultPlan(
+        fault_point="test.permanent",
+        category=FaultCategory.PERMANENT,
+        retryable=False,
+    )
+
+    assert fault.expected_retry_count_min == 0
 
 
 def test_permission_denial_case_must_remove_the_required_immutable_grant() -> None:

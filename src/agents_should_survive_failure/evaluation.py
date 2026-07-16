@@ -113,12 +113,12 @@ class EvaluationRunner:
         if run is None:
             raise RuntimeError("inserted evaluation run could not be reloaded")
 
+        # A schema-version mismatch is catalog drift. Do not filter it away before inspection.
         result = await session.scalars(
             select(EvaluationCase)
             .where(
                 EvaluationCase.suite_slug == suite.suite_slug,
                 EvaluationCase.suite_version == suite.suite_version,
-                EvaluationCase.schema_version == suite.schema_version,
             )
             .order_by(EvaluationCase.slug)
         )

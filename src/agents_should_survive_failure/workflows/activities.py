@@ -42,6 +42,7 @@ from agents_should_survive_failure.workflows.contracts import (
     ApprovalDecisionType,
     RiskAssessment,
     VendorOnboardingInput,
+    WorkflowEventType,
 )
 
 
@@ -108,7 +109,7 @@ class VendorOnboardingActivities:
                 await self._append_event(
                     runs,
                     run_id,
-                    "review.started",
+                    WorkflowEventType.REVIEW_STARTED,
                     "Vendor review started.",
                     {"vendor_id": input.vendor_id},
                     sequence=10,
@@ -198,7 +199,7 @@ class VendorOnboardingActivities:
                 await self._append_event(
                     WorkflowRunRepository(session),
                     run_id,
-                    "risk.assessed",
+                    WorkflowEventType.RISK_ASSESSED,
                     assessment.summary,
                     asdict(assessment),
                     sequence=20,
@@ -206,7 +207,7 @@ class VendorOnboardingActivities:
                 await self._append_event(
                     WorkflowRunRepository(session),
                     run_id,
-                    "risk.policy_context",
+                    WorkflowEventType.RISK_POLICY_CONTEXT,
                     "Risk explanation grounded in retrieved policy evidence.",
                     {
                         "citations": citation_evidence,
@@ -265,7 +266,7 @@ class VendorOnboardingActivities:
             await self._append_event(
                 WorkflowRunRepository(session),
                 run_id,
-                "approval.requested",
+                WorkflowEventType.APPROVAL_REQUESTED,
                 "Authorized approval requested.",
                 {"approval_request_id": str(request.id), "risk_score": assessment.score},
                 sequence=30,
@@ -382,7 +383,7 @@ class VendorOnboardingActivities:
             await self._append_event(
                 WorkflowRunRepository(session),
                 run_id,
-                "approval.decided",
+                WorkflowEventType.APPROVAL_DECIDED,
                 f"Vendor {decision.decision.value} by authorized approver.",
                 {"decision": decision.decision.value, "approval_request_id": str(request.id)},
                 sequence=40,
@@ -423,7 +424,7 @@ class VendorOnboardingActivities:
             await self._append_event(
                 WorkflowRunRepository(session),
                 run_id,
-                "review.cancelled",
+                WorkflowEventType.REVIEW_CANCELLED,
                 "Review cancelled.",
                 {},
                 sequence=50,
@@ -436,7 +437,7 @@ class VendorOnboardingActivities:
         self,
         runs: WorkflowRunRepository,
         run_id: uuid.UUID,
-        event_type: str,
+        event_type: WorkflowEventType | str,
         summary: str,
         payload: dict[str, object],
         *,
@@ -449,7 +450,9 @@ class VendorOnboardingActivities:
             WorkflowEvent(
                 workflow_run_id=run_id,
                 sequence=sequence,
-                event_type=event_type,
+                event_type=(
+                    event_type.value if isinstance(event_type, WorkflowEventType) else event_type
+                ),
                 summary=summary,
                 payload=payload,
             )
@@ -480,7 +483,7 @@ class VendorOnboardingActivities:
         await self._append_event(
             WorkflowRunRepository(session),
             run_id,
-            "review.failed",
+            WorkflowEventType.REVIEW_FAILED,
             "Required governed tool failed.",
             {"tool": tool_name, "category": category},
             sequence=15 if tool_name == "vendor.lookup" else 25,

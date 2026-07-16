@@ -22,7 +22,12 @@ from pydantic import (
     model_validator,
 )
 
-ToolArgumentValue = str | int | float | bool | None
+from agents_should_survive_failure.workflows.contracts import (
+    GovernedToolName,
+    WorkflowEventType,
+)
+
+ToolArgumentValue = str | int | bool | None
 
 
 def _encode_canonical_json_special(value: object) -> str:
@@ -32,7 +37,11 @@ def _encode_canonical_json_special(value: object) -> str:
 
 
 def _canonical_sha256(value: object) -> str:
-    """Hash a contract value with an implementation-independent JSON representation."""
+    """Hash a contract using the locked Python/Pydantic serialization contract.
+
+    This does not claim cross-language canonical JSON compatibility. Reviewed contracts use only
+    JSON-safe primitives plus timezone-aware datetimes normalized by Pydantic.
+    """
 
     payload = json.dumps(
         value,
@@ -76,26 +85,6 @@ class ScenarioType(StrEnum):
     DATABASE_TRANSIENT_FAILURE = "database_transient_failure"
     MALFORMED_TOOL_INPUT_REJECTED = "malformed_tool_input_rejected"
     UNAUTHORIZED_SENSITIVE_OPERATION = "unauthorized_sensitive_operation"
-
-
-class WorkflowEventType(StrEnum):
-    """Event types currently persisted by the production vendor-onboarding activities."""
-
-    REVIEW_STARTED = "review.started"
-    RISK_ASSESSED = "risk.assessed"
-    RISK_POLICY_CONTEXT = "risk.policy_context"
-    APPROVAL_REQUESTED = "approval.requested"
-    APPROVAL_DECIDED = "approval.decided"
-    REVIEW_CANCELLED = "review.cancelled"
-    REVIEW_FAILED = "review.failed"
-
-
-class GovernedToolName(StrEnum):
-    """Tool names persisted in ``tool_invocations.requested_tool_name``."""
-
-    VENDOR_DATABASE_QUERY = "vendor_database_query"
-    INTERNAL_POLICY_SEARCH = "internal_policy_search"
-    SYNTHETIC_EMAIL_SEND = "synthetic_email_send"
 
 
 class ToolInvocationStatus(StrEnum):
@@ -302,8 +291,16 @@ class FaultPlan(StrictContract):
 
     @model_validator(mode="after")
     def validate_retry_contract(self) -> FaultPlan:
-        if self.category is FaultCategory.RETRYABLE and not self.retryable:
-            raise ValueError("retryable faults must set retryable=true")
+        if (
+            self.category
+            in {
+                FaultCategory.RETRYABLE,
+                FaultCategory.PROCESS_TERMINATION,
+                FaultCategory.AMBIGUOUS_HANDOFF,
+            }
+            and not self.retryable
+        ):
+            raise ValueError("retryable recovery faults must set retryable=true")
         if self.category is FaultCategory.PERMANENT and self.retryable:
             raise ValueError("permanent faults must set retryable=false")
         if self.category is FaultCategory.PERMANENT and self.expected_retry_count_min != 0:

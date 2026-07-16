@@ -19,6 +19,7 @@ from agents_should_survive_failure.tool_gateway import (
     ToolResult,
     VendorLookupOutput,
 )
+from agents_should_survive_failure.workflows.contracts import GovernedToolName
 
 
 @dataclass(frozen=True)
@@ -34,9 +35,9 @@ class GovernedMCPAdapter:
     """Translate the three MCP tools into policy-enforced gateway calls."""
 
     _TOOL_VERSIONS: ClassVar[dict[str, tuple[str, str]]] = {
-        "vendor.lookup": ("vendor_database_query", "1"),
-        "policy.search": ("internal_policy_search", "1"),
-        "email.send": ("synthetic_email_send", "1"),
+        "vendor.lookup": (GovernedToolName.VENDOR_DATABASE_QUERY.value, "1"),
+        "policy.search": (GovernedToolName.INTERNAL_POLICY_SEARCH.value, "1"),
+        "email.send": (GovernedToolName.SYNTHETIC_EMAIL_SEND.value, "1"),
     }
 
     def __init__(self, gateway: ToolGateway | None = None) -> None:

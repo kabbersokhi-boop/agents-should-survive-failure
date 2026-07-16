@@ -22,6 +22,7 @@ from agents_should_survive_failure.persistence.models import (
     User,
     UserStatus,
 )
+from agents_should_survive_failure.workflows.contracts import GovernedToolName
 
 SEED_NAMESPACE = uuid.UUID("ad2dbd38-ad07-4f39-aedc-2a4894d7767d")
 
@@ -114,7 +115,7 @@ def seed_rows() -> Sequence[
             ToolDefinition,
             {
                 "id": seed_id("tool:vendor-database-query:v1"),
-                "name": "vendor_database_query",
+                "name": GovernedToolName.VENDOR_DATABASE_QUERY.value,
                 "version": "1",
                 "description": "Read-only lookup of synthetic vendor records.",
                 "input_schema": {
@@ -154,7 +155,7 @@ def seed_rows() -> Sequence[
             ToolDefinition,
             {
                 "id": seed_id("tool:internal-policy-search:v1"),
-                "name": "internal_policy_search",
+                "name": GovernedToolName.INTERNAL_POLICY_SEARCH.value,
                 "version": "1",
                 "description": "Read synthetic internal policy evidence.",
                 "input_schema": {
@@ -190,7 +191,7 @@ def seed_rows() -> Sequence[
             ToolDefinition,
             {
                 "id": seed_id("tool:synthetic-email-send:v1"),
-                "name": "synthetic_email_send",
+                "name": GovernedToolName.SYNTHETIC_EMAIL_SEND.value,
                 "version": "1",
                 "description": "Persist a synthetic email after a durable approval decision.",
                 "input_schema": {

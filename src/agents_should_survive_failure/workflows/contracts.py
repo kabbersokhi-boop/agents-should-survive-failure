@@ -7,6 +7,26 @@ WORKFLOW_TYPE = "vendor_onboarding"
 TASK_QUEUE = "vendor-onboarding"
 
 
+class WorkflowEventType(StrEnum):
+    """Persisted workflow event identifiers owned by the production runtime."""
+
+    REVIEW_STARTED = "review.started"
+    RISK_ASSESSED = "risk.assessed"
+    RISK_POLICY_CONTEXT = "risk.policy_context"
+    APPROVAL_REQUESTED = "approval.requested"
+    APPROVAL_DECIDED = "approval.decided"
+    REVIEW_CANCELLED = "review.cancelled"
+    REVIEW_FAILED = "review.failed"
+
+
+class GovernedToolName(StrEnum):
+    """Registered governed-tool identifiers owned by the production runtime."""
+
+    VENDOR_DATABASE_QUERY = "vendor_database_query"
+    INTERNAL_POLICY_SEARCH = "internal_policy_search"
+    SYNTHETIC_EMAIL_SEND = "synthetic_email_send"
+
+
 class ApprovalDecisionType(StrEnum):
     APPROVED = "approved"
     REJECTED = "rejected"

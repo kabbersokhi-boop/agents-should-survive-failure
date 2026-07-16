@@ -194,6 +194,15 @@ class Agent(IdMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     version: Mapped[str] = mapped_column(String(40), nullable=False)
     workflow_type: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    package_name: Mapped[str] = mapped_column(String(120), nullable=False, default="legacy-agent")
+    entry_point: Mapped[str] = mapped_column(
+        String(240), nullable=False, default="legacy:unavailable"
+    )
+    manifest: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    input_schema: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    output_schema: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    compatibility: Mapped[str] = mapped_column(String(120), nullable=False, default="legacy")
+    integrity_digest: Mapped[str] = mapped_column(String(64), nullable=False, default="0" * 64)
     status: Mapped[AgentStatus] = mapped_column(
         Enum(AgentStatus, name="agent_status"), nullable=False
     )

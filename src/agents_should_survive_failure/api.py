@@ -19,6 +19,13 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from temporalio.client import WorkflowUpdateFailedError, WorkflowUpdateRPCTimeoutOrCancelledError
 
+from agents_should_survive_failure.agent_registry import (
+    AgentManifestError,
+    AgentRegistrationConflict,
+    MissingDeclaredTool,
+    parse_registration,
+    register_agent,
+)
 from agents_should_survive_failure.auth import AuthenticatedPrincipal, resolve_api_key
 from agents_should_survive_failure.dependencies import (
     DependencySet,
@@ -249,6 +256,13 @@ class AgentResponse(BaseModel):
     version: str
     workflow_type: str
     status: str
+    package_name: str
+    entry_point: str
+    manifest: dict[str, object]
+    input_schema: dict[str, object]
+    output_schema: dict[str, object]
+    compatibility: str
+    integrity_digest: str
     configuration: dict[str, object]
 
 
@@ -256,6 +270,12 @@ class AgentPage(BaseModel):
     items: list[AgentResponse]
     limit: int
     offset: int
+
+
+class AgentRegistrationRequest(StrictRequestModel):
+    manifest: dict[str, object]
+    package_name: str = Field(min_length=1, max_length=120)
+    entry_point: str = Field(min_length=1, max_length=240)
 
 
 class ApprovalResponse(BaseModel):
@@ -786,13 +806,23 @@ def workflow_run_response(run: WorkflowRun) -> WorkflowRunDetailResponse:
 
 
 def agent_response(agent: Agent) -> AgentResponse:
+    configuration = agent.configuration
     return AgentResponse(
         id=agent.id,
         name=agent.name,
         version=agent.version,
         workflow_type=agent.workflow_type,
         status=agent.status.value,
-        configuration=agent.configuration,
+        package_name=getattr(agent, "package_name", "legacy-agent"),
+        entry_point=getattr(agent, "entry_point", "legacy:unavailable"),
+        manifest=getattr(agent, "manifest", {}),
+        input_schema=getattr(agent, "input_schema", {}),
+        output_schema=getattr(agent, "output_schema", {}),
+        compatibility=getattr(agent, "compatibility", "legacy"),
+        integrity_digest=getattr(
+            agent, "integrity_digest", configuration.get("registration_sha256", "0" * 64)
+        ),
+        configuration=configuration,
     )
 
 
@@ -1011,6 +1041,37 @@ async def list_agents(
         limit=limit,
         offset=offset,
     )
+
+
+async def create_agent_registration(
+    payload: AgentRegistrationRequest,
+    database: Annotated[Database, Depends(get_database)],
+) -> AgentResponse:
+    try:
+        registration = parse_registration(
+            manifest=payload.manifest,
+            package_name=payload.package_name,
+            entry_point=payload.entry_point,
+        )
+    except AgentManifestError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="managed agent manifest or installation metadata is invalid",
+        ) from None
+    async with database.session() as session:
+        try:
+            agent = await register_agent(session, registration=registration)
+        except MissingDeclaredTool as error:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=str(error),
+            ) from None
+        except AgentRegistrationConflict:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="agent version is already registered with different content",
+            ) from None
+    return agent_response(agent)
 
 
 async def agent_detail(
@@ -1642,6 +1703,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         methods=["GET"],
         response_model=ToolInvocationResponse,
         dependencies=[Depends(require_scopes("runs:read"))],
+    )
+    app.add_api_route(
+        "/api/v1/agents",
+        create_agent_registration,
+        methods=["POST"],
+        response_model=AgentResponse,
+        dependencies=[Depends(require_scopes("agents:write"))],
     )
     app.add_api_route(
         "/api/v1/agents",

@@ -37,6 +37,8 @@ def test_model_metadata_and_seeds_cover_required_schema() -> None:
         "api_keys",
         "agents",
         "agent_tool_grants",
+        "fault_injection_plans",
+        "fault_injection_consumptions",
         "workflow_runs",
         "workflow_start_attempts",
         "workflow_events",

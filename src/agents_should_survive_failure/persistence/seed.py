@@ -107,6 +107,16 @@ def seed_rows() -> Sequence[
                 "name": "vendor-onboarding",
                 "version": "1",
                 "workflow_type": "vendor_onboarding",
+                "package_name": "agents-should-survive-failure",
+                "entry_point": (
+                    "agents_should_survive_failure.workflows.vendor_onboarding:"
+                    "VendorOnboardingWorkflow"
+                ),
+                "manifest": {},
+                "input_schema": {},
+                "output_schema": {},
+                "compatibility": ">=1.0.0,<2.0.0",
+                "integrity_digest": "0" * 64,
                 "status": AgentStatus.ACTIVE,
                 "configuration": {"model_provider": "deterministic_mock"},
             },

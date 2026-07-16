@@ -7,6 +7,7 @@ name = "agents-should-survive-failure"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "agents-should-survive-failure-sdk" },
     { name = "alembic" },
     { name = "asyncpg" },
     { name = "fastapi" },
@@ -42,6 +43,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "agents-should-survive-failure-sdk", directory = "packages/agents-should-survive-failure-sdk" },
     { name = "alembic", specifier = "==1.16.5" },
     { name = "asyncpg", specifier = "==0.31.0" },
     { name = "fastapi", specifier = "==0.139.0" },
@@ -74,6 +76,17 @@ dev = [
     { name = "pytest-asyncio", specifier = "==1.1.0" },
     { name = "ruff", specifier = "==0.12.7" },
 ]
+
+[[package]]
+name = "agents-should-survive-failure-sdk"
+version = "1.0.0"
+source = { directory = "packages/agents-should-survive-failure-sdk" }
+dependencies = [
+    { name = "pydantic" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pydantic", specifier = "==2.11.7" }]
 
 [[package]]
 name = "alembic"

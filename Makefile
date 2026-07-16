@@ -125,7 +125,7 @@ sbom-container:
 sbom: sbom-backend sbom-container
 
 sdk-build:
-	uv build packages/agents-should-survive-failure-sdk
+	uv build --offline packages/agents-should-survive-failure-sdk
 
 test-sdk-install: sdk-build
 	bash scripts/test_sdk_install.sh

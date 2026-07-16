@@ -17,6 +17,8 @@ from agents_should_survive_failure.metrics import RUN_STARTS
 from agents_should_survive_failure.persistence.models import (
     AgentToolGrant,
     AuditEvent,
+    RunBudget,
+    RunDelegation,
     RunStatus,
     RunToolGrantSnapshot,
     WorkflowRun,
@@ -207,9 +209,24 @@ class WorkflowStartCoordinator:
         agent_id: uuid.UUID,
         task: dict[str, object],
         idempotency_key: str,
+        parent_run_id: uuid.UUID | None = None,
+        root_run_id: uuid.UUID | None = None,
+        delegation_depth: int = 0,
+        delegated_budget_limits: dict[str, int] | None = None,
+        allowed_tool_definition_ids: set[uuid.UUID] | None = None,
     ) -> WorkflowRun:
         """Persist a generic managed-agent run and immutable tool snapshot before start."""
 
+        if delegation_depth < 0:
+            raise ValueError("delegation depth cannot be negative")
+        if parent_run_id is None and (root_run_id is not None or delegation_depth != 0):
+            raise ValueError("root and depth are only valid for a delegated child run")
+        if parent_run_id is not None and (root_run_id is None or delegation_depth < 1):
+            raise ValueError("delegated child runs require a root and positive depth")
+        if delegated_budget_limits is not None and any(
+            not name or value < 0 for name, value in delegated_budget_limits.items()
+        ):
+            raise ValueError("delegated budget limits must be non-negative named integers")
         fingerprint = managed_agent_request_fingerprint(agent_id=agent_id, task=task)
         run_id = uuid.uuid4()
         temporal_workflow_id = f"managed-agent-{run_id}"
@@ -219,9 +236,9 @@ class WorkflowStartCoordinator:
                 .values(
                     id=run_id,
                     agent_id=agent_id,
-                    parent_workflow_run_id=None,
-                    root_workflow_run_id=run_id,
-                    delegation_depth=0,
+                    parent_workflow_run_id=parent_run_id,
+                    root_workflow_run_id=root_run_id or run_id,
+                    delegation_depth=delegation_depth,
                     vendor_id=None,
                     requested_by_id=requested_by_id,
                     workflow_type="managed_agent",
@@ -243,11 +260,12 @@ class WorkflowStartCoordinator:
                         status=WorkflowStartStatus.PENDING,
                     )
                 )
-                grants = (
-                    await session.scalars(
-                        select(AgentToolGrant).where(AgentToolGrant.agent_id == agent_id)
+                grants_statement = select(AgentToolGrant).where(AgentToolGrant.agent_id == agent_id)
+                if allowed_tool_definition_ids is not None:
+                    grants_statement = grants_statement.where(
+                        AgentToolGrant.tool_definition_id.in_(allowed_tool_definition_ids)
                     )
-                ).all()
+                grants = (await session.scalars(grants_statement)).all()
                 for grant in grants:
                     session.add(
                         RunToolGrantSnapshot(
@@ -255,6 +273,29 @@ class WorkflowStartCoordinator:
                             tool_definition_id=grant.tool_definition_id,
                             policy_version=grant.policy_version,
                             policy_hash=grant.policy_hash,
+                        )
+                    )
+                if delegated_budget_limits is not None:
+                    session.add(
+                        RunBudget(
+                            workflow_run_id=run_id,
+                            limits=delegated_budget_limits,
+                            consumed={},
+                        )
+                    )
+                if parent_run_id is not None:
+                    session.add(
+                        RunDelegation(
+                            parent_workflow_run_id=parent_run_id,
+                            child_workflow_run_id=run_id,
+                            root_workflow_run_id=root_run_id or run_id,
+                            delegation_depth=delegation_depth,
+                            idempotency_key=idempotency_key,
+                            budget_limits=delegated_budget_limits or {},
+                            allowed_tool_definition_ids=[
+                                str(tool_id)
+                                for tool_id in sorted(allowed_tool_definition_ids or set(), key=str)
+                            ],
                         )
                     )
                 await AuditEventRepository(session).append(

@@ -31,6 +31,7 @@ from agents_should_survive_failure.persistence.models import (
     ApprovalRequest,
     ApprovalStatus,
     AuditEvent,
+    RunBudget,
     RunStatus,
     WorkflowEvent,
     WorkflowRun,
@@ -397,11 +398,15 @@ class ManagedAgentActivities:
                 if not isinstance(task_input, dict):
                     raise ValueError("managed agent task is invalid")
                 run.status = RunStatus.RUNNING
-                await initialize_budget(
-                    session,
-                    workflow_run_id=run.id,
-                    limits=_budget_limits(agent.metadata.budget_defaults),
+                existing_budget = await session.scalar(
+                    select(RunBudget).where(RunBudget.workflow_run_id == run.id)
                 )
+                if existing_budget is None:
+                    await initialize_budget(
+                        session,
+                        workflow_run_id=run.id,
+                        limits=_budget_limits(agent.metadata.budget_defaults),
+                    )
                 agent_id = run.agent_id
             context = ManagedActivityContext(
                 database=self._database,

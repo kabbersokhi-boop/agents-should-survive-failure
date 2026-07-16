@@ -15,6 +15,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -619,6 +620,71 @@ class FaultInjectionConsumption(IdMixin, Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), default=utc_now
     )
+
+
+class RunCheckpoint(IdMixin, TimestampMixin, Base):
+    """Latest immutable checkpoint value for a named agent-run checkpoint."""
+
+    __tablename__ = "run_checkpoints"
+    __table_args__ = (
+        UniqueConstraint("workflow_run_id", "name", name="uq_run_checkpoint_name"),
+        CheckConstraint("size_bytes >= 0", name="ck_run_checkpoint_size"),
+        CheckConstraint("digest_sha256 ~ '^[0-9a-f]{64}$'", name="ck_run_checkpoint_digest"),
+    )
+
+    workflow_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    agent_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("agents.id", ondelete="RESTRICT"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    schema_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    value: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    digest_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class RunArtifact(IdMixin, TimestampMixin, Base):
+    """Bounded inline artifact with provenance and cryptographic integrity metadata."""
+
+    __tablename__ = "run_artifacts"
+    __table_args__ = (
+        UniqueConstraint(
+            "workflow_run_id", "name", "digest_sha256", name="uq_run_artifact_name_digest"
+        ),
+        CheckConstraint("size_bytes >= 0", name="ck_run_artifact_size"),
+        CheckConstraint("digest_sha256 ~ '^[0-9a-f]{64}$'", name="ck_run_artifact_digest"),
+    )
+
+    workflow_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    agent_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("agents.id", ondelete="RESTRICT"), nullable=False
+    )
+    parent_artifact_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("run_artifacts.id", ondelete="RESTRICT")
+    )
+    name: Mapped[str] = mapped_column(String(240), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(120), nullable=False)
+    digest_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+
+
+class RunBudget(IdMixin, TimestampMixin, Base):
+    """Pinned limits and durable cumulative usage for one workflow run."""
+
+    __tablename__ = "run_budgets"
+    __table_args__ = (UniqueConstraint("workflow_run_id", name="uq_run_budget"),)
+
+    workflow_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    limits: Mapped[dict[str, int]] = mapped_column(JSONB, nullable=False)
+    consumed: Mapped[dict[str, int]] = mapped_column(JSONB, nullable=False, default=dict)
+    exhausted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class EvaluationRun(IdMixin, TimestampMixin, Base):

@@ -35,7 +35,10 @@ uv run alembic check
 export FAULT_INJECTION_ENABLED=true
 docker compose up --build --detach
 uv run pytest -m integration tests/integration
-evaluation_output="$(docker compose exec -T api /app/.venv/bin/python -c 'from agents_should_survive_failure.persistence.cli import evaluate_main; evaluate_main("release-gate-v1")')"
+if ! evaluation_output="$(docker compose exec -T api /app/.venv/bin/python -c 'from agents_should_survive_failure.persistence.cli import evaluate_main; evaluate_main("release-gate-v1")')"; then
+  printf '%s\n' "$evaluation_output" >&2
+  exit 1
+fi
 printf '%s\n' "$evaluation_output"
 evaluation_run_id="$(printf '%s\n' "$evaluation_output" | sed -nE 's/^Evaluation run ([0-9a-f-]+) completed.*/\1/p')"
 test -n "$evaluation_run_id"

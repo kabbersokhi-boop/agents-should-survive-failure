@@ -82,6 +82,10 @@ class ScriptedTemporalClient:
         if outcome is not None:
             raise outcome
 
+    def get_workflow_handle(self, workflow_id: str) -> object:
+        del workflow_id
+        raise AssertionError("delegated child results are not used by this start-recovery test")
+
 
 @pytest_asyncio.fixture
 async def engine() -> AsyncIterator[AsyncEngine]:

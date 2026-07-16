@@ -30,6 +30,12 @@ from agents_should_survive_failure.evaluation import (
     EvaluationRequestFingerprintConflict,
     EvaluationRunner,
 )
+from agents_should_survive_failure.fault_injection import (
+    FaultAction,
+    FaultInjectionDisabled,
+    FaultInjector,
+    FaultPoint,
+)
 from agents_should_survive_failure.observability import configure_logging, configure_tracing
 from agents_should_survive_failure.persistence.models import (
     Agent,
@@ -39,6 +45,7 @@ from agents_should_survive_failure.persistence.models import (
     AuditEvent,
     EvaluationResult,
     EvaluationRun,
+    FaultInjectionPlan,
     ModelCall,
     PrincipalType,
     RunStatus,
@@ -375,6 +382,35 @@ class EvaluationRunPage(BaseModel):
 
 class EvaluationExecuteRequest(StrictRequestModel):
     idempotency_key: str = Field(min_length=1, max_length=240, pattern=r"^[A-Za-z0-9._:-]+$")
+
+
+class FaultPlanCreateRequest(StrictRequestModel):
+    fault_point: FaultPoint
+    action: FaultAction
+    scope_key: str = Field(min_length=1, max_length=240)
+    trigger_count: int = Field(default=1, ge=1, le=10)
+    delay_ms: int = Field(default=0, ge=0, le=60_000)
+    safe_metadata: dict[str, object] = Field(default_factory=dict)
+
+
+class FaultPlanResponse(BaseModel):
+    id: UUID
+    fault_point: str
+    scope_key: str
+    action: str
+    trigger_count: int
+    remaining_triggers: int
+    delay_ms: int
+    status: str
+    safe_metadata: dict[str, object]
+
+
+class FaultConsumptionResponse(BaseModel):
+    consumed: bool
+    fault_point: str
+    scope_key: str
+    action: str | None
+    remaining_triggers: int | None
 
 
 class ApprovalRequestBody(StrictRequestModel):
@@ -1279,6 +1315,92 @@ async def execute_evaluation(
         )
 
 
+def fault_plan_response(plan: FaultInjectionPlan) -> FaultPlanResponse:
+    return FaultPlanResponse(
+        id=plan.id,
+        fault_point=plan.fault_point,
+        scope_key=plan.scope_key,
+        action=plan.category,
+        trigger_count=plan.trigger_count,
+        remaining_triggers=plan.remaining_triggers,
+        delay_ms=plan.delay_ms,
+        status=plan.status.value,
+        safe_metadata=plan.safe_metadata,
+    )
+
+
+def fault_injector(database: Database, settings: Settings) -> FaultInjector:
+    return FaultInjector(database, enabled=settings.fault_injection_enabled)
+
+
+async def create_fault_plan(
+    payload: FaultPlanCreateRequest,
+    database: Annotated[Database, Depends(get_database)],
+    settings: Annotated[Settings, Depends(get_app_settings)],
+) -> FaultPlanResponse:
+    try:
+        plan = await fault_injector(database, settings).create(
+            fault_point=payload.fault_point,
+            action=payload.action,
+            scope_key=payload.scope_key,
+            trigger_count=payload.trigger_count,
+            delay_ms=payload.delay_ms,
+            safe_metadata=payload.safe_metadata,
+        )
+    except FaultInjectionDisabled:
+        raise HTTPException(status_code=404, detail="fault injection is unavailable") from None
+    return fault_plan_response(plan)
+
+
+async def list_fault_plans(
+    database: Annotated[Database, Depends(get_database)],
+    settings: Annotated[Settings, Depends(get_app_settings)],
+    scope_key: str | None = Query(default=None, min_length=1, max_length=240),
+) -> list[FaultPlanResponse]:
+    try:
+        plans = await fault_injector(database, settings).list(scope_key=scope_key)
+    except FaultInjectionDisabled:
+        raise HTTPException(status_code=404, detail="fault injection is unavailable") from None
+    return [fault_plan_response(plan) for plan in plans]
+
+
+async def consume_fault_plan(
+    fault_point: FaultPoint,
+    scope_key: Annotated[str, Query(min_length=1, max_length=240)],
+    database: Annotated[Database, Depends(get_database)],
+    settings: Annotated[Settings, Depends(get_app_settings)],
+) -> FaultConsumptionResponse:
+    if not settings.fault_injection_enabled:
+        raise HTTPException(status_code=404, detail="fault injection is unavailable")
+    directive = await fault_injector(database, settings).consume(
+        fault_point=fault_point, scope_key=scope_key
+    )
+    return FaultConsumptionResponse(
+        consumed=directive is not None,
+        fault_point=fault_point.value,
+        scope_key=scope_key,
+        action=directive.action.value if directive is not None else None,
+        remaining_triggers=directive.remaining_triggers if directive is not None else None,
+    )
+
+
+async def clear_fault_plan(
+    fault_point: FaultPoint,
+    scope_key: Annotated[str, Query(min_length=1, max_length=240)],
+    database: Annotated[Database, Depends(get_database)],
+    settings: Annotated[Settings, Depends(get_app_settings)],
+) -> Response:
+    try:
+        cleared = await fault_injector(database, settings).clear(
+            fault_point=fault_point, scope_key=scope_key
+        )
+    except FaultInjectionDisabled:
+        raise HTTPException(status_code=404, detail="fault injection is unavailable") from None
+    if not cleared:
+        raise HTTPException(status_code=404, detail="fault plan not found")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 async def cancel_onboarding(
     run_id: UUID,
     request: Request,
@@ -1548,6 +1670,34 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         methods=["GET"],
         scopes=("evaluations:read",),
         response_model=EvaluationReportResponse,
+    )
+    app.add_api_route(
+        "/api/v1/fault-plans",
+        create_fault_plan,
+        methods=["POST"],
+        response_model=FaultPlanResponse,
+        dependencies=[Depends(require_scopes("evaluations:execute"))],
+    )
+    app.add_api_route(
+        "/api/v1/fault-plans",
+        list_fault_plans,
+        methods=["GET"],
+        response_model=list[FaultPlanResponse],
+        dependencies=[Depends(require_scopes("evaluations:execute"))],
+    )
+    app.add_api_route(
+        "/api/v1/fault-plans/{fault_point}/consume",
+        consume_fault_plan,
+        methods=["POST"],
+        response_model=FaultConsumptionResponse,
+        dependencies=[Depends(require_scopes("evaluations:execute"))],
+    )
+    app.add_api_route(
+        "/api/v1/fault-plans/{fault_point}",
+        clear_fault_plan,
+        methods=["DELETE"],
+        status_code=status.HTTP_204_NO_CONTENT,
+        dependencies=[Depends(require_scopes("evaluations:execute"))],
     )
     app.add_api_route(
         "/api/v1/evaluations/execute",

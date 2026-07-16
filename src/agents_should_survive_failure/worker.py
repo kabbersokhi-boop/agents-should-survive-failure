@@ -11,6 +11,7 @@ from temporalio.contrib.opentelemetry import TracingInterceptor
 from temporalio.worker import Worker
 
 from agents_should_survive_failure.dependencies import create_resources
+from agents_should_survive_failure.fault_injection import FaultInjector
 from agents_should_survive_failure.mcp_adapter import GovernedMCPAdapter
 from agents_should_survive_failure.metrics import WORKER_STARTS
 from agents_should_survive_failure.observability import configure_logging, configure_trace_provider
@@ -46,6 +47,7 @@ async def run_worker() -> None:
             build_model_provider(settings),
             PolicyRetriever(build_embedding_provider(settings)),
             GovernedMCPAdapter(ToolGateway(Database(resources.engine))),
+            FaultInjector(Database(resources.engine), enabled=settings.fault_injection_enabled),
         )
         worker = Worker(
             resources.temporal_client,

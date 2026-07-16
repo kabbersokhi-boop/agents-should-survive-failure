@@ -126,6 +126,12 @@ class EvaluationResultStatus(enum.StrEnum):
     ERROR = "error"
 
 
+class FaultPlanStatus(enum.StrEnum):
+    ACTIVE = "active"
+    EXHAUSTED = "exhausted"
+    CLEARED = "cleared"
+
+
 class User(IdMixin, TimestampMixin, Base):
     __tablename__ = "users"
 
@@ -560,6 +566,48 @@ class AuditEvent(IdMixin, Base):
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     evidence: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), default=utc_now
+    )
+
+
+class FaultInjectionPlan(IdMixin, TimestampMixin, Base):
+    """A coordinated, test-only plan consumable exactly once per configured trigger."""
+
+    __tablename__ = "fault_injection_plans"
+    __table_args__ = (
+        UniqueConstraint("fault_point", "scope_key", name="uq_fault_injection_plan_scope"),
+        CheckConstraint("trigger_count >= 1", name="ck_fault_plan_trigger_count"),
+        CheckConstraint("remaining_triggers >= 0", name="ck_fault_plan_remaining_triggers"),
+        CheckConstraint("delay_ms >= 0", name="ck_fault_plan_delay_ms"),
+        Index("ix_fault_injection_plans_active", "status", "fault_point"),
+    )
+
+    fault_point: Mapped[str] = mapped_column(String(160), nullable=False)
+    scope_key: Mapped[str] = mapped_column(String(240), nullable=False, default="global")
+    category: Mapped[str] = mapped_column(String(80), nullable=False)
+    trigger_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    remaining_triggers: Mapped[int] = mapped_column(Integer, nullable=False)
+    delay_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    status: Mapped[FaultPlanStatus] = mapped_column(
+        Enum(FaultPlanStatus, name="fault_plan_status"), nullable=False
+    )
+    safe_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+
+
+class FaultInjectionConsumption(IdMixin, Base):
+    """Append-only audit evidence for an atomically consumed fault trigger."""
+
+    __tablename__ = "fault_injection_consumptions"
+    __table_args__ = (Index("ix_fault_consumption_plan_created", "fault_plan_id", "created_at"),)
+
+    fault_plan_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("fault_injection_plans.id", ondelete="CASCADE"), nullable=False
+    )
+    fault_point: Mapped[str] = mapped_column(String(160), nullable=False)
+    scope_key: Mapped[str] = mapped_column(String(240), nullable=False)
+    category: Mapped[str] = mapped_column(String(80), nullable=False)
+    remaining_triggers: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), default=utc_now
     )
 

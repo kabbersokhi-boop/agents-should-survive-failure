@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -34,6 +34,13 @@ class Settings(BaseSettings):
     nvidia_timeout_seconds: float = Field(default=30.0, gt=0, le=120)
     model_max_output_tokens: int = Field(default=256, ge=1, le=2048)
     model_provider: str = "deterministic"
+    fault_injection_enabled: bool = False
+
+    @model_validator(mode="after")
+    def reject_fault_injection_in_production(self) -> "Settings":
+        if self.fault_injection_enabled and self.app_env.lower() in {"production", "prod"}:
+            raise ValueError("fault injection cannot be enabled in production")
+        return self
 
 
 @lru_cache

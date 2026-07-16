@@ -14,6 +14,7 @@ from agents_should_survive_failure.failures import (
     classify_failure,
     temporal_failure,
 )
+from agents_should_survive_failure.fault_injection import FaultInjector, FaultPoint
 from agents_should_survive_failure.mcp_adapter import GovernedMCPAdapter, MCPExecutionContext
 from agents_should_survive_failure.metrics import (
     ACTIVE_RUNS,
@@ -63,11 +64,13 @@ class VendorOnboardingActivities:
         model_provider: ModelProvider | None = None,
         policy_retriever: PolicyRetriever | None = None,
         mcp_adapter: GovernedMCPAdapter | None = None,
+        fault_injector: FaultInjector | None = None,
     ) -> None:
         self._database = database
         self._model_provider = model_provider or DeterministicModelProvider()
         del policy_retriever
         self._mcp_adapter = mcp_adapter
+        self._fault_injector = fault_injector
 
     @staticmethod
     def _id(value: str) -> uuid.UUID:
@@ -99,6 +102,10 @@ class VendorOnboardingActivities:
                 )
             else:
                 try:
+                    if self._fault_injector is not None:
+                        await self._fault_injector.inject(
+                            fault_point=FaultPoint.VENDOR_LOOKUP, scope_key=str(run_id)
+                        )
                     result = await self._mcp_adapter.call(
                         session,
                         context=MCPExecutionContext(
@@ -169,6 +176,10 @@ class VendorOnboardingActivities:
                 )
             else:
                 try:
+                    if self._fault_injector is not None:
+                        await self._fault_injector.inject(
+                            fault_point=FaultPoint.POLICY_RETRIEVAL, scope_key=str(run_id)
+                        )
                     result = await self._mcp_adapter.call(
                         session,
                         context=MCPExecutionContext(

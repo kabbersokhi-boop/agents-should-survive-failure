@@ -566,12 +566,26 @@ class AuditEvent(IdMixin, Base):
 
 class EvaluationRun(IdMixin, TimestampMixin, Base):
     __tablename__ = "evaluation_runs"
-    __table_args__ = (UniqueConstraint("idempotency_key", name="uq_evaluation_run_key"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "requested_by_id",
+            "idempotency_key",
+            name="uq_evaluation_run_principal_idempotency_key",
+        ),
+        CheckConstraint(
+            "dataset_sha256 ~ '^[0-9a-f]{64}$'", name="ck_evaluation_run_dataset_sha256"
+        ),
+    )
 
     requested_by_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("auth_principals.id", ondelete="RESTRICT")
     )
     idempotency_key: Mapped[str] = mapped_column(String(240), nullable=False)
+    request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    suite_slug: Mapped[str] = mapped_column(String(160), nullable=False)
+    suite_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    suite_schema_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    dataset_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[EvaluationStatus] = mapped_column(
         Enum(EvaluationStatus, name="evaluation_status"), nullable=False
     )
@@ -582,13 +596,32 @@ class EvaluationRun(IdMixin, TimestampMixin, Base):
 
 class EvaluationCase(IdMixin, TimestampMixin, Base):
     __tablename__ = "evaluation_cases"
-    __table_args__ = (UniqueConstraint("slug", "version", name="uq_evaluation_case_version"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "suite_slug", "suite_version", "slug", name="uq_evaluation_case_suite_slug"
+        ),
+        CheckConstraint(
+            "content_sha256 ~ '^[0-9a-f]{64}$'", name="ck_evaluation_case_content_sha256"
+        ),
+    )
 
+    suite_slug: Mapped[str] = mapped_column(String(160), nullable=False)
+    suite_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    schema_version: Mapped[str] = mapped_column(String(40), nullable=False)
     slug: Mapped[str] = mapped_column(String(160), nullable=False)
     version: Mapped[str] = mapped_column(String(40), nullable=False)
     workflow_type: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    scenario_type: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
     input_data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    setup: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    driver: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     expected_outcome: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    evidence_requirements: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    content_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    reviewed_by: Mapped[str] = mapped_column(String(160), nullable=False)
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     enabled: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default="true"
     )
@@ -601,6 +634,13 @@ class EvaluationResult(IdMixin, Base):
             "evaluation_run_id", "evaluation_case_id", name="uq_evaluation_result_case"
         ),
         CheckConstraint("score BETWEEN 0 AND 1", name="ck_evaluation_result_score"),
+        CheckConstraint(
+            "duration_ms IS NULL OR duration_ms >= 0", name="ck_evaluation_result_duration"
+        ),
+        CheckConstraint(
+            "case_content_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_evaluation_result_case_content_sha256",
+        ),
     )
 
     evaluation_run_id: Mapped[uuid.UUID] = mapped_column(
@@ -609,6 +649,9 @@ class EvaluationResult(IdMixin, Base):
     evaluation_case_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("evaluation_cases.id", ondelete="RESTRICT"), nullable=False
     )
+    case_slug: Mapped[str] = mapped_column(String(160), nullable=False)
+    case_version: Mapped[str] = mapped_column(String(40), nullable=False)
+    case_content_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     workflow_run_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("workflow_runs.id", ondelete="SET NULL")
     )
@@ -616,7 +659,12 @@ class EvaluationResult(IdMixin, Base):
         Enum(EvaluationResultStatus, name="evaluation_result_status"), nullable=False
     )
     score: Mapped[Decimal] = mapped_column(Numeric(5, 4), nullable=False)
+    expected_outcome: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    actual_outcome: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    failure_category: Mapped[str | None] = mapped_column(String(120))
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
     metrics: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    evidence_summary: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), default=utc_now

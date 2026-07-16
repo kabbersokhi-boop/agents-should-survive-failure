@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup format lint typecheck test test-unit test-security test-integration dependency-audit sbom-backend sbom-container sbom verify dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate nim-smoke-test nim-embedding-smoke-test bootstrap-api-key revoke-api-key disable-principal recover-workflow-starts sandbox-demo
+.PHONY: help setup format lint typecheck test test-unit test-security test-integration dependency-audit sbom-backend sbom-container sbom verify validate-evaluation-dataset dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate nim-smoke-test nim-embedding-smoke-test bootstrap-api-key revoke-api-key disable-principal recover-workflow-starts sandbox-demo
 
 help:
 	@printf '%s\n' 'setup         Install locked development dependencies' \
@@ -16,7 +16,8 @@ help:
 	  'downgrade     Downgrade the application database by one revision' \
 	  'seed          Load idempotent local demonstration records' \
 	  'reindex-policies Generate configured-provider embeddings for policy documents' \
-	  'evaluate      Run deterministic vendor-onboarding behavior evaluations' \
+	  'validate-evaluation-dataset Validate the reviewed Phase B evaluation catalog' \
+	  'evaluate      Verify B1 catalog persistence integrity (no Temporal execution)' \
 	  'nim-smoke-test Run a manual credential-gated NVIDIA NIM model smoke test' \
 	  'nim-embedding-smoke-test Run a manual credential-gated NVIDIA NIM embedding smoke test' \
 	  'bootstrap-api-key Create a scoped local API key and print it once; supports optional expiry' \
@@ -68,6 +69,9 @@ seed:
 reindex-policies:
 	uv run python -c 'from agents_should_survive_failure.persistence.cli import reindex_main; reindex_main()'
 
+validate-evaluation-dataset:
+	uv run python -c 'from agents_should_survive_failure.evaluation_scenarios import validate_packaged_evaluation_suite; count, digest = validate_packaged_evaluation_suite(); print(f"Validated {count} Phase B cases: {digest}")'
+
 evaluate:
 	@test -n "$(EVALUATION_IDEMPOTENCY_KEY)" || (echo 'Set EVALUATION_IDEMPOTENCY_KEY to run evaluations.' >&2; exit 2)
 	docker compose exec -T api /app/.venv/bin/python -c 'from agents_should_survive_failure.persistence.cli import evaluate_main; evaluate_main("$(EVALUATION_IDEMPOTENCY_KEY)")'
@@ -118,7 +122,7 @@ sbom-container:
 
 sbom: sbom-backend sbom-container
 
-verify: lint typecheck test test-security compose-check secret-scan dependency-audit test-integration
+verify: lint typecheck validate-evaluation-dataset test test-security compose-check secret-scan dependency-audit test-integration
 
 up:
 	docker compose up --build -d

@@ -172,6 +172,10 @@ async def test_global_read_pages_and_details_map_sdk_evidence_contracts() -> Non
     )
     evaluation = SimpleNamespace(
         id=ITEM_ID,
+        suite_slug="vendor-onboarding-phase-b",
+        suite_version="1.0.0",
+        suite_schema_version="1",
+        dataset_sha256="a" * 64,
         status=SimpleNamespace(value="succeeded"),
         configuration={"provider": "deterministic"},
     )

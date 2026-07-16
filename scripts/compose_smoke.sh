@@ -25,6 +25,10 @@ uv run alembic upgrade head
 uv run alembic downgrade base
 uv run alembic upgrade head
 uv run python -m agents_should_survive_failure.persistence.cli
+uv run python -c 'from agents_should_survive_failure.persistence.cli import evaluate_main; evaluate_main("migration-downgrade-probe")'
+uv run alembic downgrade -1
+uv run alembic upgrade head
+uv run python -m agents_should_survive_failure.persistence.cli
 export INTEGRATION_API_KEY="$(uv run python -c 'from agents_should_survive_failure.auth_cli import bootstrap_main; bootstrap_main("integration@example.invalid", "Integration Operator", "runs:read,runs:write,approvals:decide,approvals:read,evaluations:read,agents:read")')"
 uv run alembic check
 docker compose up --build --detach

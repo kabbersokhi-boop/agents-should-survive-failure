@@ -19,8 +19,8 @@ bounded evidence.
 - Structured logs, request IDs, Prometheus metrics, OpenTelemetry traces, and readiness checks.
 - Read-only workflow evidence API for ordered state changes, policy citations, and model-call
   metadata.
-- Read-only evaluation reports for persisted behavioral-contract outcomes.
-- Explicit, idempotent local evaluation execution for release and operator workflows.
+- A reviewed, versioned 24-case Phase B evaluation catalog with strict validation and stable hashes.
+- Read-only reports for persisted evaluation outcomes; real Temporal execution is scheduled for Phase B2.
 - Reproducible local infrastructure: API, worker, PostgreSQL/pgvector, Temporal, Grafana,
   Prometheus, and Tempo.
 
@@ -58,15 +58,17 @@ monotonic event sequence as its cursor: pass `after_sequence` for an initial rep
 standard `Last-Event-ID` header to resume. Event data contains only bounded persisted evidence, not
 provider prompts, credentials, or private model reasoning.
 
-Run the deterministic behavioral-contract suite against the local database with an explicit key:
+Validate the reviewed Phase B scenario catalog without infrastructure:
 
 ```bash
-make up
-EVALUATION_IDEMPOTENCY_KEY=release-2026-07-11 make evaluate
+make validate-evaluation-dataset
 ```
 
-The command returns an evaluation run ID. Inspect its bounded outcome report through
-`GET /evaluation-runs/{evaluation_run_id}`. It exits nonzero when any behavior contract fails.
+See the [reviewed case matrix](docs/evaluation-cases-v1.md) for the 24 scenario slugs and expected
+terminal outcomes. `make evaluate` currently verifies that all 24 persisted catalog rows exactly
+match the packaged contracts and hashes. It intentionally records `workflow_executed=false`; it
+does **not** execute Temporal or prove failure survival. Phase B2 will replace that integrity runner
+with real workflow execution while retaining the versioned suite and immutable result snapshots.
 
 ## Model Configuration
 

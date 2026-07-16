@@ -18,7 +18,7 @@ def test_evaluate_command_accepts_a_passing_run(monkeypatch: pytest.MonkeyPatch)
     cli.evaluate_main("release-1")
 
 
-def test_evaluate_command_fails_for_failed_contracts(
+def test_evaluate_command_fails_for_catalog_integrity_mismatch(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     run_id = uuid.uuid4()
@@ -29,5 +29,5 @@ def test_evaluate_command_fails_for_failed_contracts(
 
     monkeypatch.setattr(cli, "_evaluate_vendor_onboarding", evaluate)
 
-    with pytest.raises(SystemExit, match="failed behavior contracts"):
+    with pytest.raises(SystemExit, match="failed catalog-persistence integrity checks"):
         cli.evaluate_main("release-1")

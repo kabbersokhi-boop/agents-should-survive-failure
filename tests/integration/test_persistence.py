@@ -1,3 +1,4 @@
+import asyncio
 import os
 import uuid
 from collections.abc import AsyncIterator
@@ -10,10 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async
 from sqlalchemy.orm.exc import StaleDataError
 from temporalio.exceptions import WorkflowAlreadyStartedError
 
+from agents_should_survive_failure.evaluation import EvaluationRunner
 from agents_should_survive_failure.persistence.models import (
     Agent,
     AuditEvent,
     AuthPrincipal,
+    EvaluationResult,
+    EvaluationRun,
     PolicyDocument,
     PrincipalStatus,
     PrincipalType,
@@ -31,7 +35,7 @@ from agents_should_survive_failure.persistence.repositories import (
     VendorRepository,
     WorkflowRunRepository,
 )
-from agents_should_survive_failure.persistence.seed import seed_id
+from agents_should_survive_failure.persistence.seed import seed_database, seed_id
 from agents_should_survive_failure.persistence.session import Database
 from agents_should_survive_failure.workflow_starts import (
     RequestFingerprintConflict,
@@ -107,11 +111,80 @@ async def test_migration_created_complete_schema_and_seed_data(engine: AsyncEngi
         agent = await connection.scalar(
             select(Agent.id).where(Agent.id == seed_id("agent:vendor-onboarding:v1"))
         )
+        evaluation_case_count = await connection.scalar(
+            text(
+                "SELECT count(*) FROM evaluation_cases "
+                "WHERE suite_slug = 'vendor-onboarding-phase-b' "
+                "AND suite_version = '1.0.0' AND schema_version = '1'"
+            )
+        )
+        evaluation_digest_count = await connection.scalar(
+            text(
+                "SELECT count(DISTINCT content_sha256) FROM evaluation_cases "
+                "WHERE suite_slug = 'vendor-onboarding-phase-b' "
+                "AND suite_version = '1.0.0' AND schema_version = '1'"
+            )
+        )
 
     assert table_names >= EXPECTED_TABLES
     assert isinstance(extension_version, str)
     assert user == seed_id("user:demo-operator")
     assert agent == seed_id("agent:vendor-onboarding:v1")
+    assert evaluation_case_count == 24
+    assert evaluation_digest_count == 24
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_evaluation_runner_is_principal_scoped_and_concurrency_safe(
+    engine: AsyncEngine,
+) -> None:
+    database = Database(engine)
+    key = f"evaluation-concurrent-{uuid.uuid4()}"
+
+    async def execute() -> EvaluationRun:
+        async with database.session() as session:
+            return await EvaluationRunner().run_vendor_onboarding(
+                session,
+                requested_by_id=seed_id("user:demo-operator"),
+                idempotency_key=key,
+            )
+
+    first, second = await asyncio.gather(execute(), execute())
+    assert first.id == second.id
+
+    async with database.session() as session:
+        runs = (
+            await session.scalars(
+                select(EvaluationRun).where(
+                    EvaluationRun.requested_by_id == seed_id("user:demo-operator"),
+                    EvaluationRun.idempotency_key == key,
+                )
+            )
+        ).all()
+        results = (
+            await session.scalars(
+                select(EvaluationResult).where(EvaluationResult.evaluation_run_id == first.id)
+            )
+        ).all()
+    assert len(runs) == 1
+    assert len(results) == 24
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_evaluation_result_snapshots_are_immutable(engine: AsyncEngine) -> None:
+    async with engine.connect() as connection:
+        result_id = await connection.scalar(select(EvaluationResult.id).limit(1))
+    assert result_id is not None
+    with pytest.raises(
+        DBAPIError, match="evaluation result snapshots cannot be updated or deleted"
+    ):
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("UPDATE evaluation_results SET summary = 'altered' WHERE id = :id"),
+                {"id": result_id},
+            )
 
 
 @pytest.mark.integration
@@ -256,6 +329,55 @@ async def test_registered_agent_and_tool_contracts_are_immutable(engine: AsyncEn
             assert enabled is False
         finally:
             await transaction.rollback()
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_reviewed_evaluation_contracts_are_immutable_but_enablement_is_operational(
+    engine: AsyncEngine,
+) -> None:
+    async with engine.connect() as connection:
+        case_id = await connection.scalar(
+            text(
+                "SELECT id FROM evaluation_cases "
+                "WHERE suite_slug = 'vendor-onboarding-phase-b' ORDER BY slug LIMIT 1"
+            )
+        )
+    assert case_id is not None
+
+    with pytest.raises(DBAPIError, match="reviewed evaluation case contract is immutable"):
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("UPDATE evaluation_cases SET title = 'changed' WHERE id = :id"),
+                {"id": case_id},
+            )
+
+    with pytest.raises(DBAPIError, match="reviewed evaluation cases cannot be deleted"):
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("DELETE FROM evaluation_cases WHERE id = :id"), {"id": case_id}
+            )
+
+    try:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("UPDATE evaluation_cases SET enabled = false WHERE id = :id"),
+                {"id": case_id},
+            )
+
+        await seed_database(engine)
+
+        async with engine.connect() as connection:
+            enabled = await connection.scalar(
+                text("SELECT enabled FROM evaluation_cases WHERE id = :id"), {"id": case_id}
+            )
+        assert enabled is False
+    finally:
+        async with engine.begin() as connection:
+            await connection.execute(
+                text("UPDATE evaluation_cases SET enabled = true WHERE id = :id"),
+                {"id": case_id},
+            )
 
 
 @pytest.mark.integration

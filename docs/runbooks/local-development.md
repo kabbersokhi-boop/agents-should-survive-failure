@@ -61,6 +61,11 @@ Create every schema change as an Alembic revision. Do not call SQLAlchemy `creat
 application or tests. A downgrade is a development and verification operation; back up persistent
 data before using it outside the isolated smoke project.
 
+Downgrading revision `b3c4d5e6f7a8` to Phase A removes Phase B1 evaluation runs, results, and reviewed
+case rows because Phase A cannot represent their suite provenance or immutable digests. Legacy
+pre-B1 evaluation records are retained. Re-upgrading and running `make seed` restores the reviewed
+B1 catalog; it does not restore removed B1 run history.
+
 ## Local API-key lifecycle
 
 Create a local key only when a client needs to call the authenticated API. The plaintext value is
@@ -85,7 +90,7 @@ API_KEY_BOOTSTRAP_EMAIL=developer@example.invalid make disable-principal
 
 ## Evaluation execution
 
-Run deterministic vendor-onboarding behavior evaluations only from the local operator command:
+Validate the persisted Phase B1 evaluation catalog from the local operator command:
 
 ```bash
 make up
@@ -94,13 +99,17 @@ EVALUATION_IDEMPOTENCY_KEY=release-2026-07-11 make evaluate
 
 The key is required and makes a repeated invocation return the original persisted run rather than
 creating duplicate evidence. It runs inside the local API container and prints the run ID; retrieve
-its bounded result report at `GET /evaluation-runs/{evaluation_run_id}`. The command exits nonzero
-when any enabled behavior contract fails.
+its bounded result report at `GET /evaluation-runs/{evaluation_run_id}`. In B1 the command
+reconstructs and hashes all 24 stored case contracts and exits nonzero on missing, unexpected, or
+drifted rows. It records `workflow_executed=false` and does not run Temporal or prove workflow
+behavior. That execution boundary moves to the production workflow in B2.
 
 ## Isolated smoke gate
 
 `make test-integration` starts the `agents-verify` Compose project. It performs a clean migration,
-downgrades to base, upgrades again, and verifies seed data, relational constraints, repository
+downgrades to base, upgrades again, seeds and runs the B1 integrity evaluator, then downgrades one
+revision, re-upgrades, and reseeds to verify the explicit B1 data boundary. It also verifies seed
+data, reviewed-case immutability with operational enablement, relational constraints, repository
 CRUD, optimistic concurrency, pgvector similarity, dependency readiness, Prometheus scraping,
 Grafana provisioning, Tempo trace ingestion, and Temporal UI. It then removes only that project's
 containers and volumes. It can run independently of unit tests, but `make verify` includes it.

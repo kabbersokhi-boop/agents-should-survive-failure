@@ -26,7 +26,10 @@ from agents_should_survive_failure.dependencies import (
     check_dependencies,
     create_resources,
 )
-from agents_should_survive_failure.evaluation import EvaluationRunner
+from agents_should_survive_failure.evaluation import (
+    EvaluationRequestFingerprintConflict,
+    EvaluationRunner,
+)
 from agents_should_survive_failure.observability import configure_logging, configure_tracing
 from agents_should_survive_failure.persistence.models import (
     Agent,
@@ -328,14 +331,27 @@ class WorkflowEvidenceResponse(BaseModel):
 
 
 class EvaluationResultReport(BaseModel):
+    case_slug: str
+    case_version: str
+    case_content_sha256: str
+    workflow_run_id: UUID | None
     status: str
     score: float
+    expected_outcome: dict[str, object]
+    actual_outcome: dict[str, object]
+    failure_category: str | None
+    duration_ms: int | None
     metrics: dict[str, object]
+    evidence_summary: dict[str, object]
     summary: str
 
 
 class EvaluationReportResponse(BaseModel):
     evaluation_run_id: UUID
+    suite_slug: str
+    suite_version: str
+    suite_schema_version: str
+    dataset_sha256: str
     status: str
     configuration: dict[str, object]
     results: list[EvaluationResultReport]
@@ -343,6 +359,10 @@ class EvaluationReportResponse(BaseModel):
 
 class EvaluationRunResponse(BaseModel):
     id: UUID
+    suite_slug: str
+    suite_version: str
+    suite_schema_version: str
+    dataset_sha256: str
     status: str
     configuration: dict[str, object]
 
@@ -1166,18 +1186,31 @@ async def evaluation_report(
             await session.scalars(
                 select(EvaluationResult)
                 .where(EvaluationResult.evaluation_run_id == evaluation_run_id)
-                .order_by(EvaluationResult.created_at)
+                .order_by(EvaluationResult.case_slug, EvaluationResult.id)
             )
         ).all()
     return EvaluationReportResponse(
         evaluation_run_id=evaluation_run_id,
+        suite_slug=run.suite_slug,
+        suite_version=run.suite_version,
+        suite_schema_version=run.suite_schema_version,
+        dataset_sha256=run.dataset_sha256,
         status=run.status.value,
         configuration=run.configuration,
         results=[
             EvaluationResultReport(
+                case_slug=result.case_slug,
+                case_version=result.case_version,
+                case_content_sha256=result.case_content_sha256,
+                workflow_run_id=result.workflow_run_id,
                 status=result.status.value,
                 score=float(result.score),
+                expected_outcome=result.expected_outcome,
+                actual_outcome=result.actual_outcome,
+                failure_category=result.failure_category,
+                duration_ms=result.duration_ms,
                 metrics=result.metrics,
+                evidence_summary=result.evidence_summary,
                 summary=result.summary,
             )
             for result in results
@@ -1203,6 +1236,10 @@ async def list_evaluations(
         items=[
             EvaluationRunResponse(
                 id=run.id,
+                suite_slug=run.suite_slug,
+                suite_version=run.suite_version,
+                suite_schema_version=run.suite_schema_version,
+                dataset_sha256=run.dataset_sha256,
                 status=run.status.value,
                 configuration=run.configuration,
             )
@@ -1218,15 +1255,27 @@ async def execute_evaluation(
     database: Annotated[Database, Depends(get_database)],
     principal: Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)],
 ) -> EvaluationRunResponse:
-    """Run deterministic evaluation cases in the API process for observable local verification."""
+    """Run the explicitly limited B1 catalog-persistence integrity checks."""
     async with database.session() as session:
-        run = await EvaluationRunner().run_vendor_onboarding(
-            session,
-            requested_by_id=str(principal.id),
-            idempotency_key=payload.idempotency_key,
-        )
+        try:
+            run = await EvaluationRunner().run_vendor_onboarding(
+                session,
+                requested_by_id=principal.id,
+                idempotency_key=payload.idempotency_key,
+            )
+        except EvaluationRequestFingerprintConflict:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="idempotency key was reused for a different evaluation request",
+            ) from None
         return EvaluationRunResponse(
-            id=run.id, status=run.status.value, configuration=run.configuration
+            id=run.id,
+            suite_slug=run.suite_slug,
+            suite_version=run.suite_version,
+            suite_schema_version=run.suite_schema_version,
+            dataset_sha256=run.dataset_sha256,
+            status=run.status.value,
+            configuration=run.configuration,
         )
 
 

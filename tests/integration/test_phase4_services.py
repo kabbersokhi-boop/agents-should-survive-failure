@@ -94,7 +94,7 @@ async def test_policy_tool_and_evaluation_services_persist_evidence() -> None:
             )
             evaluation = await EvaluationRunner().run_vendor_onboarding(
                 session,
-                requested_by_id=str(seed_id("user:demo-operator")),
+                requested_by_id=seed_id("user:demo-operator"),
                 idempotency_key=f"evaluation-{uuid.uuid4()}",
             )
         assert any(citation.title == "Vendor Approval Policy" for citation in citations)
@@ -107,7 +107,7 @@ async def test_policy_tool_and_evaluation_services_persist_evidence() -> None:
             model_calls = await session.scalars(
                 select(ModelCall).where(ModelCall.workflow_run_id == workflow_run.id)
             )
-            assert len(results.all()) == 1
+            assert len(results.all()) == 24
             assert len(model_calls.all()) == 1
     finally:
         await engine.dispose()

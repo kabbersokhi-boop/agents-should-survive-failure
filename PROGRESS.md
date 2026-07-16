@@ -455,3 +455,29 @@ states before testing and were cleaned up afterwards. No Phase B work has starte
 
 GitHub Actions for commit `859c510` passed all required jobs: [quality, docker, and integration]
 (https://github.com/kabbersokhi-boop/agents-should-survive-failure/actions/runs/29434215741).
+
+## 2026-07-16 Phase B1 Evaluation Contracts
+
+Source basis: the supplied repository ZIP and the Phase A handover baseline
+`4665f5719c2a55cbc832f07d2917feddf4d9c047`.
+
+Phase B1 adds a strict, reviewed 24-case vendor-onboarding evaluation catalog, stable suite and case
+hashes, persistence snapshots, Alembic revision `b3c4d5e6f7a8`, dataset validation, tests, and design
+documentation. The transitional evaluator reconstructs and verifies all 24 persisted catalog rows
+and records `workflow_executed=false`; it contains no duplicated risk calculation and is not the real
+Phase B evaluator. It must not be used to claim Temporal execution, crash recovery, or exactly-once
+effects. Those proofs remain Phase B2-B4.
+
+Local implementation verification in the code-authoring environment completed Ruff formatting and
+lint, strict Pyright with zero errors, 131 non-download-dependent unit tests at 81% coverage, seven
+security tests, and 40 focused B1 tests. The packaged 24-case suite validated at digest
+`f8a11accd7b167224c445213218bba7eb324cc457eb0269c3002cdd89f498904`; a wheel build included the
+JSON dataset and validated it through `importlib.resources`. Offline Alembic generation reached head
+`b3c4d5e6f7a8` and generated both the complete upgrade and the B1-to-Phase-A downgrade, including
+the reviewed-case immutability trigger and pre-downgrade B1 artifact cleanup.
+
+This environment has Python 3.13 rather than the locked Python 3.12 and no Docker or outbound DNS.
+The two Temporal time-skipping tests reached only the SDK test-server download and failed before any
+workflow assertion. Real PostgreSQL migration execution, Compose integration, Gitleaks, and the
+network-backed dependency audit remain mandatory Codex/release gates; no success is claimed for
+them here.

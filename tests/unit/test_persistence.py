@@ -1,9 +1,10 @@
 import uuid
-from typing import cast
+from contextlib import asynccontextmanager
+from typing import Self, cast
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from agents_should_survive_failure.persistence.models import (
     ApprovalStatus,
@@ -21,7 +22,12 @@ from agents_should_survive_failure.persistence.repositories import (
     VendorRepository,
     WorkflowRunRepository,
 )
-from agents_should_survive_failure.persistence.seed import seed_id, seed_rows
+from agents_should_survive_failure.persistence.seed import (
+    evaluation_case_seed_rows,
+    seed_database,
+    seed_id,
+    seed_rows,
+)
 
 
 def test_model_metadata_and_seeds_cover_required_schema() -> None:
@@ -53,9 +59,112 @@ def test_model_metadata_and_seeds_cover_required_schema() -> None:
     }
 
     assert set(Base.metadata.tables) == expected_tables
-    assert len(seed_rows()) == 11
+    assert {
+        "suite_slug",
+        "suite_version",
+        "schema_version",
+        "scenario_type",
+        "setup",
+        "driver",
+        "evidence_requirements",
+        "content_sha256",
+        "reviewed_at",
+    }.issubset(set(Base.metadata.tables["evaluation_cases"].columns.keys()))
+    assert {
+        "case_slug",
+        "case_version",
+        "case_content_sha256",
+        "expected_outcome",
+        "actual_outcome",
+        "failure_category",
+        "duration_ms",
+        "evidence_summary",
+    }.issubset(set(Base.metadata.tables["evaluation_results"].columns.keys()))
+    assert {
+        "suite_slug",
+        "suite_version",
+        "suite_schema_version",
+        "dataset_sha256",
+    }.issubset(set(Base.metadata.tables["evaluation_runs"].columns.keys()))
+    rows = seed_rows()
+    evaluation_rows = [values for model, values in rows if model.__name__ == "EvaluationCase"]
+    assert len(rows) == 34
+    assert len(evaluation_rows) == 24
+    assert {row["suite_version"] for row in evaluation_rows} == {"1.0.0"}
+    assert {row["schema_version"] for row in evaluation_rows} == {"1"}
+    assert len({row["content_sha256"] for row in evaluation_rows}) == 24
+    assert all(len(str(row["content_sha256"])) == 64 for row in evaluation_rows)
     assert seed_id("stable") == seed_id("stable")
     assert utc_now().tzinfo is not None
+
+
+class SeedResult:
+    def __init__(self, mapping: dict[str, object] | None = None) -> None:
+        self._mapping = mapping
+
+    def mappings(self) -> Self:
+        return self
+
+    def one_or_none(self) -> dict[str, object] | None:
+        return self._mapping
+
+
+class SeedConnection:
+    def __init__(
+        self, *, corrupt_first_case: bool = False, disable_first_case: bool = False
+    ) -> None:
+        self._case_rows = [dict(values) for _, values in evaluation_case_seed_rows()]
+        self._corrupt_first_case = corrupt_first_case
+        self._disable_first_case = disable_first_case
+        self.case_selects = 0
+
+    async def execute(self, statement: object) -> SeedResult:
+        if getattr(statement, "is_select", False):
+            values = self._case_rows[self.case_selects]
+            self.case_selects += 1
+            if self._corrupt_first_case and self.case_selects == 1:
+                values = {**values, "title": "Persisted drift"}
+            if self._disable_first_case and self.case_selects == 1:
+                values = {**values, "enabled": False}
+            return SeedResult({key: value for key, value in values.items() if key != "id"})
+        return SeedResult()
+
+
+class SeedEngine:
+    def __init__(self, connection: SeedConnection) -> None:
+        self._connection = connection
+
+    @asynccontextmanager
+    async def begin(self):  # type: ignore[no-untyped-def]
+        yield self._connection
+
+
+@pytest.mark.asyncio
+async def test_seed_database_verifies_all_reviewed_case_columns() -> None:
+    connection = SeedConnection()
+
+    await seed_database(cast(AsyncEngine, SeedEngine(connection)))
+
+    assert connection.case_selects == 24
+
+
+@pytest.mark.asyncio
+async def test_seed_database_rejects_reviewed_case_drift() -> None:
+    connection = SeedConnection(corrupt_first_case=True)
+
+    with pytest.raises(RuntimeError, match="content changed without a new suite version"):
+        await seed_database(cast(AsyncEngine, SeedEngine(connection)))
+
+    assert connection.case_selects == 1
+
+
+@pytest.mark.asyncio
+async def test_seed_database_preserves_operator_case_enablement() -> None:
+    connection = SeedConnection(disable_first_case=True)
+
+    await seed_database(cast(AsyncEngine, SeedEngine(connection)))
+
+    assert connection.case_selects == 24
 
 
 def test_approval_status_exposes_only_implemented_decision_paths() -> None:

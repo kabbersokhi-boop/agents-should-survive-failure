@@ -1,0 +1,2512 @@
+{
+  "cases": [
+    {
+      "case_version": "1",
+      "description": "Executes the normal low-risk path and accepts an authorized approval exactly once.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "approved",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 0,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "approved",
+        "approved_vendor_count": 1,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "synthetic_email_count": 1,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "approved",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "low-risk-approved@example.invalid",
+        "external_reference_prefix": "low-risk-approved",
+        "jurisdiction": "US",
+        "legal_name": "Low Risk Approved Vendor"
+      },
+      "scenario_type": "low_risk_approved",
+      "setup": {
+        "faults": [],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "low-risk-approved",
+      "title": "Low Risk Approved Vendor"
+    },
+    {
+      "case_version": "1",
+      "description": "Executes the normal low-risk path and records an authorized rejection without side effects.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "rejected",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "rejected",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 0,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "rejected",
+        "approved_vendor_count": 0,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "rejected",
+        "synthetic_email_count": 0,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 0,
+            "minimum_count": 0,
+            "required_error_categories": [],
+            "required_statuses": [],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "rejected",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "low-risk-rejected@example.invalid",
+        "external_reference_prefix": "low-risk-rejected",
+        "jurisdiction": "GB",
+        "legal_name": "Low Risk Rejected Vendor"
+      },
+      "scenario_type": "low_risk_rejected",
+      "setup": {
+        "faults": [],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "low-risk-rejected",
+      "title": "Low Risk Rejected Vendor"
+    },
+    {
+      "case_version": "1",
+      "description": "Executes the high-risk path while preserving the human approval boundary and one-time effects.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "approved",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 0,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "approved",
+        "approved_vendor_count": 1,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 65,
+        "run_status": "succeeded",
+        "synthetic_email_count": 1,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "approved",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "high-risk-approved@example.invalid",
+        "external_reference_prefix": "high-risk-approved",
+        "jurisdiction": "ZZ",
+        "legal_name": "High Risk Approved Vendor"
+      },
+      "scenario_type": "high_risk_approved",
+      "setup": {
+        "faults": [],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "high-risk-approved",
+      "title": "High Risk Approved Vendor"
+    },
+    {
+      "case_version": "1",
+      "description": "Executes the high-risk path and records an authorized rejection with no approved projection or email.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "rejected",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "rejected",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 0,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "rejected",
+        "approved_vendor_count": 0,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 65,
+        "run_status": "rejected",
+        "synthetic_email_count": 0,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 0,
+            "minimum_count": 0,
+            "required_error_categories": [],
+            "required_statuses": [],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "rejected",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "high-risk-rejected@example.invalid",
+        "external_reference_prefix": "high-risk-rejected",
+        "jurisdiction": "IR",
+        "legal_name": "High Risk Rejected Vendor"
+      },
+      "scenario_type": "high_risk_rejected",
+      "setup": {
+        "faults": [],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "high-risk-rejected",
+      "title": "High Risk Rejected Vendor"
+    },
+    {
+      "case_version": "1",
+      "description": "Cancels after review begins but before a durable approval request is accepted.",
+      "driver": {
+        "approval_attempts": [],
+        "cancellation_point": "before_approval",
+        "final_decision": null,
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 0,
+        "approval_decision_count": 0,
+        "approval_request_count": 1,
+        "approval_status": "cancelled",
+        "approved_vendor_count": 0,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "review.cancelled"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "cancelled",
+        "synthetic_email_count": 0,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 0,
+            "minimum_count": 0,
+            "required_error_categories": [],
+            "required_statuses": [],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "under_review",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "cancel-before-approval@example.invalid",
+        "external_reference_prefix": "cancel-before-approval",
+        "jurisdiction": "US",
+        "legal_name": "Cancellation Before Approval"
+      },
+      "scenario_type": "cancellation_before_approval",
+      "setup": {
+        "faults": [],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "cancel-before-approval",
+      "title": "Cancellation Before Approval"
+    },
+    {
+      "case_version": "1",
+      "description": "Cancels a workflow in its durable approval wait and records a cancelled approval without effects.",
+      "driver": {
+        "approval_attempts": [],
+        "cancellation_point": "waiting_for_approval",
+        "final_decision": null,
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 0,
+        "approval_decision_count": 0,
+        "approval_request_count": 1,
+        "approval_status": "cancelled",
+        "approved_vendor_count": 0,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "review.cancelled"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "cancelled",
+        "synthetic_email_count": 0,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 0,
+            "minimum_count": 0,
+            "required_error_categories": [],
+            "required_statuses": [],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "under_review",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "cancel-waiting-for-approval@example.invalid",
+        "external_reference_prefix": "cancel-waiting-for-approval",
+        "jurisdiction": "CA",
+        "legal_name": "Cancellation While Waiting for Approval"
+      },
+      "scenario_type": "cancellation_waiting_for_approval",
+      "setup": {
+        "faults": [],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "cancel-waiting-for-approval",
+      "title": "Cancellation While Waiting for Approval"
+    },
+    {
+      "case_version": "1",
+      "description": "Rejects an approval update sent before the durable request exists, then accepts the valid decision.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "rejected_early",
+            "idempotency_key_mode": "new",
+            "timing": "before_request",
+            "version_mode": "current"
+          },
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "approved",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 0,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "approved",
+        "approved_vendor_count": 1,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "synthetic_email_count": 1,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "approved",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "early-approval-rejected@example.invalid",
+        "external_reference_prefix": "early-approval-rejected",
+        "jurisdiction": "US",
+        "legal_name": "Early Approval Attempt Rejected"
+      },
+      "scenario_type": "early_approval_rejected",
+      "setup": {
+        "faults": [],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "early-approval-rejected",
+      "title": "Early Approval Attempt Rejected"
+    },
+    {
+      "case_version": "1",
+      "description": "Rejects a stale expected version while waiting, then accepts the current authorized decision.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "rejected_stale",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "stale"
+          },
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "approved",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 0,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "approved",
+        "approved_vendor_count": 1,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "synthetic_email_count": 1,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "approved",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "stale-approval-version-rejected@example.invalid",
+        "external_reference_prefix": "stale-approval-version-rejected",
+        "jurisdiction": "US",
+        "legal_name": "Stale Approval Version Rejected"
+      },
+      "scenario_type": "stale_approval_rejected",
+      "setup": {
+        "faults": [],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "stale-approval-version-rejected",
+      "title": "Stale Approval Version Rejected"
+    },
+    {
+      "case_version": "1",
+      "description": "Accepts one decision and rejects a later conflicting decision without changing terminal state.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          },
+          {
+            "actor": "authorized",
+            "decision": "rejected",
+            "expected_effect": "rejected_conflict",
+            "idempotency_key_mode": "new",
+            "timing": "after_decision",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "approved",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 0,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "approved",
+        "approved_vendor_count": 1,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "synthetic_email_count": 1,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "approved",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "conflicting-approval-rejected@example.invalid",
+        "external_reference_prefix": "conflicting-approval-rejected",
+        "jurisdiction": "US",
+        "legal_name": "Conflicting Approval Decision Rejected"
+      },
+      "scenario_type": "conflicting_approval_rejected",
+      "setup": {
+        "faults": [],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "conflicting-approval-rejected",
+      "title": "Conflicting Approval Decision Rejected"
+    },
+    {
+      "case_version": "1",
+      "description": "Replays the same approval content with the same idempotency key and observes one decision and one effect.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          },
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "idempotent",
+            "idempotency_key_mode": "reuse_previous",
+            "timing": "after_decision",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "approved",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 0,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "approved",
+        "approved_vendor_count": 1,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "synthetic_email_count": 1,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "approved",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "idempotent-approval-replay@example.invalid",
+        "external_reference_prefix": "idempotent-approval-replay",
+        "jurisdiction": "US",
+        "legal_name": "Idempotent Approval Replay"
+      },
+      "scenario_type": "idempotent_decision_replay",
+      "setup": {
+        "faults": [],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "idempotent-approval-replay",
+      "title": "Idempotent Approval Replay"
+    },
+    {
+      "case_version": "1",
+      "description": "Reuses an approval idempotency key with different content and rejects the mutation as a conflict.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          },
+          {
+            "actor": "authorized",
+            "decision": "rejected",
+            "expected_effect": "rejected_idempotency_conflict",
+            "idempotency_key_mode": "reuse_previous",
+            "timing": "after_decision",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "approved",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 0,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "approved",
+        "approved_vendor_count": 1,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "synthetic_email_count": 1,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "approved",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "approval-idempotency-conflict@example.invalid",
+        "external_reference_prefix": "approval-idempotency-conflict",
+        "jurisdiction": "US",
+        "legal_name": "Approval Idempotency Conflict Rejected"
+      },
+      "scenario_type": "decision_idempotency_conflict",
+      "setup": {
+        "faults": [],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "approval-idempotency-conflict",
+      "title": "Approval Idempotency Conflict Rejected"
+    },
+    {
+      "case_version": "1",
+      "description": "Injects a model provider failure while deterministic scoring and authorized approval continue safely.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "approved",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 0,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "approved",
+        "approved_vendor_count": 1,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "failed",
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "synthetic_email_count": 1,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "approved",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "model-provider-failure-safe@example.invalid",
+        "external_reference_prefix": "model-provider-failure-safe",
+        "jurisdiction": "US",
+        "legal_name": "Model Provider Failure Is Safe"
+      },
+      "scenario_type": "model_provider_failure",
+      "setup": {
+        "faults": [],
+        "model_provider_mode": "fail_explanation",
+        "omitted_tool_grants": []
+      },
+      "slug": "model-provider-failure-safe",
+      "title": "Model Provider Failure Is Safe"
+    },
+    {
+      "case_version": "1",
+      "description": "Injects an embedding or policy retrieval failure and requires an explicit failed outcome with no approval.",
+      "driver": {
+        "approval_attempts": [],
+        "cancellation_point": "none",
+        "final_decision": null,
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 0,
+        "approval_decision_count": 0,
+        "approval_request_count": 0,
+        "approval_status": "absent",
+        "approved_vendor_count": 0,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "review.failed"
+        ],
+        "failure_category": "policy_retrieval_failed",
+        "model_call_status": "absent",
+        "risk_score": 25,
+        "run_status": "failed",
+        "synthetic_email_count": 0,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [
+              "execution_failed"
+            ],
+            "required_statuses": [
+              "failed"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 0,
+            "minimum_count": 0,
+            "required_error_categories": [],
+            "required_statuses": [],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "under_review",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "policy-retrieval-failure-safe@example.invalid",
+        "external_reference_prefix": "policy-retrieval-failure-safe",
+        "jurisdiction": "US",
+        "legal_name": "Policy Retrieval Failure Fails Safely"
+      },
+      "scenario_type": "policy_retrieval_failure",
+      "setup": {
+        "faults": [
+          {
+            "category": "permanent",
+            "consume_once": true,
+            "delay_ms": 0,
+            "expected_retry_count_min": 0,
+            "fault_point": "tool.internal_policy_search.before_execute",
+            "retryable": false,
+            "trigger_count": 1
+          }
+        ],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "policy-retrieval-failure-safe",
+      "title": "Policy Retrieval Failure Fails Safely"
+    },
+    {
+      "case_version": "1",
+      "description": "Removes an immutable required-tool grant and proves the governed gateway denies execution permanently.",
+      "driver": {
+        "approval_attempts": [],
+        "cancellation_point": "none",
+        "final_decision": null,
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 0,
+        "approval_decision_count": 0,
+        "approval_request_count": 0,
+        "approval_status": "absent",
+        "approved_vendor_count": 0,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.failed"
+        ],
+        "failure_category": "tool_permission_denied",
+        "model_call_status": "absent",
+        "risk_score": null,
+        "run_status": "failed",
+        "synthetic_email_count": 0,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [
+              "policy_denied"
+            ],
+            "required_statuses": [
+              "denied"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 0,
+            "minimum_count": 0,
+            "required_error_categories": [],
+            "required_statuses": [],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 0,
+            "minimum_count": 0,
+            "required_error_categories": [],
+            "required_statuses": [],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "under_review",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "required-tool-permission-denied@example.invalid",
+        "external_reference_prefix": "required-tool-permission-denied",
+        "jurisdiction": "US",
+        "legal_name": "Required Tool Permission Denied"
+      },
+      "scenario_type": "tool_permission_denied",
+      "setup": {
+        "faults": [],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": [
+          "vendor_database_query"
+        ]
+      },
+      "slug": "required-tool-permission-denied",
+      "title": "Required Tool Permission Denied"
+    },
+    {
+      "case_version": "1",
+      "description": "Injects a one-shot retryable tool timeout and proves Temporal retries before successful completion.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "approved",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 1,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "approved",
+        "approved_vendor_count": 1,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "synthetic_email_count": 1,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "approved",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "required-tool-timeout-retry@example.invalid",
+        "external_reference_prefix": "required-tool-timeout-retry",
+        "jurisdiction": "US",
+        "legal_name": "Required Tool Timeout Retries"
+      },
+      "scenario_type": "tool_timeout_retry",
+      "setup": {
+        "faults": [
+          {
+            "category": "retryable",
+            "consume_once": true,
+            "delay_ms": 25,
+            "expected_retry_count_min": 1,
+            "fault_point": "tool.vendor_database_query.before_execute",
+            "retryable": true,
+            "trigger_count": 1
+          }
+        ],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "required-tool-timeout-retry",
+      "title": "Required Tool Timeout Retries"
+    },
+    {
+      "case_version": "1",
+      "description": "Stops the worker during an active pre-approval activity and completes after a replacement worker starts.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "approved",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 1,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "approved",
+        "approved_vendor_count": 1,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "synthetic_email_count": 1,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "approved",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "worker-restart-active-activity@example.invalid",
+        "external_reference_prefix": "worker-restart-active-activity",
+        "jurisdiction": "US",
+        "legal_name": "Worker Restart During Active Activity"
+      },
+      "scenario_type": "worker_restart_active_activity",
+      "setup": {
+        "faults": [
+          {
+            "category": "process_termination",
+            "consume_once": true,
+            "delay_ms": 0,
+            "expected_retry_count_min": 1,
+            "fault_point": "worker.active_activity",
+            "retryable": true,
+            "trigger_count": 1
+          }
+        ],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "worker-restart-active-activity",
+      "title": "Worker Restart During Active Activity"
+    },
+    {
+      "case_version": "1",
+      "description": "Restarts the worker while the workflow is durably waiting and later accepts the authorized decision.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "approved",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 0,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "approved",
+        "approved_vendor_count": 1,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "synthetic_email_count": 1,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "approved",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "worker-restart-waiting-approval@example.invalid",
+        "external_reference_prefix": "worker-restart-waiting-approval",
+        "jurisdiction": "US",
+        "legal_name": "Worker Restart During Approval Wait"
+      },
+      "scenario_type": "worker_restart_waiting_approval",
+      "setup": {
+        "faults": [
+          {
+            "category": "process_termination",
+            "consume_once": true,
+            "delay_ms": 0,
+            "expected_retry_count_min": 0,
+            "fault_point": "worker.waiting_for_approval",
+            "retryable": true,
+            "trigger_count": 1
+          }
+        ],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "worker-restart-waiting-approval",
+      "title": "Worker Restart During Approval Wait"
+    },
+    {
+      "case_version": "1",
+      "description": "Terminates the worker after the approved projection and synthetic email commit but before activity acknowledgement.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "approved",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 1,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "approved",
+        "approved_vendor_count": 1,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "synthetic_email_count": 1,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "approved",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "worker-crash-after-effect-commit@example.invalid",
+        "external_reference_prefix": "worker-crash-after-effect-commit",
+        "jurisdiction": "US",
+        "legal_name": "Worker Crash After Effect Commit"
+      },
+      "scenario_type": "worker_crash_after_effect_commit",
+      "setup": {
+        "faults": [
+          {
+            "category": "process_termination",
+            "consume_once": true,
+            "delay_ms": 0,
+            "expected_retry_count_min": 1,
+            "fault_point": "email.send.after_commit_before_ack",
+            "retryable": true,
+            "trigger_count": 1
+          }
+        ],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "worker-crash-after-effect-commit",
+      "title": "Worker Crash After Effect Commit"
+    },
+    {
+      "case_version": "1",
+      "description": "Forces duplicate activity delivery and proves exactly one approved-vendor projection remains.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "approved",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 1,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "approved",
+        "approved_vendor_count": 1,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "synthetic_email_count": 1,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "approved",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "duplicate-projection-prevented@example.invalid",
+        "external_reference_prefix": "duplicate-projection-prevented",
+        "jurisdiction": "US",
+        "legal_name": "Duplicate Approved Projection Prevented"
+      },
+      "scenario_type": "duplicate_projection_prevented",
+      "setup": {
+        "faults": [
+          {
+            "category": "retryable",
+            "consume_once": true,
+            "delay_ms": 0,
+            "expected_retry_count_min": 1,
+            "fault_point": "projection.after_commit_before_ack",
+            "retryable": true,
+            "trigger_count": 1
+          }
+        ],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "duplicate-projection-prevented",
+      "title": "Duplicate Approved Projection Prevented"
+    },
+    {
+      "case_version": "1",
+      "description": "Forces duplicate email activity delivery and proves the governed effect is persisted exactly once.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "approved",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 1,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "approved",
+        "approved_vendor_count": 1,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "synthetic_email_count": 1,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "approved",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "duplicate-email-prevented@example.invalid",
+        "external_reference_prefix": "duplicate-email-prevented",
+        "jurisdiction": "US",
+        "legal_name": "Duplicate Synthetic Email Prevented"
+      },
+      "scenario_type": "duplicate_email_prevented",
+      "setup": {
+        "faults": [
+          {
+            "category": "retryable",
+            "consume_once": true,
+            "delay_ms": 0,
+            "expected_retry_count_min": 1,
+            "fault_point": "email.send.after_commit_before_ack",
+            "retryable": true,
+            "trigger_count": 1
+          }
+        ],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "duplicate-email-prevented",
+      "title": "Duplicate Synthetic Email Prevented"
+    },
+    {
+      "case_version": "1",
+      "description": "Simulates an ambiguous Temporal handoff and reconciles the persisted start intent without duplicate workflow runs.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "approved",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 0,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "approved",
+        "approved_vendor_count": 1,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "synthetic_email_count": 1,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "approved",
+        "workflow_start_attempt_count_min": 2
+      },
+      "input": {
+        "contact_email": "ambiguous-workflow-start-recovery@example.invalid",
+        "external_reference_prefix": "ambiguous-workflow-start-recovery",
+        "jurisdiction": "US",
+        "legal_name": "Ambiguous Workflow Start Recovery"
+      },
+      "scenario_type": "ambiguous_workflow_start_recovery",
+      "setup": {
+        "faults": [
+          {
+            "category": "ambiguous_handoff",
+            "consume_once": true,
+            "delay_ms": 0,
+            "expected_retry_count_min": 0,
+            "fault_point": "workflow_start.after_temporal_accept",
+            "retryable": true,
+            "trigger_count": 1
+          }
+        ],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "ambiguous-workflow-start-recovery",
+      "title": "Ambiguous Workflow Start Recovery"
+    },
+    {
+      "case_version": "1",
+      "description": "Injects a one-shot database interruption in a retry-safe activity and completes after recovery.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "approved",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 1,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "approved",
+        "approved_vendor_count": 1,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "synthetic_email_count": 1,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "approved",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "database-transient-failure@example.invalid",
+        "external_reference_prefix": "database-transient-failure",
+        "jurisdiction": "US",
+        "legal_name": "Transient Database Failure Recovers"
+      },
+      "scenario_type": "database_transient_failure",
+      "setup": {
+        "faults": [
+          {
+            "category": "retryable",
+            "consume_once": true,
+            "delay_ms": 0,
+            "expected_retry_count_min": 1,
+            "fault_point": "database.activity_transaction.before_commit",
+            "retryable": true,
+            "trigger_count": 1
+          }
+        ],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "database-transient-failure",
+      "title": "Transient Database Failure Recovers"
+    },
+    {
+      "case_version": "1",
+      "description": "Runs the real workflow while a separate managed-agent probe submits malformed vendor lookup arguments; the gateway must reject the probe and the governed workflow must still complete exactly once.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "approved",
+        "tool_attempts": [
+          {
+            "actor": "managed_agent",
+            "arguments": {
+              "external_reference": "malformed reference with spaces"
+            },
+            "expected_effect": "rejected_invalid_input",
+            "expected_error_category": "invalid_arguments",
+            "timing": "after_run_created",
+            "tool_name": "vendor_database_query"
+          }
+        ]
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 0,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "approved",
+        "approved_vendor_count": 1,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "synthetic_email_count": 1,
+        "tool_invocations": [
+          {
+            "maximum_count": 2,
+            "minimum_count": 2,
+            "required_error_categories": [
+              "invalid_arguments"
+            ],
+            "required_statuses": [
+              "failed",
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "approved",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "malformed-tool-input-rejected@example.invalid",
+        "external_reference_prefix": "malformed-tool-input-rejected",
+        "jurisdiction": "US",
+        "legal_name": "Malformed Tool Input Rejected"
+      },
+      "scenario_type": "malformed_tool_input_rejected",
+      "setup": {
+        "faults": [],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "malformed-tool-input-rejected",
+      "title": "Malformed Tool Input Rejected"
+    },
+    {
+      "case_version": "1",
+      "description": "Rejects an unauthorized approval attempt, then completes only after an authorized principal decides.",
+      "driver": {
+        "approval_attempts": [
+          {
+            "actor": "unauthorized",
+            "decision": "approved",
+            "expected_effect": "forbidden",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          },
+          {
+            "actor": "authorized",
+            "decision": "approved",
+            "expected_effect": "accepted",
+            "idempotency_key_mode": "new",
+            "timing": "waiting_for_approval",
+            "version_mode": "current"
+          }
+        ],
+        "cancellation_point": "none",
+        "final_decision": "approved",
+        "tool_attempts": []
+      },
+      "evidence_requirements": [
+        "workflow_run",
+        "workflow_events",
+        "approvals",
+        "tool_invocations",
+        "model_calls",
+        "business_projections",
+        "synthetic_emails",
+        "audit_events",
+        "workflow_start_attempts"
+      ],
+      "expected_outcome": {
+        "activity_retry_count_min": 0,
+        "approval_decision_count": 1,
+        "approval_request_count": 1,
+        "approval_status": "approved",
+        "approved_vendor_count": 1,
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "failure_category": null,
+        "model_call_status": "succeeded",
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "synthetic_email_count": 1,
+        "tool_invocations": [
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "vendor_database_query"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "internal_policy_search"
+          },
+          {
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_error_categories": [],
+            "required_statuses": [
+              "succeeded"
+            ],
+            "tool_name": "synthetic_email_send"
+          }
+        ],
+        "vendor_status": "approved",
+        "workflow_start_attempt_count_min": 1
+      },
+      "input": {
+        "contact_email": "unauthorized-sensitive-operation@example.invalid",
+        "external_reference_prefix": "unauthorized-sensitive-operation",
+        "jurisdiction": "US",
+        "legal_name": "Unauthorized Sensitive Operation Rejected"
+      },
+      "scenario_type": "unauthorized_sensitive_operation",
+      "setup": {
+        "faults": [],
+        "model_provider_mode": "deterministic",
+        "omitted_tool_grants": []
+      },
+      "slug": "unauthorized-sensitive-operation",
+      "title": "Unauthorized Sensitive Operation Rejected"
+    }
+  ],
+  "description": "Reviewed Phase B contracts for real Temporal vendor-onboarding execution, governance, retry classification, worker failure, adversarial probes, and duplicate-effect prevention.",
+  "reviewed_at": "2026-07-16T00:00:00+05:30",
+  "reviewed_by": "Phase B1 contract review; independent Codex review pending",
+  "schema_version": "1",
+  "suite_slug": "vendor-onboarding-phase-b",
+  "suite_version": "1.0.0",
+  "workflow_type": "vendor_onboarding"
+}

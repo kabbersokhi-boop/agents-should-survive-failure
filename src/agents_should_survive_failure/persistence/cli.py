@@ -48,7 +48,7 @@ async def _evaluate_vendor_onboarding(idempotency_key: str) -> tuple[UUID, Evalu
         async with sessions.begin() as session:
             run = await EvaluationRunner().run_vendor_onboarding(
                 session,
-                requested_by_id=str(seed_id("user:demo-operator")),
+                requested_by_id=seed_id("user:demo-operator"),
                 idempotency_key=idempotency_key,
             )
         print(f"Evaluation run {run.id} completed with status {run.status.value}.")
@@ -68,7 +68,7 @@ def reindex_main() -> None:
 def evaluate_main(idempotency_key: str) -> None:
     run_id, status = asyncio.run(_evaluate_vendor_onboarding(idempotency_key))
     if status is EvaluationStatus.FAILED:
-        raise SystemExit(f"Evaluation run {run_id} contains failed behavior contracts.")
+        raise SystemExit(f"Evaluation run {run_id} failed catalog-persistence integrity checks.")
 
 
 if __name__ == "__main__":

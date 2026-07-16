@@ -2,29 +2,31 @@
 
 ## Status
 
-Accepted
+Accepted; B1 semantics clarified by ADR 0013.
 
 ## Context
 
-Evaluation runs create durable behavioral-contract evidence. The local API has no authentication
-layer, so exposing evaluation execution through a write-capable HTTP endpoint would expand its
-operator surface without adding an identity or authorization control.
+Evaluation runs create durable evidence. Exposing execution through an unnecessary write-capable
+HTTP endpoint would expand the operator surface; the authenticated control-plane endpoint remains
+the deployment boundary while local maintenance also needs an explicit operator command.
 
 ## Decision
 
 Run vendor-onboarding evaluations through `make evaluate` with a required
-`EVALUATION_IDEMPOTENCY_KEY`. The target executes inside the running local API container, which
-uses the same Compose-network database configuration as the control plane. The command persists
-the run and prints its identifier; reports remain available only through the read-only evaluation
-API.
+`EVALUATION_IDEMPOTENCY_KEY`. The target executes inside the running local API container, uses the
+same Compose-network database configuration as the control plane, persists the run, and prints its
+identifier. Reports remain available through the read-only evaluation API.
+
+In B1 this command performs catalog-persistence integrity checks only. Every result records
+`workflow_executed=false`. B2 will retain the operator and idempotency boundary while replacing the
+runner with actual workflow execution.
 
 ## Consequences
 
-Repeated operator invocations with the same key reuse the original run. Local evaluation execution
-does not add a new unauthenticated HTTP mutation endpoint. A deployed operator interface must add
-authenticated authorization before exposing equivalent remote execution. The command exits nonzero
-when the persisted run has failed behavior contracts, making the result usable in a release job.
+Repeated invocations with the same key reuse the original run. The command does not add a new local
+unauthenticated mutation endpoint. A failed B1 catalog record fails the release job, but a green B1
+run must not be described as a behavioral, worker-recovery, or exactly-once evaluation.
 
-The isolated Compose release gate invokes the same command after its integration tests with a fixed
-per-clean-database idempotency key. A failed behavioral contract therefore fails `make verify`; this
-does not claim that credentialed model-provider behavior has been evaluated.
+The isolated Compose release gate invokes the same command after integration tests with a fixed
+per-clean-database idempotency key. Credentialed model-provider behavior remains a separate manual
+smoke test.

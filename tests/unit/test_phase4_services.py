@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Sequence
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -6,7 +7,14 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agents_should_survive_failure.evaluation import EvaluationRunner
+from agents_should_survive_failure.evaluation_scenarios import (
+    EvaluationCaseDefinition,
+    EvaluationSuiteDefinition,
+    load_packaged_evaluation_suite,
+)
 from agents_should_survive_failure.persistence.models import (
+    EvaluationResult,
+    EvaluationRun,
     EvaluationStatus,
     InvocationStatus,
     VendorStatus,
@@ -30,16 +38,27 @@ class FakeScalars:
         return self._values
 
 
+class FakeExecuteResult:
+    def __init__(self, value: object | None) -> None:
+        self._value = value
+
+    def scalar_one_or_none(self) -> object | None:
+        return self._value
+
+
 class FakeSession:
     def __init__(
         self,
         scalar_values: list[object | None],
-        cases: list[object] | None = None,
+        cases: Sequence[object] | None = None,
         agent: object | None = None,
+        inserted_evaluation_run: bool = True,
     ) -> None:
         self._scalar_values = scalar_values
-        self._cases = cases or []
+        self._cases = list(cases or [])
         self._agent = agent
+        self._inserted_evaluation_run = inserted_evaluation_run
+        self._evaluation_run: object | None = None
         self._last_tool_id: object | None = None
         self.added: list[object] = []
 
@@ -62,7 +81,20 @@ class FakeSession:
         return FakeScalars(self._cases)
 
     async def get(self, model: object, identifier: object) -> object | None:
-        del model, identifier
+        if model is EvaluationRun:
+            if self._evaluation_run is None:
+                self._evaluation_run = SimpleNamespace(
+                    id=identifier,
+                    suite_slug="vendor-onboarding-phase-b",
+                    suite_version="1.0.0",
+                    suite_schema_version="1",
+                    dataset_sha256="",
+                    status=EvaluationStatus.RUNNING,
+                    configuration={},
+                    completed_at=None,
+                )
+            return self._evaluation_run
+        del identifier
         return self._agent
 
     def add(self, item: object) -> None:
@@ -71,39 +103,70 @@ class FakeSession:
     async def flush(self) -> None:
         return None
 
-    async def execute(self, statement: object) -> None:
-        del statement
+    async def execute(self, statement: object) -> FakeExecuteResult:
+        if "INSERT INTO evaluation_runs" in str(statement) and self._inserted_evaluation_run:
+            return FakeExecuteResult(uuid.uuid4())
+        return FakeExecuteResult(None)
+
+
+def persisted_case(
+    suite: EvaluationSuiteDefinition, definition: EvaluationCaseDefinition
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        id=uuid.uuid4(),
+        suite_slug=suite.suite_slug,
+        suite_version=suite.suite_version,
+        schema_version=suite.schema_version,
+        slug=definition.slug,
+        version=definition.case_version,
+        workflow_type=suite.workflow_type,
+        title=definition.title,
+        description=definition.description,
+        scenario_type=definition.scenario_type.value,
+        input_data=definition.input.model_dump(mode="json"),
+        setup=definition.setup.model_dump(mode="json"),
+        driver=definition.driver.model_dump(mode="json"),
+        expected_outcome=definition.expected_outcome.model_dump(mode="json"),
+        evidence_requirements=[item.value for item in definition.evidence_requirements],
+        content_sha256=suite.case_content_sha256(definition),
+        reviewed_by=suite.reviewed_by,
+        reviewed_at=suite.reviewed_at,
+        enabled=True,
+    )
 
 
 @pytest.mark.asyncio
 async def test_evaluation_runner_records_passing_and_failing_cases() -> None:
-    passing = SimpleNamespace(
-        id=uuid.uuid4(),
-        input_data={"jurisdiction": "US"},
-        expected_outcome={"risk_band": "low", "requires_approval": True},
-    )
-    failing = SimpleNamespace(
-        id=uuid.uuid4(),
-        input_data={"jurisdiction": "ZZ"},
-        expected_outcome={"risk_band": "low", "requires_approval": True},
-    )
-    session = FakeSession([None], [passing, failing])
+    suite = load_packaged_evaluation_suite()
+    cases = [persisted_case(suite, definition) for definition in suite.cases]
+    cases[1].title = "Corrupted persisted title with a stale stored digest"
+    session = FakeSession([None], cases)
 
     run = await EvaluationRunner().run_vendor_onboarding(
-        cast(AsyncSession, session), requested_by_id=str(uuid.uuid4()), idempotency_key="evaluation"
+        cast(AsyncSession, session), requested_by_id=uuid.uuid4(), idempotency_key="evaluation"
     )
 
     assert run.status is EvaluationStatus.FAILED
-    assert len(session.added) == 3
+    assert len(session.added) == 24
+    results = [item for item in session.added if isinstance(item, EvaluationResult)]
+    assert len(results) == 24
+    assert all(result.actual_outcome["workflow_executed"] is False for result in results)
+    assert results[0].status.value == "passed"
+    assert results[1].failure_category == "catalog_persistence_mismatch"
+    assert "persisted_contract_differs" in results[1].actual_outcome["mismatch_reasons"]
+    assert "reconstructed_case_hash_mismatch" in results[1].actual_outcome["mismatch_reasons"]
 
 
 @pytest.mark.asyncio
 async def test_evaluation_runner_reuses_an_idempotent_run() -> None:
     existing = SimpleNamespace(id=uuid.uuid4())
-    session = FakeSession([existing])
+    session = FakeSession([existing], inserted_evaluation_run=False)
 
+    from agents_should_survive_failure.evaluation import evaluation_request_fingerprint
+
+    existing.request_fingerprint = evaluation_request_fingerprint(load_packaged_evaluation_suite())
     run = await EvaluationRunner().run_vendor_onboarding(
-        cast(AsyncSession, session), requested_by_id=str(uuid.uuid4()), idempotency_key="release-1"
+        cast(AsyncSession, session), requested_by_id=uuid.uuid4(), idempotency_key="release-1"
     )
 
     assert run is existing

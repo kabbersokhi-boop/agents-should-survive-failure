@@ -3,9 +3,11 @@
 import uuid
 from collections.abc import Sequence
 
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from agents_should_survive_failure.evaluation_scenarios import load_packaged_evaluation_suite
 from agents_should_survive_failure.persistence.models import (
     Agent,
     AgentStatus,
@@ -26,6 +28,40 @@ SEED_NAMESPACE = uuid.UUID("ad2dbd38-ad07-4f39-aedc-2a4894d7767d")
 
 def seed_id(name: str) -> uuid.UUID:
     return uuid.uuid5(SEED_NAMESPACE, name)
+
+
+def evaluation_case_seed_rows() -> tuple[tuple[type[EvaluationCase], dict[str, object]], ...]:
+    suite = load_packaged_evaluation_suite()
+    return tuple(
+        (
+            EvaluationCase,
+            {
+                "id": seed_id(
+                    f"evaluation:{suite.suite_slug}:{suite.suite_version}:{case.slug}:"
+                    f"v{case.case_version}"
+                ),
+                "suite_slug": suite.suite_slug,
+                "suite_version": suite.suite_version,
+                "schema_version": suite.schema_version,
+                "slug": case.slug,
+                "version": case.case_version,
+                "workflow_type": suite.workflow_type,
+                "title": case.title,
+                "description": case.description,
+                "scenario_type": case.scenario_type.value,
+                "input_data": case.input.model_dump(mode="json"),
+                "setup": case.setup.model_dump(mode="json"),
+                "driver": case.driver.model_dump(mode="json"),
+                "expected_outcome": case.expected_outcome.model_dump(mode="json"),
+                "evidence_requirements": [item.value for item in case.evidence_requirements],
+                "content_sha256": suite.case_content_sha256(case),
+                "reviewed_by": suite.reviewed_by,
+                "reviewed_at": suite.reviewed_at,
+                "enabled": True,
+            },
+        )
+        for case in suite.cases
+    )
 
 
 def seed_rows() -> Sequence[
@@ -190,21 +226,7 @@ def seed_rows() -> Sequence[
                 "policy_hash": "d6a183a8ad68d8aafdfced0f5b1d14de51ae91de2c9da1fd99989f3182a64cd0",
             },
         ),
-        (
-            EvaluationCase,
-            {
-                "id": seed_id("evaluation:complete-low-risk-vendor:v1"),
-                "slug": "complete-low-risk-vendor",
-                "version": "1",
-                "workflow_type": "vendor_onboarding",
-                "input_data": {
-                    "legal_name": "Example Components Ltd",
-                    "jurisdiction": "US",
-                },
-                "expected_outcome": {"requires_approval": True, "risk_band": "low"},
-                "enabled": True,
-            },
-        ),
+        *evaluation_case_seed_rows(),
         (
             PolicyDocument,
             {
@@ -232,6 +254,36 @@ async def seed_database(engine: AsyncEngine) -> None:
                 await connection.execute(
                     statement.on_conflict_do_nothing(index_elements=[model.id])
                 )
+                continue
+            if model is EvaluationCase:
+                case_id = values["id"]
+                expected_hash = values["content_sha256"]
+                if not isinstance(case_id, uuid.UUID) or not isinstance(expected_hash, str):
+                    raise TypeError("evaluation seed identity and digest must be typed")
+                await connection.execute(
+                    statement.on_conflict_do_nothing(index_elements=[EvaluationCase.id])
+                )
+                # ``enabled`` is an operator-controlled switch, not reviewed contract content.
+                # Reseeding must preserve that operational choice while still rejecting drift in
+                # every versioned field bound by ``content_sha256``.
+                content_fields = tuple(key for key in values if key not in {"id", "enabled"})
+                result = await connection.execute(
+                    select(*(getattr(EvaluationCase, key) for key in content_fields)).where(
+                        EvaluationCase.id == case_id
+                    )
+                )
+                persisted = result.mappings().one_or_none()
+                if persisted is None:
+                    raise RuntimeError(
+                        "evaluation case seed conflicted with a different persisted identity"
+                    )
+                mismatched_fields = [key for key in content_fields if persisted[key] != values[key]]
+                if mismatched_fields:
+                    fields = ", ".join(sorted(mismatched_fields))
+                    raise RuntimeError(
+                        "reviewed evaluation case content changed without a new suite version and "
+                        f"corresponding case version; mismatched fields: {fields}"
+                    )
                 continue
             update_values = {
                 ("metadata" if key == "metadata_" else key): getattr(

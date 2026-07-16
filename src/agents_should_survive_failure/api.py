@@ -88,6 +88,7 @@ from agents_should_survive_failure.workflows.contracts import (
     ApprovalDecisionType,
     WorkflowStatus,
 )
+from agents_should_survive_failure.workflows.managed_agent import ManagedAgentWorkflow
 from agents_should_survive_failure.workflows.vendor_onboarding import VendorOnboardingWorkflow
 
 REQUESTS = Counter(
@@ -898,6 +899,8 @@ async def decide_onboarding(
 
 async def onboarding_status(run_id: UUID, request: Request) -> WorkflowStatus:
     resources: RuntimeResources = request.app.state.resources
+    managed_approval: ApprovalRequest | None = None
+    managed_run = False
     async with Database(resources.engine).session() as session:
         run = await WorkflowRunRepository(session).get(run_id)
         if run is None:
@@ -905,6 +908,29 @@ async def onboarding_status(run_id: UUID, request: Request) -> WorkflowStatus:
                 status_code=status.HTTP_404_NOT_FOUND, detail="workflow run not found"
             )
         temporal_workflow_id = run.temporal_workflow_id
+        if run.workflow_type == "managed_agent":
+            managed_run = True
+            managed_approval = await session.scalar(
+                select(ApprovalRequest)
+                .where(ApprovalRequest.workflow_run_id == run_id)
+                .order_by(ApprovalRequest.created_at.desc())
+                .limit(1)
+            )
+    if managed_run:
+        phase = await resources.temporal_client.get_workflow_handle(temporal_workflow_id).query(
+            ManagedAgentWorkflow.phase
+        )
+        decision = (
+            ApprovalDecisionType(managed_approval.status.value)
+            if managed_approval is not None
+            and managed_approval.status in {ApprovalStatus.APPROVED, ApprovalStatus.REJECTED}
+            else None
+        )
+        return WorkflowStatus(
+            phase=phase,
+            approval_request_id=str(managed_approval.id) if managed_approval is not None else None,
+            decision=decision,
+        )
     return await resources.temporal_client.get_workflow_handle(temporal_workflow_id).query(
         VendorOnboardingWorkflow.status
     )

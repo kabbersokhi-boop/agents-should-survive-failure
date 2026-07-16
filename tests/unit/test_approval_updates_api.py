@@ -9,7 +9,11 @@ from temporalio.client import WorkflowUpdateFailedError
 
 from agents_should_survive_failure import api
 from agents_should_survive_failure.auth import AuthenticatedPrincipal
-from agents_should_survive_failure.persistence.models import ApprovalStatus
+from agents_should_survive_failure.persistence.models import (
+    ApprovalDecision,
+    ApprovalStatus,
+    RunStatus,
+)
 from agents_should_survive_failure.persistence.session import Database
 from agents_should_survive_failure.workflows.contracts import ApprovalDecisionType
 
@@ -22,10 +26,17 @@ KEY_ID = UUID("00000000-0000-0000-0000-000000000023")
 class Session:
     def __init__(self, values: list[object | None]) -> None:
         self.values = values
+        self.added: list[object] = []
 
     async def scalar(self, statement: object) -> object | None:
         del statement
         return self.values.pop(0)
+
+    def add(self, value: object) -> None:
+        self.added.append(value)
+
+    async def flush(self) -> None:
+        return None
 
 
 class FakeDatabase:
@@ -202,3 +213,37 @@ async def test_approval_endpoint_accepts_identical_persisted_retry_without_tempo
 
     assert response.status_code == 202
     assert handle.calls == []
+
+
+@pytest.mark.asyncio
+async def test_managed_agent_approval_is_persisted_without_a_vendor_workflow_update(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run = SimpleNamespace(
+        id=RUN_ID,
+        temporal_workflow_id="managed-agent-test",
+        workflow_type="managed_agent",
+        status=RunStatus.WAITING,
+    )
+
+    async def get_run(self: object, run_id: UUID) -> object | None:
+        del self
+        assert run_id == RUN_ID
+        return run
+
+    monkeypatch.setattr(api.WorkflowRunRepository, "get", get_run)
+    session = Session([_approval(), None])
+    handle = Handle()
+
+    response = await api.decide_onboarding(
+        RUN_ID,
+        _payload(),
+        _request(handle),
+        cast(Database, FakeDatabase(session)),
+        _principal(),
+    )
+
+    assert response.status_code == 202
+    assert handle.calls == []
+    assert run.status is RunStatus.RUNNING
+    assert any(isinstance(value, ApprovalDecision) for value in session.added)

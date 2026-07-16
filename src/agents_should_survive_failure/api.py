@@ -836,6 +836,34 @@ async def decide_onboarding(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="approval request is no longer pending at the expected version",
             )
+        if getattr(run, "workflow_type", "vendor_onboarding") == "managed_agent":
+            session.add(
+                ApprovalDecision(
+                    approval_request_id=approval.id,
+                    decided_by_id=principal.id,
+                    decision=decision_status,
+                    rationale=payload.rationale,
+                    idempotency_key=payload.idempotency_key,
+                )
+            )
+            approval.status = decision_status
+            if run.status is RunStatus.WAITING:
+                run.status = RunStatus.RUNNING
+            await AuditEventRepository(session).append(
+                AuditEvent(
+                    workflow_run_id=run.id,
+                    actor_id=principal.id,
+                    action="managed_agent.approval.decision",
+                    resource_type="approval_request",
+                    resource_id=approval.id,
+                    idempotency_key=(
+                        f"{run.id}:managed-agent:approval-decision:{payload.idempotency_key}"
+                    ),
+                    summary="Authorized managed-agent approval decision recorded.",
+                    evidence={"decision": decision_status.value},
+                )
+            )
+            return Response(status_code=status.HTTP_202_ACCEPTED)
         temporal_workflow_id = run.temporal_workflow_id
     resources: RuntimeResources = request.app.state.resources
     handle = resources.temporal_client.get_workflow_handle(temporal_workflow_id)

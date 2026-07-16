@@ -7,6 +7,8 @@ from enum import StrEnum
 from sqlalchemy.exc import OperationalError
 from temporalio.exceptions import ApplicationError
 
+from agents_should_survive_failure.providers import ProviderError
+
 
 class FailureCategory(StrEnum):
     """Operator-safe categories for failures at external-effect boundaries."""
@@ -59,6 +61,11 @@ def classify_failure(error: BaseException) -> PlatformFailure:
         return PlatformFailure(FailureCategory.TIMEOUT, retryable=True)
     if isinstance(error, OperationalError):
         return PlatformFailure(FailureCategory.DATABASE_UNAVAILABLE, retryable=True)
+    if isinstance(error, ProviderError):
+        return PlatformFailure(
+            FailureCategory.PROVIDER_UNAVAILABLE,
+            retryable=error.category in {"connection", "rate_limit", "timeout"},
+        )
     if isinstance(error, PermissionError):
         return PlatformFailure(FailureCategory.AUTHORIZATION_DENIED, retryable=False)
     if isinstance(error, ValueError):

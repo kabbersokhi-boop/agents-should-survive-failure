@@ -52,7 +52,9 @@ async def run_worker() -> None:
             FaultInjector(Database(resources.engine), enabled=settings.fault_injection_enabled),
         )
         managed_activities = ManagedAgentActivities(
-            Database(resources.engine), ToolGateway(Database(resources.engine))
+            Database(resources.engine),
+            ToolGateway(Database(resources.engine)),
+            build_model_provider(settings),
         )
         worker = Worker(
             resources.temporal_client,

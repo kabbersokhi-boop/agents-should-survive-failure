@@ -9,6 +9,7 @@ from agents_should_survive_failure.failures import (
     classify_failure,
     temporal_failure,
 )
+from agents_should_survive_failure.providers import ProviderError
 
 
 def test_known_dependency_failures_are_retryable() -> None:
@@ -26,6 +27,16 @@ def test_permanent_failures_are_not_retried() -> None:
 
     assert failure.category is FailureCategory.AUTHORIZATION_DENIED
     assert failure.retryable is False
+
+
+def test_temporary_provider_errors_retry_but_provider_authentication_does_not() -> None:
+    temporary = classify_failure(ProviderError("timeout", "provider timed out"))
+    permanent = classify_failure(ProviderError("authentication", "provider auth failed"))
+
+    assert temporary.category is FailureCategory.PROVIDER_UNAVAILABLE
+    assert temporary.retryable is True
+    assert permanent.category is FailureCategory.PROVIDER_UNAVAILABLE
+    assert permanent.retryable is False
 
 
 def test_unknown_defects_fail_safely_without_leaking_exception_content() -> None:

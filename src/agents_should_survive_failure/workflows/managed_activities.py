@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
 from collections.abc import Mapping
 from typing import Any, cast
@@ -24,6 +25,7 @@ from temporalio import activity
 
 from agents_should_survive_failure.agent_discovery import load_installed_agent
 from agents_should_survive_failure.failures import temporal_failure
+from agents_should_survive_failure.model_evidence import ModelEvidenceService
 from agents_should_survive_failure.persistence.models import (
     Agent,
     ApprovalRequest,
@@ -35,6 +37,7 @@ from agents_should_survive_failure.persistence.models import (
 )
 from agents_should_survive_failure.persistence.repositories import AuditEventRepository
 from agents_should_survive_failure.persistence.session import Database
+from agents_should_survive_failure.providers import ModelProvider
 from agents_should_survive_failure.runtime_state import (
     consume_budget,
     create_artifact,
@@ -58,12 +61,14 @@ class ManagedActivityContext:
         agent_id: uuid.UUID,
         metadata: AgentMetadata,
         gateway: ToolGateway,
+        model_provider: ModelProvider,
     ) -> None:
         self._database = database
         self._run_id = run_id
         self._agent_id = agent_id
         self._metadata = metadata
         self._gateway = gateway
+        self._model_provider = model_provider
 
     @property
     def run_id(self) -> str:
@@ -122,7 +127,11 @@ class ManagedActivityContext:
         if declaration is None or not self._has_capability(Capability.TOOLS):
             raise CapabilityDenied("tool is not declared by the pinned agent manifest")
         async with self._database.session() as session:
-            await consume_budget(session, workflow_run_id=self._run_id, amount={"tool_calls": 1})
+            await consume_budget(
+                session,
+                workflow_run_id=self._run_id,
+                amount={"steps": 1, "tool_calls": 1},
+            )
             result = await self._gateway.invoke(
                 session,
                 workflow_run_id=str(self._run_id),
@@ -214,7 +223,7 @@ class ManagedActivityContext:
             await consume_budget(
                 session,
                 workflow_run_id=self._run_id,
-                amount={"checkpoint_bytes": checkpoint.size_bytes},
+                amount={"checkpoint_bytes": checkpoint.size_bytes, "steps": 1},
             )
         return CheckpointReference(
             name=checkpoint.name,
@@ -243,7 +252,7 @@ class ManagedActivityContext:
             await consume_budget(
                 session,
                 workflow_run_id=self._run_id,
-                amount={"artifact_bytes": created.size_bytes},
+                amount={"artifact_bytes": created.size_bytes, "steps": 1},
             )
         return ArtifactReference(
             artifact_id=str(created.id),
@@ -292,28 +301,73 @@ class ManagedActivityContext:
         raise CapabilityDenied("managed-agent delegation is not available in this activity action")
 
     async def call_model(self, input: Mapping[str, Any]) -> Mapping[str, Any]:
-        del input
-        raise CapabilityDenied(
-            "managed-agent model calls are not available in this activity action"
-        )
+        if not self._has_capability(Capability.MODELS):
+            raise CapabilityDenied("model capability is not declared")
+        try:
+            prompt = json.dumps(dict(input), sort_keys=True, separators=(",", ":"))
+        except (TypeError, ValueError) as error:
+            raise ValueError("model input must be JSON serializable") from error
+        if not prompt or len(prompt.encode("utf-8")) > 16_000:
+            raise ValueError("model input is invalid or exceeds the bounded size limit")
+        response: object | None = None
+        failure: Exception | None = None
+        async with self._database.session() as session:
+            await consume_budget(
+                session,
+                workflow_run_id=self._run_id,
+                amount={"model_calls": 1, "steps": 1},
+            )
+            try:
+                response = await ModelEvidenceService(self._model_provider).explain(
+                    session,
+                    workflow_run_id=self._run_id,
+                    prompt=prompt,
+                    correlation_id=f"{self.correlation_id}:model",
+                )
+            except Exception as error:
+                failure = error
+            else:
+                await consume_budget(
+                    session,
+                    workflow_run_id=self._run_id,
+                    amount={
+                        "input_tokens": response.input_tokens,
+                        "output_tokens": response.output_tokens,
+                    },
+                )
+        if failure is not None:
+            raise failure
+        assert response is not None
+        return {
+            "provider": response.provider,
+            "model": response.model,
+            "summary": response.summary,
+        }
 
 
 def _budget_limits(requirements: BudgetRequirements) -> dict[str, int]:
     return {
-        "tool_calls": requirements.max_tool_calls,
-        "model_calls": requirements.max_model_calls,
-        "checkpoint_bytes": requirements.max_checkpoint_bytes,
         "artifact_bytes": requirements.max_artifact_bytes,
+        "checkpoint_bytes": requirements.max_checkpoint_bytes,
         "child_agents": requirements.max_child_agents,
+        "estimated_cost_microunits": requirements.max_estimated_cost_microunits,
+        "input_tokens": requirements.max_input_tokens,
+        "model_calls": requirements.max_model_calls,
+        "output_tokens": requirements.max_output_tokens,
+        "steps": requirements.max_steps,
+        "tool_calls": requirements.max_tool_calls,
     }
 
 
 class ManagedAgentActivities:
     """Execute installed trusted agent packages only through constrained public SDK services."""
 
-    def __init__(self, database: Database, gateway: ToolGateway) -> None:
+    def __init__(
+        self, database: Database, gateway: ToolGateway, model_provider: ModelProvider
+    ) -> None:
         self._database = database
         self._gateway = gateway
+        self._model_provider = model_provider
 
     @activity.defn(name="managed_agent.execute")
     async def execute(self, input: ManagedAgentInput) -> dict[str, object]:
@@ -355,6 +409,7 @@ class ManagedAgentActivities:
                 agent_id=agent_id,
                 metadata=agent.metadata,
                 gateway=self._gateway,
+                model_provider=self._model_provider,
             )
             result = await agent.run(AgentTask(input=cast(dict[str, Any], task_input)), context)
             for artifact in result.artifacts:

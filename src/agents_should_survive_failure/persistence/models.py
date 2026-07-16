@@ -243,6 +243,15 @@ class WorkflowRun(IdMixin, TimestampMixin, Base):
     )
 
     agent_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("agents.id", ondelete="RESTRICT"))
+    parent_workflow_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="RESTRICT"), index=True
+    )
+    root_workflow_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    delegation_depth: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
     vendor_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("vendors.id", ondelete="RESTRICT")
     )
@@ -263,6 +272,33 @@ class WorkflowRun(IdMixin, TimestampMixin, Base):
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
 
     __mapper_args__: dict[str, Any] = {"version_id_col": version}  # noqa: RUF012
+
+
+class RunDelegation(IdMixin, TimestampMixin, Base):
+    """Immutable parent-to-child authority carve-out for one managed-agent child run."""
+
+    __tablename__ = "run_delegations"
+    __table_args__ = (
+        UniqueConstraint("child_workflow_run_id", name="uq_run_delegation_child"),
+        UniqueConstraint(
+            "parent_workflow_run_id", "idempotency_key", name="uq_run_delegation_parent_key"
+        ),
+        CheckConstraint("delegation_depth >= 1", name="ck_run_delegation_depth"),
+    )
+
+    parent_workflow_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    child_workflow_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    root_workflow_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    delegation_depth: Mapped[int] = mapped_column(Integer, nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(240), nullable=False)
+    budget_limits: Mapped[dict[str, int]] = mapped_column(JSONB, nullable=False)
+    allowed_tool_definition_ids: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
 
 
 class WorkflowStartAttempt(IdMixin, TimestampMixin, Base):

@@ -134,6 +134,9 @@ class WorkflowStartCoordinator:
                 .values(
                     id=run_id,
                     agent_id=agent_id,
+                    parent_workflow_run_id=None,
+                    root_workflow_run_id=run_id,
+                    delegation_depth=0,
                     vendor_id=vendor_id,
                     requested_by_id=requested_by_id,
                     workflow_type="vendor_onboarding",
@@ -216,6 +219,9 @@ class WorkflowStartCoordinator:
                 .values(
                     id=run_id,
                     agent_id=agent_id,
+                    parent_workflow_run_id=None,
+                    root_workflow_run_id=run_id,
+                    delegation_depth=0,
                     vendor_id=None,
                     requested_by_id=requested_by_id,
                     workflow_type="managed_agent",

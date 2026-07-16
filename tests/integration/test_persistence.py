@@ -203,9 +203,13 @@ async def test_repositories_persist_run_events_and_audit(engine: AsyncEngine) ->
                 status=VendorStatus.SUBMITTED,
             )
         )
+        run_id = uuid.uuid4()
         run = await WorkflowRunRepository(session).add(
             WorkflowRun(
+                id=run_id,
                 agent_id=seed_id("agent:vendor-onboarding:v1"),
+                parent_workflow_run_id=None,
+                root_workflow_run_id=run_id,
                 vendor_id=vendor.id,
                 requested_by_id=seed_id("user:demo-operator"),
                 workflow_type="vendor_onboarding",

@@ -58,8 +58,12 @@ async def test_policy_tool_and_evaluation_services_persist_evidence() -> None:
             )
             session.add(vendor)
             await session.flush()
+            workflow_run_id = uuid.uuid4()
             workflow_run = WorkflowRun(
+                id=workflow_run_id,
                 agent_id=seed_id("agent:vendor-onboarding:v1"),
+                parent_workflow_run_id=None,
+                root_workflow_run_id=workflow_run_id,
                 vendor_id=vendor.id,
                 requested_by_id=seed_id("user:demo-operator"),
                 workflow_type="vendor_onboarding",
@@ -134,8 +138,12 @@ async def test_tool_gateway_denies_missing_permission() -> None:
             )
             session.add(vendor)
             await session.flush()
+            run_id = uuid.uuid4()
             run = WorkflowRun(
+                id=run_id,
                 agent_id=seed_id("agent:vendor-onboarding:v1"),
+                parent_workflow_run_id=None,
+                root_workflow_run_id=run_id,
                 vendor_id=vendor.id,
                 requested_by_id=seed_id("user:demo-operator"),
                 workflow_type="vendor_onboarding",
@@ -182,8 +190,12 @@ async def test_denied_tool_attempt_survives_the_calling_transaction_rollback() -
             )
             session.add(vendor)
             await session.flush()
+            run_id = uuid.uuid4()
             run = WorkflowRun(
+                id=run_id,
                 agent_id=seed_id("agent:vendor-onboarding:v1"),
+                parent_workflow_run_id=None,
+                root_workflow_run_id=run_id,
                 vendor_id=vendor.id,
                 requested_by_id=seed_id("user:demo-operator"),
                 workflow_type="vendor_onboarding",
@@ -323,8 +335,12 @@ async def test_governed_policy_and_synthetic_email_tools_are_durable() -> None:
             )
             session.add(vendor)
             await session.flush()
+            run_id = uuid.uuid4()
             run = WorkflowRun(
+                id=run_id,
                 agent_id=seed_id("agent:vendor-onboarding:v1"),
+                parent_workflow_run_id=None,
+                root_workflow_run_id=run_id,
                 vendor_id=vendor.id,
                 requested_by_id=seed_id("user:demo-operator"),
                 workflow_type="vendor_onboarding",

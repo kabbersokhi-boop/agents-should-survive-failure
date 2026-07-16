@@ -42,6 +42,7 @@ def test_model_metadata_and_seeds_cover_required_schema() -> None:
         "run_checkpoints",
         "run_artifacts",
         "run_budgets",
+        "run_delegations",
         "workflow_runs",
         "workflow_start_attempts",
         "workflow_events",
@@ -216,6 +217,8 @@ async def test_workflow_repository_crud_filters_and_events() -> None:
     run = WorkflowRun(
         id=run_id,
         agent_id=uuid.uuid4(),
+        parent_workflow_run_id=None,
+        root_workflow_run_id=run_id,
         requested_by_id=uuid.uuid4(),
         workflow_type="vendor_onboarding",
         temporal_workflow_id="unit-workflow",

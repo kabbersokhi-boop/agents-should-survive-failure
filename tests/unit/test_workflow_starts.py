@@ -56,6 +56,9 @@ class FakeSession:
         self.run = WorkflowRun(
             id=cast(UUID, params["id"]),
             agent_id=cast(UUID, params["agent_id"]),
+            parent_workflow_run_id=cast(UUID | None, params["parent_workflow_run_id"]),
+            root_workflow_run_id=cast(UUID, params["root_workflow_run_id"]),
+            delegation_depth=cast(int, params["delegation_depth"]),
             vendor_id=cast(UUID, params["vendor_id"]),
             requested_by_id=cast(UUID, params["requested_by_id"]),
             workflow_type=cast(str, params["workflow_type"]),

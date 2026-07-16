@@ -140,13 +140,13 @@ sbom-container:
 sbom: sbom-backend sbom-sdk sbom-container
 
 sdk-build:
-	uv build --offline packages/agents-should-survive-failure-sdk
+	uv build --offline --clear packages/agents-should-survive-failure-sdk
 
 test-sdk-install: sdk-build
 	bash scripts/test_sdk_install.sh
 
 external-agent-build:
-	uv build --offline packages/example-operations-agent
+	uv build --offline --clear packages/example-operations-agent
 
 test-external-agent: sdk-build external-agent-build
 	bash scripts/test_external_agent.sh

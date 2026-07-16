@@ -8,8 +8,8 @@ COPY packages/agents-should-survive-failure-sdk ./packages/agents-should-survive
 COPY packages/example-operations-agent ./packages/example-operations-agent
 COPY src ./src
 RUN uv sync --frozen --no-dev
-RUN uv build --offline packages/example-operations-agent && \
-    uv pip install --python /app/.venv/bin/python packages/example-operations-agent/dist/*.whl
+RUN uv build --offline --wheel --out-dir /tmp/agent-dist packages/example-operations-agent && \
+    uv pip install --python /app/.venv/bin/python /tmp/agent-dist/*.whl
 COPY alembic.ini ./
 COPY migrations ./migrations
 USER 65532:65532

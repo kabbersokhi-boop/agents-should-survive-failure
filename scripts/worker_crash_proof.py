@@ -82,7 +82,7 @@ async def main() -> None:
             fault_point=FaultPoint.EMAIL_POST_COMMIT_HANDOFF,
             action=FaultAction.DELAY,
             scope_key=run_id,
-            delay_ms=15_000,
+            delay_ms=60_000,
             safe_metadata={"proof": "os-worker-kill"},
         )
         (
@@ -126,12 +126,29 @@ async def main() -> None:
             return counts == [1, 1, 1, 1]
 
         await _wait_for(effects_committed)
+        delay_started = time.monotonic()
+        before_pid = (
+            await asyncio.to_thread(
+                subprocess.check_output,
+                ["docker", "compose", "ps", "-q", "worker"],
+                text=True,
+            )
+        ).strip()
+        assert before_pid
         await asyncio.to_thread(
             subprocess.run, ["docker", "compose", "kill", "-s", "KILL", "worker"], check=True
         )
         await asyncio.to_thread(
             subprocess.run, ["docker", "compose", "up", "-d", "worker"], check=True
         )
+        await asyncio.sleep(1)
+        after_pid = await asyncio.to_thread(
+            subprocess.check_output,
+            ["docker", "compose", "ps", "-q", "worker"],
+            text=True,
+        )
+        assert after_pid.strip() != before_pid
+        assert time.monotonic() - delay_started < 5
 
         async def completed() -> bool:
             async with database.session() as session:

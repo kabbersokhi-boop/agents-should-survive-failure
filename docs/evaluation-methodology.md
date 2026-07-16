@@ -1,6 +1,6 @@
 # Evaluation Methodology
 
-## Phase B1 status
+## Production evaluation status
 
 The repository ships the reviewed vendor-onboarding suite at
 `src/agents_should_survive_failure/evaluation_datasets/vendor_onboarding.v1.json`.
@@ -29,30 +29,13 @@ and tool identifiers are restricted to names that the production workflow curren
 Approval sequences are validated across attempts: accepted decisions must precede replay/conflict
 checks, same-key replays must repeat the accepted decision, and conflicts must change it.
 
-## B1 catalog integrity runner
+## Production runner
 
-`make evaluate` currently runs `b1_catalog_persistence_integrity`. It reads all 24 enabled case rows
-for the packaged suite, reconstructs each strict case contract from the stored columns, recalculates
-the suite-bound digest, and compares the complete content and review metadata with the packaged
-source. It records missing, unexpected, malformed, or drifted cases as failures.
-
-This runner deliberately records `workflow_executed=false` in run configuration, per-case actual
-outcome, metrics, evidence, and summaries. It does not derive a risk band, reproduce workflow
-business logic, call Temporal, or inspect runtime side effects. A successful B1 evaluation run
-means only that the reviewed catalog was persisted without drift.
-
-## Important boundary
-
-Phase B1 is design and provenance evidence, not a reliability benchmark. It does not prove worker
-recovery, retry classification, approval safety under delivery races, or exactly-once business
-effects. No Phase B pass rate or latency claim should be made from the B1 integrity runner.
-
-Phase B2 must start real workflows through the normal start coordinator or authenticated API, drive
-decisions and cancellations, wait on persisted state, and score actual PostgreSQL workflow, event,
-approval, tool, model, projection, email, audit, and workflow-start evidence. The B2 scorer must
-compare observed evidence with these contracts and must not duplicate production business logic.
-Controlled fault plans are declarations only in B1; their safe persisted execution mechanism belongs
-to B3, and active worker-crash/exactly-once proof belongs to B4.
+`make evaluate` runs all 24 reviewed cases through the real Temporal vendor-onboarding workflow.
+It creates isolated vendors and persisted start intents, drives reviewed decisions and cancellation
+probes, applies persisted controlled faults, then scores PostgreSQL workflow, event, approval, tool,
+model, projection, email, audit, and workflow-start evidence. JSON and Markdown exports contain
+only bounded evidence; they exclude prompts, credentials, private arguments, and reasoning.
 
 ## Persistence and downgrade boundary
 

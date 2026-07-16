@@ -443,8 +443,9 @@ class EvaluationRunner:
         try:
             await coordinator.start(workflow_run.id)
         except WorkflowStartUnavailable:
-            # The intent is already durable. Reconciliation must converge on the same workflow ID.
-            await coordinator.recover(limit=1)
+            # The intent is already durable. Reconcile this exact run rather than an unrelated
+            # failed start that may precede it in the shared integration database.
+            await coordinator.start(workflow_run.id)
 
         await self._drive_case(
             database,

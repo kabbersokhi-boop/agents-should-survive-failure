@@ -46,6 +46,7 @@ from agents_should_survive_failure.fault_injection import (
 from agents_should_survive_failure.observability import configure_logging, configure_tracing
 from agents_should_survive_failure.persistence.models import (
     Agent,
+    AgentStatus,
     ApprovalDecision,
     ApprovalRequest,
     ApprovalStatus,
@@ -229,6 +230,12 @@ class VendorResponse(BaseModel):
 
 class StartOnboardingRequest(StrictRequestModel):
     idempotency_key: str = Field(min_length=1, max_length=240, pattern=r"^[A-Za-z0-9._:-]+$")
+
+
+class StartManagedAgentRequest(StrictRequestModel):
+    idempotency_key: str = Field(min_length=1, max_length=240, pattern=r"^[A-Za-z0-9._:-]+$")
+    task: dict[str, object]
+    version: str | None = Field(default=None, min_length=1, max_length=40)
 
 
 class WorkflowRunResponse(BaseModel):
@@ -690,6 +697,53 @@ async def start_onboarding(
             detail="workflow start is pending recovery",
             headers={"Retry-After": "1"},
         ) from error
+    return WorkflowRunResponse(
+        id=run.id, status=run.status, temporal_workflow_id=run.temporal_workflow_id
+    )
+
+
+async def start_managed_agent(
+    agent_slug: str,
+    payload: StartManagedAgentRequest,
+    request: Request,
+    database: Annotated[Database, Depends(get_database)],
+    principal: Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)],
+) -> WorkflowRunResponse:
+    statement = select(Agent).where(
+        Agent.name == agent_slug,
+        Agent.workflow_type == "managed_agent",
+        Agent.status == AgentStatus.ACTIVE,
+    )
+    if payload.version is not None:
+        statement = statement.where(Agent.version == payload.version)
+    else:
+        # Explicit selection policy: latest installed enabled version wins until a caller pins one.
+        statement = statement.order_by(Agent.created_at.desc(), Agent.id.desc())
+    async with database.session() as session:
+        agent = await session.scalar(statement)
+    if agent is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="managed agent not found")
+    resources: RuntimeResources = request.app.state.resources
+    coordinator = WorkflowStartCoordinator(database, resources.temporal_client)
+    try:
+        run = await coordinator.create_or_get_managed_agent(
+            requested_by_id=principal.id,
+            agent_id=agent.id,
+            task=payload.task,
+            idempotency_key=payload.idempotency_key,
+        )
+        await coordinator.start(run.id)
+    except RequestFingerprintConflict:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="idempotency key was reused for a different managed-agent request",
+        ) from None
+    except WorkflowStartUnavailable:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="workflow start is pending recovery",
+            headers={"Retry-After": "1"},
+        ) from None
     return WorkflowRunResponse(
         id=run.id, status=run.status, temporal_workflow_id=run.temporal_workflow_id
     )
@@ -1717,6 +1771,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         methods=["GET"],
         response_model=AgentPage,
         dependencies=[Depends(require_scopes("agents:read"))],
+    )
+    app.add_api_route(
+        "/api/v1/agents/{agent_slug}/runs",
+        start_managed_agent,
+        methods=["POST"],
+        response_model=WorkflowRunResponse,
+        dependencies=[Depends(require_scopes("runs:write"))],
     )
     app.add_api_route(
         "/api/v1/agents/{agent_id}",

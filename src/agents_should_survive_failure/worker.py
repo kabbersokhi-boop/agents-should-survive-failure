@@ -25,6 +25,8 @@ from agents_should_survive_failure.settings import get_settings
 from agents_should_survive_failure.tool_gateway import ToolGateway
 from agents_should_survive_failure.workflows.activities import VendorOnboardingActivities
 from agents_should_survive_failure.workflows.contracts import TASK_QUEUE
+from agents_should_survive_failure.workflows.managed_activities import ManagedAgentActivities
+from agents_should_survive_failure.workflows.managed_agent import ManagedAgentWorkflow
 from agents_should_survive_failure.workflows.vendor_onboarding import VendorOnboardingWorkflow
 
 
@@ -49,17 +51,21 @@ async def run_worker() -> None:
             GovernedMCPAdapter(ToolGateway(Database(resources.engine))),
             FaultInjector(Database(resources.engine), enabled=settings.fault_injection_enabled),
         )
+        managed_activities = ManagedAgentActivities(
+            Database(resources.engine), ToolGateway(Database(resources.engine))
+        )
         worker = Worker(
             resources.temporal_client,
             task_queue=TASK_QUEUE,
             interceptors=[TracingInterceptor(always_create_workflow_spans=True)],
-            workflows=[VendorOnboardingWorkflow],
+            workflows=[VendorOnboardingWorkflow, ManagedAgentWorkflow],
             activities=[
                 activities.begin_review,
                 activities.assess_risk,
                 activities.request_approval,
                 activities.record_decision,
                 activities.cancel_review,
+                managed_activities.execute,
             ],
         )
         stop = asyncio.Event()

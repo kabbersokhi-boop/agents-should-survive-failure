@@ -39,6 +39,13 @@ class VendorOnboardingInput:
 
 
 @dataclass(frozen=True)
+class ManagedAgentInput:
+    """Minimal deterministic Temporal input with task and authority in the pinned database run."""
+
+    run_id: str
+
+
+@dataclass(frozen=True)
 class RiskAssessment:
     score: int
     summary: str

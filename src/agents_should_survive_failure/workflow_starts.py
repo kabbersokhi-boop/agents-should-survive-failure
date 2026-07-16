@@ -26,7 +26,12 @@ from agents_should_survive_failure.persistence.models import (
 )
 from agents_should_survive_failure.persistence.repositories import AuditEventRepository
 from agents_should_survive_failure.persistence.session import Database
-from agents_should_survive_failure.workflows.contracts import TASK_QUEUE, VendorOnboardingInput
+from agents_should_survive_failure.workflows.contracts import (
+    TASK_QUEUE,
+    ManagedAgentInput,
+    VendorOnboardingInput,
+)
+from agents_should_survive_failure.workflows.managed_agent import ManagedAgentWorkflow
 from agents_should_survive_failure.workflows.vendor_onboarding import VendorOnboardingWorkflow
 
 START_LEASE = timedelta(seconds=30)
@@ -72,6 +77,16 @@ def onboarding_request_fingerprint(*, vendor_id: uuid.UUID, agent_id: uuid.UUID)
         "workflow_type": "vendor_onboarding",
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def managed_agent_request_fingerprint(*, agent_id: uuid.UUID, task: dict[str, object]) -> str:
+    """Hash the complete generic task request before Temporal handoff."""
+
+    payload = {"agent_id": str(agent_id), "task": task, "workflow_type": "managed_agent"}
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+        "utf-8"
+    )
     return hashlib.sha256(encoded).hexdigest()
 
 
@@ -182,6 +197,88 @@ class WorkflowStartCoordinator:
                 raise RequestFingerprintConflict
             return run
 
+    async def create_or_get_managed_agent(
+        self,
+        *,
+        requested_by_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        task: dict[str, object],
+        idempotency_key: str,
+    ) -> WorkflowRun:
+        """Persist a generic managed-agent run and immutable tool snapshot before start."""
+
+        fingerprint = managed_agent_request_fingerprint(agent_id=agent_id, task=task)
+        run_id = uuid.uuid4()
+        temporal_workflow_id = f"managed-agent-{run_id}"
+        async with self._database.session() as session:
+            statement = (
+                insert(WorkflowRun)
+                .values(
+                    id=run_id,
+                    agent_id=agent_id,
+                    vendor_id=None,
+                    requested_by_id=requested_by_id,
+                    workflow_type="managed_agent",
+                    temporal_workflow_id=temporal_workflow_id,
+                    idempotency_key=idempotency_key,
+                    request_fingerprint=fingerprint,
+                    status=RunStatus.PENDING,
+                    input_summary={"task": task},
+                    version=1,
+                )
+                .on_conflict_do_nothing(constraint="uq_workflow_run_principal_idempotency_key")
+                .returning(WorkflowRun.id)
+            )
+            inserted_run_id = (await session.execute(statement)).scalar_one_or_none()
+            if inserted_run_id is not None:
+                session.add(
+                    WorkflowStartAttempt(
+                        workflow_run_id=run_id,
+                        status=WorkflowStartStatus.PENDING,
+                    )
+                )
+                grants = (
+                    await session.scalars(
+                        select(AgentToolGrant).where(AgentToolGrant.agent_id == agent_id)
+                    )
+                ).all()
+                for grant in grants:
+                    session.add(
+                        RunToolGrantSnapshot(
+                            workflow_run_id=run_id,
+                            tool_definition_id=grant.tool_definition_id,
+                            policy_version=grant.policy_version,
+                            policy_hash=grant.policy_hash,
+                        )
+                    )
+                await AuditEventRepository(session).append(
+                    AuditEvent(
+                        workflow_run_id=run_id,
+                        actor_id=requested_by_id,
+                        action="api.managed_agent.start.request",
+                        resource_type="workflow_run",
+                        resource_id=run_id,
+                        idempotency_key=f"{run_id}:api.managed-agent.start.request",
+                        summary="Authenticated principal requested a managed agent run.",
+                        evidence={"agent_id": str(agent_id)},
+                    )
+                )
+                run = await session.get(WorkflowRun, run_id)
+                assert run is not None
+                return run
+
+            run = await session.scalar(
+                select(WorkflowRun).where(
+                    WorkflowRun.requested_by_id == requested_by_id,
+                    WorkflowRun.idempotency_key == idempotency_key,
+                )
+            )
+            if run is None:
+                raise RuntimeError("workflow idempotency conflict could not be reloaded")
+            if run.request_fingerprint != fingerprint:
+                raise RequestFingerprintConflict
+            return run
+
     async def start(self, run_id: uuid.UUID) -> WorkflowRun:
         claim = await self._claim_start(run_id)
         if not claim.should_start:
@@ -189,12 +286,22 @@ class WorkflowStartCoordinator:
         assert claim.token is not None
         try:
             with trace.get_tracer(__name__).start_as_current_span("agents.workflow.start") as span:
-                span.set_attribute("temporal.workflow.type", "vendor_onboarding")
+                span.set_attribute("temporal.workflow.type", claim.run.workflow_type)
+                if claim.run.workflow_type == "vendor_onboarding":
+                    workflow_method = VendorOnboardingWorkflow.run
+                    workflow_input: VendorOnboardingInput | ManagedAgentInput = (
+                        VendorOnboardingInput(
+                            run_id=str(claim.run.id), vendor_id=str(claim.run.vendor_id)
+                        )
+                    )
+                elif claim.run.workflow_type == "managed_agent":
+                    workflow_method = ManagedAgentWorkflow.run
+                    workflow_input = ManagedAgentInput(run_id=str(claim.run.id))
+                else:
+                    raise ValueError("workflow run has an unsupported workflow type")
                 await self._temporal_client.start_workflow(
-                    VendorOnboardingWorkflow.run,
-                    VendorOnboardingInput(
-                        run_id=str(claim.run.id), vendor_id=str(claim.run.vendor_id)
-                    ),
+                    workflow_method,
+                    workflow_input,
                     id=claim.run.temporal_workflow_id,
                     task_queue=TASK_QUEUE,
                 )

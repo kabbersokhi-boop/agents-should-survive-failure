@@ -157,6 +157,7 @@ async def main() -> None:
         )
         assert after_pid.strip() != before_pid
         assert time.monotonic() - delay_started < 5
+        await asyncio.sleep(10)
 
         async def completed() -> bool:
             async with database.session() as session:

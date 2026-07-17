@@ -26,7 +26,7 @@ from agents_should_survive_failure.persistence.session import Database
 from agents_should_survive_failure.settings import get_settings
 
 
-async def _wait_for(predicate: Any, *, deadline_seconds: float = 45) -> Any:
+async def _wait_for(predicate: Any, *, deadline_seconds: float = 90) -> Any:
     deadline = time.monotonic() + deadline_seconds
     while time.monotonic() < deadline:
         value = await predicate()

@@ -152,10 +152,10 @@ test-external-agent: sdk-build external-agent-build
 	bash scripts/test_external_agent.sh
 
 test-worker-crash:
-	bash scripts/test_worker_crash.sh
+	RELEASE_PROOF=worker bash scripts/compose_smoke.sh
 
 test-managed-agent:
-	bash scripts/test_managed_agent.sh
+	RELEASE_PROOF=managed-agent bash scripts/compose_smoke.sh
 
 verify: lint typecheck validate-evaluation-dataset test test-security compose-check secret-scan dependency-audit sdk-build test-sdk-install external-agent-build test-external-agent test-integration
 

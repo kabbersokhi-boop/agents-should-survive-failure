@@ -34,6 +34,14 @@ export INTEGRATION_API_KEY="$(uv run python -c 'from agents_should_survive_failu
 uv run alembic check
 export FAULT_INJECTION_ENABLED=true
 docker compose up --build --detach
+if [[ "${RELEASE_PROOF:-}" == "worker" ]]; then
+  bash scripts/test_worker_crash.sh
+  exit 0
+fi
+if [[ "${RELEASE_PROOF:-}" == "managed-agent" ]]; then
+  bash scripts/test_managed_agent.sh
+  exit 0
+fi
 uv run pytest -m integration tests/integration
 if ! evaluation_output="$(docker compose exec -T api /app/.venv/bin/python -c 'from agents_should_survive_failure.persistence.cli import evaluate_main; evaluate_main("release-gate-v1")')"; then
   printf '%s\n' "$evaluation_output" >&2

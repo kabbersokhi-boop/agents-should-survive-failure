@@ -130,7 +130,7 @@ sbom-backend:
 sbom-sdk:
 	mkdir -p artifacts
 	uv venv --clear /tmp/asf-sdk-sbom --python 3.12
-	uv pip install --offline --python /tmp/asf-sdk-sbom/bin/python packages/agents-should-survive-failure-sdk
+	uv pip install --python /tmp/asf-sdk-sbom/bin/python packages/agents-should-survive-failure-sdk
 	uv run cyclonedx-py environment /tmp/asf-sdk-sbom --output-format json --output-file artifacts/sdk.sbom.json
 
 sbom-container:

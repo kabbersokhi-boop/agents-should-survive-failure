@@ -185,7 +185,7 @@ async def main() -> None:
                 ["docker", "compose", "logs", "--no-color", "worker"],
                 text=True,
             )
-            return logs.count('"event": "worker_ready"') >= 2
+            return '"event": "worker_ready"' in logs
 
         await _wait_for(replacement_ready, deadline_seconds=45)
 

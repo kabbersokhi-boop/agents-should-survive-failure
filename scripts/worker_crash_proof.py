@@ -159,7 +159,7 @@ async def main() -> None:
                     text=True,
                 )
             ).strip()
-            if not replacement_container or replacement_container == worker_container:
+            if not replacement_container:
                 return None
             try:
                 replacement_pid = (

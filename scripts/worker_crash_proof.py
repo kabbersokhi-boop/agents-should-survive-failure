@@ -127,14 +127,22 @@ async def main() -> None:
 
         await _wait_for(effects_committed)
         delay_started = time.monotonic()
-        before_pid = (
+        worker_container = (
             await asyncio.to_thread(
                 subprocess.check_output,
                 ["docker", "compose", "ps", "-q", "worker"],
                 text=True,
             )
         ).strip()
-        assert before_pid
+        assert worker_container
+        before_pid = (
+            await asyncio.to_thread(
+                subprocess.check_output,
+                ["docker", "inspect", "-f", "{{.State.Pid}}", worker_container],
+                text=True,
+            )
+        ).strip()
+        assert before_pid != "0"
         await asyncio.to_thread(
             subprocess.run, ["docker", "compose", "kill", "-s", "KILL", "worker"], check=True
         )
@@ -144,7 +152,7 @@ async def main() -> None:
         await asyncio.sleep(1)
         after_pid = await asyncio.to_thread(
             subprocess.check_output,
-            ["docker", "compose", "ps", "-q", "worker"],
+            ["docker", "inspect", "-f", "{{.State.Pid}}", worker_container],
             text=True,
         )
         assert after_pid.strip() != before_pid

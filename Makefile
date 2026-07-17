@@ -120,7 +120,7 @@ secret-scan:
 	docker run --rm -v "$(CURDIR):/repo" ghcr.io/gitleaks/gitleaks:v8.28.0 detect --config=/repo/.gitleaks.toml --source=/repo --redact
 
 dependency-audit:
-	uv export --frozen --no-dev --no-emit-project --format requirements-txt --output-file /tmp/asf-requirements.txt >/dev/null
+	uv export --frozen --no-dev --no-emit-project --format requirements-txt | sed '/^\.\/packages\/agents-should-survive-failure-sdk$$/d' > /tmp/asf-requirements.txt
 	uv run pip-audit --requirement /tmp/asf-requirements.txt --strict
 
 sbom-backend:

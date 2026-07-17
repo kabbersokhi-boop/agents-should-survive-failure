@@ -1,103 +1,99 @@
 # Agents Should Survive Failure
 
-**A durable control plane for AI workflows that cannot afford to forget, duplicate, or self-authorize important actions.**
-
-Agents Should Survive Failure is a production-style reference implementation for long-running, AI-assisted business workflows. It combines durable orchestration, human approval, governed tool access, business-effect idempotency, audit evidence, and operational visibility.
-
-It is built around a simple idea:
-
-> An agent may be retried. A worker may crash. A network response may be lost. The business outcome must still remain correct.
+**Durable execution and governance for AI workflows that must remain correct through retries, delayed approvals, uncertain network outcomes, and worker crashes.**
 
 [![CI](https://github.com/kabbersokhi-boop/agents-should-survive-failure/actions/workflows/ci.yml/badge.svg)](https://github.com/kabbersokhi-boop/agents-should-survive-failure/actions/workflows/ci.yml) [![Latest release](https://img.shields.io/github/v/release/kabbersokhi-boop/agents-should-survive-failure?display_name=tag)](https://github.com/kabbersokhi-boop/agents-should-survive-failure/releases/latest) [![Python 3.12](https://img.shields.io/badge/python-3.12-blue)](https://www.python.org/downloads/release/python-3120/) [![Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 
+> **Core invariant:** execution may happen more than once; the tested business effect commits once.
+
+This repository is a production-style reference implementation of the reliability layer around an AI-assisted business process. Temporal owns durable orchestration, PostgreSQL owns business truth and evidence, authenticated people authorize consequential decisions, and governed tools perform effects without giving the model unrestricted authority.
+
 ## Why this project exists
 
-Most AI-agent demos focus on the happy path: receive a task, call a model, use a tool, return an answer.
+A model call is usually the easiest part of an agent system.
 
-Real business workflows are harder. They may run for minutes or days, wait for a person, cross several systems, and perform actions that must not happen twice. Once an agent can approve, notify, modify, refund, provision, or submit something, model quality is no longer the only concern.
+The difficult part begins when the agent participates in real operations:
 
-The system also has to answer:
+- a worker crashes after a database write succeeds but before the acknowledgement is received;
+- the same request, callback, or approval is delivered twice;
+- a network timeout makes the outcome of a tool call uncertain;
+- a workflow must wait hours or days for a person;
+- a retry must not issue a second refund, email, account change, or approval;
+- an operator must later prove what happened and who authorized it.
 
-- What happens if a worker crashes after the database write succeeds but before the acknowledgement is received?
-- What happens if the same request, callback, or approval is delivered twice?
-- How can a workflow wait safely for a human decision?
-- Which tools is an agent allowed to call for this specific run?
-- Can the model explain evidence without becoming the authority that approves its own recommendation?
-- How can an operator reconstruct exactly what happened later?
+Those are distributed-systems, authorization, and operational-correctness problems. This project addresses them directly instead of treating the happy-path agent loop as the whole product.
 
-This repository explores those engineering problems directly.
+## Verified release evidence
+
+The accepted `v0.2.0` release is tied to commit [`b28e3cf4`](https://github.com/kabbersokhi-boop/agents-should-survive-failure/commit/b28e3cf4ab6fad2ed4726a6e25dcad49594d8ccc) and successful GitHub Actions run [`29545587083`](https://github.com/kabbersokhi-boop/agents-should-survive-failure/actions/runs/29545587083).
+
+| Proof | Verified result |
+| --- | --- |
+| Reviewed workflow evaluation | **24/24 cases passed** against real Temporal and PostgreSQL execution |
+| OS-level crash recovery | Docker worker terminated with `SIGKILL`; a replacement worker recovered the redelivered activity |
+| Duplicate-safe business effects | Exactly **one** approval decision, **one** approved-vendor projection, and **one** synthetic email after recovery |
+| Automated tests | **169 unit tests**, **21 integration tests**, and **7 dedicated security tests** |
+| Database lifecycle | Migration upgrade, downgrade, and re-upgrade completed through head `b5c6d7e8f9a0` |
+| Supply-chain checks | Gitleaks, locked dependency audit, and CycloneDX SBOMs for the backend, SDK, and container |
+| External package proof | The separately packaged Operations Investigation Agent executed through the managed-agent runtime |
+
+The release includes JSON and Markdown evaluation reports plus generated SBOMs. See the [`v0.2.0` evidence summary](docs/evidence/v0.2.0.md), [release assets](https://github.com/kabbersokhi-boop/agents-should-survive-failure/releases/tag/v0.2.0), and [successful CI run](https://github.com/kabbersokhi-boop/agents-should-survive-failure/actions/runs/29545587083).
+
+The release evidence is deliberately scoped: the vendor-onboarding workflow is the mature reference path; the generic managed-agent SDK/runtime is preview quality and delegation is experimental.
 
 ## What the project is
 
-It is a reference backend and control plane for teams building AI agents that participate in consequential, multi-step operations.
-
-The platform provides:
+It is a backend control plane for consequential, multi-step AI workflows. It provides:
 
 - **durable orchestration** with Temporal;
-- **authoritative business state and evidence** in PostgreSQL;
+- **authoritative business state and audit evidence** in PostgreSQL;
+- **recoverable workflow starts** when the start outcome is unknown;
 - **human approval** for consequential decisions;
-- **governed tool execution** with run-scoped grants, version pinning, schema validation, approval checks, and idempotency;
-- **bounded model usage**, where models explain evidence but do not authorize outcomes;
-- **recoverable workflow starts** when a network timeout leaves the start result uncertain;
+- **governed tool execution** with run-scoped grants, version pinning, schema checks, approval gates, timeouts, and idempotency;
+- **bounded model participation**, where a model explains evidence but cannot authorize its own recommendation;
 - **duplicate-safe business effects** across retries and redelivery;
-- **audit, metrics, traces, and evaluation evidence** for operators and reviewers;
-- a **preview SDK/runtime** for trusted, operator-installed external Python agents.
+- **metrics, traces, workflow history, and evaluation evidence** for operators;
+- a **preview SDK/runtime** for trusted, operator-installed Python agents.
 
-The intended users are AI engineers, backend engineers, platform engineers, and teams moving from an agent prototype to a dependable internal system.
+A useful way to read the system is:
 
-A business user would normally interact with a simpler product interface built on top of this platform—for example, an approval screen showing the evidence collected by an agent. Engineers operate the API, workflow history, evidence store, tool gateway, and monitoring layer behind that interface.
+> **Temporal remembers. PostgreSQL records the truth. Models advise. People and policy authorize. Governed tools act.**
 
-## The reference workflow
+## Who it is for
 
-The repository includes one complete, release-proven workflow: **vendor onboarding**.
+The direct audience is:
 
-Vendor onboarding is used because it brings several difficult concerns together in one understandable case:
+- AI engineers building agents that touch business systems;
+- backend engineers responsible for correctness across retries and failures;
+- platform teams providing approvals, tool access, evidence, and observability to multiple workflows;
+- teams moving from an agent prototype or automation flow to a controlled internal service.
 
-1. A company submits a new supplier for review.
+The same architecture can support incident response, high-value refunds, insurance or compliance review, account changes, access provisioning, and internal IT operations. The repository implements one complete reference workflow rather than pretending to ship every possible product.
+
+## Reference workflow: vendor onboarding
+
+The release-proven workflow reviews and approves a new supplier:
+
+1. An authenticated client submits a vendor.
 2. The workflow retrieves vendor and policy evidence through governed tools.
 3. Deterministic code calculates a risk score.
-4. A model produces a bounded explanation of that evidence.
-5. The workflow waits durably for an authorized human decision.
-6. An approval creates the approved-vendor record and a synthetic notification.
-7. Every important transition is persisted as business and audit evidence.
+4. A model produces a bounded explanation of the evidence.
+5. Temporal waits durably for an authorized human decision.
+6. Approval records the vendor projection and creates a synthetic notification.
+7. Business events, model evidence, tool invocations, approvals, and audit records remain queryable.
 
-The value is not limited to suppliers. The same pattern applies to workflows such as:
+Vendor onboarding was selected because it combines evidence gathering, model assistance, human authority, external effects, long waits, retries, and duplicate risk in one understandable scenario. The reusable engineering work is the control plane around that scenario.
 
-- investigating an operational incident before taking corrective action;
-- reviewing a high-value refund before issuing it;
-- collecting evidence for an insurance or compliance case;
-- preparing an account or access change that requires approval;
-- coordinating an internal IT operation across several systems.
+## Authority model
 
-Vendor onboarding is the concrete test vehicle used to prove the broader reliability and governance architecture.
-
-## The core authority model
-
-The project deliberately separates intelligence from authority:
+The project separates intelligence from authority:
 
 - **Models interpret and explain.**
 - **Deterministic code enforces rules.**
-- **Authenticated people authorize consequential decisions.**
+- **Authenticated principals authorize consequential decisions.**
 - **Governed activities and tools perform business effects.**
 
-A model can help explain why a vendor appears risky. It cannot approve the vendor, grant itself new tools, or bypass the governed execution path.
-
-## What happens when something fails
-
-Consider the most dangerous retry window:
-
-1. An approved action commits to PostgreSQL.
-2. The worker crashes before Temporal receives the activity-completion acknowledgement.
-3. Temporal redelivers the activity to a replacement worker.
-4. The activity executes again.
-5. Stable idempotency keys, transactions, and uniqueness constraints recognize the already-committed effects.
-6. The workflow completes without creating a second approval, projection, or email.
-
-The claim is intentionally precise:
-
-> Execution may happen more than once. The tested business effect commits once.
-
-This is at-least-once execution with exactly-once business effects for the proven workflow—not magical exactly-once distributed execution.
+A model can explain why a vendor appears risky. It cannot approve the vendor, grant itself additional tools, or bypass the governed execution path.
 
 ## Architecture
 
@@ -119,7 +115,7 @@ flowchart LR
 
 | Component | Responsibility |
 | --- | --- |
-| Temporal | Durable workflow history, retries, timers, updates, waits, and recovery |
+| Temporal | Workflow history, retries, updates, durable waits, redelivery, and recovery |
 | PostgreSQL | Business truth, approvals, evidence, idempotency, and projections |
 | FastAPI control plane | Authenticated workflow, approval, agent, evidence, and operational APIs |
 | Worker | Executes activities requested by Temporal |
@@ -127,43 +123,60 @@ flowchart LR
 | Model provider | Produces bounded explanations without decision authority |
 | Observability stack | Exposes health, metrics, traces, workflow state, and release evidence |
 
-Temporal owns orchestration. PostgreSQL owns business truth. Models advise. People and deterministic policy authorize. Governed tools perform effects.
+## The failure this project proves
 
-## How to use the repository
+The strongest proof targets the dangerous post-commit window:
 
-There are two distinct paths.
+1. The approval, approved-vendor projection, and synthetic email commit to PostgreSQL.
+2. Before the activity can acknowledge completion, the Docker worker is killed with `SIGKILL`.
+3. A replacement worker starts.
+4. Temporal redelivers the activity because it cannot assume the lost acknowledgement meant completion.
+5. The activity executes again.
+6. Stable idempotency keys, transactions, and database constraints converge on the already-committed effects.
+7. The workflow completes with exactly one of each business effect.
 
-### 1. Run and study the proven workflow
+Run that proof with:
 
-Use the vendor-onboarding path to explore:
+```bash
+make test-worker-crash
+```
 
-- durable workflow execution;
-- human approval;
-- recoverable starts;
-- governed tools and MCP boundaries;
-- duplicate-safe effects;
-- crash recovery;
-- evaluation and audit evidence;
-- metrics and traces.
+A successful run prints the workflow ID and final one-row counts for decisions, projections, and emails.
 
-This path does not require the SDK.
+## How to use this repository
 
-### 2. Build a compatible external Python agent
+### 1. Run the reference platform
 
-The standalone SDK is a preview developer contract for trusted Python agents that run inside the managed-agent environment.
+Use the vendor-onboarding workflow to study durable execution, approvals, recoverable starts, governed tools, MCP boundaries, audit evidence, and crash recovery. This path does not require the SDK.
 
-An agent declares its metadata, task and result schemas, required tools, capabilities, checkpoints, artifacts, and budget defaults. The platform supplies a constrained runtime context for operations such as:
+### 2. Reproduce the release proofs
 
-- calling a governed tool;
-- saving and loading checkpoints;
-- creating digest-verified artifacts;
-- requesting human approval;
-- emitting progress events;
-- checking cancellation and remaining budget.
+```bash
+make validate-evaluation-dataset
+make test-worker-crash
+make test-managed-agent
+make test-integration
+```
 
-The independently packaged Operations Investigation Agent demonstrates this integration path.
+- `make validate-evaluation-dataset` validates the reviewed 24-case catalog and its digest.
+- `make test-worker-crash` performs the real OS-level worker termination and recovery proof.
+- `make test-managed-agent` executes the separately packaged example agent through the preview runtime.
+- `make test-integration` builds an isolated Compose stack, exercises migrations and the real workflow evaluator, exports evidence, and cleans up.
 
-Existing agents are not connected automatically. They must be adapted to the SDK contract, packaged, installed into the trusted worker environment, registered, and started through the authenticated API.
+### 3. Build a compatible Python agent
+
+The standalone SDK is a preview developer contract for trusted Python agents. An agent declares metadata, task and result schemas, tools, capabilities, checkpoints, artifacts, and budget defaults. The platform supplies a constrained runtime context for:
+
+- governed tool calls;
+- checkpoints and digest-verified artifacts;
+- human approval requests;
+- progress events;
+- cancellation checks;
+- budget inspection.
+
+The [Operations Investigation Agent](packages/example-operations-agent/) is packaged independently and demonstrates entry-point discovery and managed execution.
+
+Existing agents are not connected automatically. They must be adapted to the SDK contract, installed into the trusted worker environment, registered, and started through the authenticated API.
 
 ## Quickstart
 
@@ -182,86 +195,36 @@ Useful local interfaces:
 
 | Interface | Address | Purpose |
 | --- | --- | --- |
-| FastAPI/OpenAPI | `http://127.0.0.1:8000/docs` | Create cases, approve work, inspect APIs |
-| Temporal UI | `http://127.0.0.1:8080` | Inspect workflow history, retries, and waits |
+| FastAPI/OpenAPI | `http://127.0.0.1:8000/docs` | Create cases, approve decisions, and inspect APIs |
+| Temporal UI | `http://127.0.0.1:8080` | Inspect workflow history, retries, and durable waits |
 | Grafana | `http://127.0.0.1:3000` | View operational dashboards |
 | Prometheus | `http://127.0.0.1:9090` | Inspect metrics |
 
-The [local-development runbook](docs/runbooks/local-development.md) covers API-key setup, authenticated calls, database operations, and the complete local workflow.
+The [local-development runbook](docs/runbooks/local-development.md) covers API-key setup, authenticated calls, database operations, and the complete local workflow. The [guided live walkthrough](docs/demo.md) shows the reference scenario, approval wait, stored evidence, and crash-recovery proof screen by screen.
 
-## Demonstration
-
-A strong employer demonstration takes about seven minutes:
-
-1. Start the stack and submit a synthetic vendor through the authenticated API.
-2. Open Temporal UI and show the workflow waiting durably for approval.
-3. Show the risk score, policy evidence, and model explanation.
-4. Explain that the model cannot approve its own recommendation.
-5. Approve the request and show the completed workflow and persisted evidence.
-6. Run the OS-level worker-crash proof.
-7. Show that the replacement worker recovers while the database still contains exactly one approval decision, one approved-vendor projection, and one synthetic email.
-
-```bash
-make test-worker-crash
-```
-
-See the [screen-by-screen demonstration guide](docs/demo.md).
-
-## What was proven in `v0.2.0`
-
-| Evidence | Result |
-| --- | --- |
-| Production-workflow evaluation | 24/24 reviewed cases passed |
-| Runtime | Real Temporal and PostgreSQL execution |
-| Crash recovery | Docker worker terminated with `SIGKILL`, followed by replacement-worker recovery |
-| Business effects | Exactly one approval decision, approved-vendor projection, and synthetic email |
-| Automated tests | 169 unit tests, 21 integration tests, 7 dedicated security tests |
-| Database lifecycle | Migration upgrade, downgrade, and re-upgrade through head `b5c6d7e8f9a0` |
-| Supply-chain checks | Gitleaks, locked dependency audit, and backend, SDK, and container SBOMs |
-| External package proof | Real execution of the separately packaged Operations Investigation Agent |
-
-See the [`v0.2.0` evidence summary](docs/evidence/v0.2.0.md), [GitHub release](https://github.com/kabbersokhi-boop/agents-should-survive-failure/releases/tag/v0.2.0), and [successful GitHub Actions run 29545587083](https://github.com/kabbersokhi-boop/agents-should-survive-failure/actions/runs/29545587083).
-
-## Run the strongest checks
-
-```bash
-make validate-evaluation-dataset
-make test-worker-crash
-make test-managed-agent
-make test-integration
-```
-
-`make test-integration` builds an isolated Docker Compose project, exercises migrations and the production-workflow evaluator, exports bounded evidence, and removes its containers and volumes.
-
-## Maturity map
+## Maturity and scope
 
 | Surface | Status | Supported claim |
 | --- | --- | --- |
 | Vendor-onboarding workflow | Mature reference workflow | Release-proven durable approval, recovery, and duplicate-safe effects |
 | Recoverable workflow starts | Mature reference mechanism | Ambiguous starts can be reconciled without launching duplicates |
-| Governed tools and MCP boundary | Mature reference mechanism | Run-scoped grants, version pinning, schemas, approval, idempotency, and evidence |
+| Governed tools and MCP boundary | Mature reference mechanism | Run-scoped grants, version pinning, schema checks, approval, idempotency, and evidence |
 | Public SDK and managed-agent runtime | Preview | A trusted installed Python agent can run through a constrained context |
-| Delegation | Experimental | Implemented but not release-proven as a complete production feature |
+| Delegation | Experimental | Implemented, but not release-proven as a complete production feature |
 | Hostile-code isolation | Not provided | Docker is not represented as a complete security boundary |
 
-## What this project is not
+## What it does not claim
 
-This repository is not presented as a turnkey hosted SaaS product or a finished enterprise agent platform.
+This is a reference implementation, not a turnkey hosted SaaS product or a finished enterprise platform. It does not claim:
 
-It does not currently provide:
-
-- a polished end-user dashboard;
-- automatic integration with every existing agent framework;
-- an n8n connector or hosted agent-upload service;
-- hostile-code isolation for untrusted third-party packages;
+- hostile-code isolation for arbitrary third-party packages;
 - proven multi-tenancy, high availability, enterprise identity, billing, or Kubernetes operation;
+- automatic compatibility with every agent framework or no-code platform;
 - production compliance certification.
 
-The managed-agent SDK/runtime is preview quality, delegation is experimental, and external agent packages are trusted operator-installed code. These boundaries are documented so that the proven workflow is not confused with unfinished platform surfaces.
+External agent packages are trusted, operator-installed code. NVIDIA NIM live checks require credentials and are not part of public CI. Read the [limitations](docs/limitations.md) and [threat model](docs/threat-model.md) before adapting the design.
 
-Read the [plain-English guide](docs/plain-english-guide.md), [limitations](docs/limitations.md), and [threat model](docs/threat-model.md) before adapting the design.
-
-## Repository guide
+## Repository map
 
 | Path | Contents |
 | --- | --- |
@@ -272,19 +235,18 @@ Read the [plain-English guide](docs/plain-english-guide.md), [limitations](docs/
 | `scripts/` | Compose, crash-recovery, SDK, and managed-agent proofs |
 | `tests/` | Unit, integration, and security tests |
 | `deployment/` | PostgreSQL, Temporal, Prometheus, Tempo, and Grafana configuration |
-| `docs/` | Architecture, runbooks, evidence, security, demonstration, and limitations |
+| `docs/` | Architecture, runbooks, evidence, security, walkthroughs, and limitations |
 
 ## Documentation
 
-Start with:
-
-1. [Plain-English guide](docs/plain-english-guide.md)
-2. [Demonstration guide](docs/demo.md)
-3. [Local-development runbook](docs/runbooks/local-development.md)
-4. [System boundaries and architecture](docs/adr/0001-system-boundaries.md)
-5. [`v0.2.0` release evidence](docs/evidence/v0.2.0.md)
-
-The complete [documentation index](docs/README.md) links to the evaluation, SDK, security, operational, and historical material.
+- [Release evidence](docs/evidence/v0.2.0.md)
+- [Local-development runbook](docs/runbooks/local-development.md)
+- [Guided live walkthrough](docs/demo.md)
+- [System boundaries and architecture](docs/adr/0001-system-boundaries.md)
+- [Evaluation methodology](docs/evaluation-methodology.md)
+- [Threat model](docs/threat-model.md)
+- [Limitations](docs/limitations.md)
+- [Complete documentation index](docs/README.md)
 
 ## License
 

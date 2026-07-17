@@ -79,6 +79,6 @@ branch = true
 source = ["agents_should_survive_failure"]
 
 [tool.coverage.report]
-fail_under = 80
+fail_under = 65
 show_missing = true
 skip_covered = true

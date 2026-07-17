@@ -97,21 +97,50 @@ A model can explain why a vendor appears risky. It cannot approve the vendor, gr
 
 ## Architecture
 
+### System structure
+
 ```mermaid
 flowchart LR
-    User[Employee or service] --> Product[Product UI or API client]
-    Product --> API[FastAPI control plane]
-    API --> DB[(PostgreSQL\nbusiness state + evidence)]
-    API --> T[Temporal\ndurable workflow history]
-    T --> W[Worker]
-    W --> G[Governed tool gateway / MCP]
-    W --> M[Model provider\nadvisory only]
-    W --> H[Human approval]
+    User[Employee or calling service] --> API[FastAPI control plane]
+
+    API --> T[Temporal workflow]
+    T --> W[Worker activities]
+
+    W --> M[Model provider<br/>explanation only]
+    W --> G[Governed tool gateway]
+    W --> DB[(PostgreSQL<br/>business state and evidence)]
+
+    G --> S[Approved business systems]
     G --> DB
-    H --> T
-    DB --> E[Audit + evaluation evidence]
-    T --> E
+
+    Approver[Authorized approver] --> API
+    API -->|approval update| T
+
+    DB --> E[Audit and evaluation reports]
 ```
+
+A client starts work through the API. Temporal tracks the durable workflow state, workers perform activities, governed tools mediate external effects, PostgreSQL stores business truth and evidence, and human approval returns through the authenticated API rather than through the model.
+
+### Crash-recovery path
+
+```mermaid
+sequenceDiagram
+    participant T as Temporal
+    participant W1 as Worker 1
+    participant DB as PostgreSQL
+    participant W2 as Replacement worker
+
+    T->>W1: Execute approved business activity
+    W1->>DB: Commit approval, projection, and email
+    DB-->>W1: Commit succeeds
+    Note over W1: Worker crashes before acknowledgement
+    T->>W2: Redeliver activity
+    W2->>DB: Retry with the same idempotency keys
+    DB-->>W2: Existing effects returned
+    W2-->>T: Activity completed
+```
+
+The activity may be redelivered and executed again, but stable idempotency keys and database constraints prevent a second business effect.
 
 | Component | Responsibility |
 | --- | --- |

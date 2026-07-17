@@ -4,7 +4,7 @@
 
 The repository ships the reviewed vendor-onboarding suite at
 `src/agents_should_survive_failure/evaluation_datasets/vendor_onboarding.v1.json`.
-It contains one case for each of the 24 Phase B scenario types. The JSON is package data and is
+It contains one case for each of the 24 production-workflow scenario types. The JSON is package data and is
 validated by deeply immutable, extra-forbidden Pydantic contracts before it can be seeded or used.
 Nested tool arguments are read-only after validation, preventing the cached reviewed suite from
 being mutated in process.
@@ -41,9 +41,9 @@ only bounded evidence; they exclude prompts, credentials, private arguments, and
 
 Reviewed evaluation contract fields are protected by a PostgreSQL update/delete trigger. Operators
 may toggle only `enabled`; idempotent seed loading preserves that setting and rejects drift in every
-reviewed field. The Phase A schema has no suite provenance or immutable case digest columns, so a
-downgrade from B1 explicitly deletes B1 evaluation runs, results, and case rows while retaining
-legacy pre-B1 evaluation records. The isolated Compose gate exercises a seeded B1 evaluation,
+reviewed field. The older schema has no suite provenance or immutable case digest columns, so a
+downgrade explicitly deletes release evaluation runs, results, and case rows while retaining
+legacy evaluation records. The isolated Compose gate exercises a seeded catalog evaluation,
 downgrades one revision, re-upgrades, and reseeds to prevent catalog collisions on re-upgrade.
 
 ## Current workflow nuance

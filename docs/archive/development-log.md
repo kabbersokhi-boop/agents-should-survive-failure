@@ -1,3 +1,5 @@
+> This document is an archived implementation log. It records historical checkpoints and internal development terminology and does not describe the current product status. See the [README](../../README.md), [CHANGELOG](../../CHANGELOG.md), and [release evidence](../evidence/v0.2.0.md) for the accepted public state.
+
 # Backend Readiness Progress
 
 ## 2026-07-12 Baseline
@@ -22,7 +24,7 @@ durable wait for approval, evidence retrieval, approval submission, and terminal
 succeeded. The run ID was `0056740d-84a2-4c11-a946-7f4c4608e78c`.
 
 The audit is recorded in
-[docs/reviews/backend-readiness-2026-07.md](docs/reviews/backend-readiness-2026-07.md). The
+[docs/reviews/backend-readiness-2026-07.md](../reviews/backend-readiness-2026-07.md). The
 backend has not passed the hardened release gate; Phase A work is required before any SDK work.
 
 ## 2026-07-12 Workflow-Start Recovery Checkpoint

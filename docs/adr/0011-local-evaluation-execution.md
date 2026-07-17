@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; B1 semantics clarified by ADR 0013.
+Accepted; reviewed-catalog semantics clarified by ADR 0013.
 
 ## Context
 
@@ -17,15 +17,14 @@ Run vendor-onboarding evaluations through `make evaluate` with a required
 same Compose-network database configuration as the control plane, persists the run, and prints its
 identifier. Reports remain available through the read-only evaluation API.
 
-In B1 this command performs catalog-persistence integrity checks only. Every result records
-`workflow_executed=false`. B2 will retain the operator and idempotency boundary while replacing the
-runner with actual workflow execution.
+This command validates the reviewed catalog and executes the production workflow. Every result
+records its workflow execution mode and bounded evidence.
 
 ## Consequences
 
 Repeated invocations with the same key reuse the original run. The command does not add a new local
-unauthenticated mutation endpoint. A failed B1 catalog record fails the release job, but a green B1
-run must not be described as a behavioral, worker-recovery, or exactly-once evaluation.
+unauthenticated mutation endpoint. A failed catalog record fails the release job; a successful
+release run is described with its actual behavioral and recovery evidence.
 
 The isolated Compose release gate invokes the same command after integration tests with a fixed
 per-clean-database idempotency key. Credentialed model-provider behavior remains a separate manual

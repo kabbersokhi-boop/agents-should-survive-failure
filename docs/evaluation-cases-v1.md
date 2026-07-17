@@ -1,9 +1,9 @@
-# Phase B Evaluation Cases v1
+# Production Workflow Evaluation Cases v1
 
 Canonical source: `src/agents_should_survive_failure/evaluation_datasets/vendor_onboarding.v1.json`.
 This table is a review aid; the JSON and its strict schema are the executable contract.
 
-- Suite: `vendor-onboarding-phase-b` version `1.0.0` (schema `1`)
+- Suite: `vendor-onboarding` version `1.0.0` (schema `1`)
 - Cases: 24
 - Normalized suite SHA-256: `f8a11accd7b167224c445213218bba7eb324cc457eb0269c3002cdd89f498904`
 
@@ -39,5 +39,5 @@ seven event names emitted by the production activities, and every case declares 
 for all three governed tool definitions. Duplicate-prevention expectations cap approval decisions,
 approved-vendor rows, and synthetic-email rows at one and require unique event sequences.
 
-The B1 runner validates catalog persistence for all 24 rows only. Real Temporal execution begins
-in B2; fault plans are implemented in B3; active crash and exactly-once proof are implemented in B4.
+The release evaluator validates all 24 reviewed rows against real Temporal execution, including
+retry, worker-recovery, and exactly-once business-effect scenarios.

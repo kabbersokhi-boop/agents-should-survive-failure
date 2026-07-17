@@ -29,8 +29,8 @@ returns 503 on either failure. Error types may be returned, but connection strin
 messages are never exposed.
 
 OTLP spans are exported to Tempo. Prometheus scrapes `/metrics`, and Grafana provisions both data
-sources and a minimal system-health dashboard. The worker in Phase 1 verifies Temporal health but
-does not poll a task queue until Phase 3 introduces real workflows.
+sources and a minimal system-health dashboard. The initial worker verifies Temporal health and the
+workflow worker polls a task queue for the reference workflows.
 
 ## Consequences
 

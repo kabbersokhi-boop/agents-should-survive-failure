@@ -24,7 +24,7 @@ def validate_json_schema(value: object, schema: Mapping[str, object], *, label: 
     if not isinstance(value, Mapping):
         return
 
-    required = schema.get("required", ())
+    required = schema.get("required", [])
     if not isinstance(required, list):
         raise JsonSchemaValidationError(f"{label} schema has invalid required fields")
     required_items = cast(list[object], required)

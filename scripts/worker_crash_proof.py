@@ -146,17 +146,38 @@ async def main() -> None:
         await asyncio.to_thread(
             subprocess.run, ["docker", "compose", "kill", "-s", "KILL", "worker"], check=True
         )
+        assert time.monotonic() - delay_started < 5
         await asyncio.to_thread(
             subprocess.run, ["docker", "compose", "up", "-d", "worker"], check=True
         )
-        await asyncio.sleep(1)
-        after_pid = await asyncio.to_thread(
-            subprocess.check_output,
-            ["docker", "inspect", "-f", "{{.State.Pid}}", worker_container],
-            text=True,
-        )
-        assert after_pid.strip() != before_pid
-        assert time.monotonic() - delay_started < 5
+
+        async def replacement_process() -> tuple[str, str] | None:
+            replacement_container = (
+                await asyncio.to_thread(
+                    subprocess.check_output,
+                    ["docker", "compose", "ps", "-q", "worker"],
+                    text=True,
+                )
+            ).strip()
+            if not replacement_container or replacement_container == worker_container:
+                return None
+            try:
+                replacement_pid = (
+                    await asyncio.to_thread(
+                        subprocess.check_output,
+                        ["docker", "inspect", "-f", "{{.State.Pid}}", replacement_container],
+                        text=True,
+                    )
+                ).strip()
+            except subprocess.CalledProcessError:
+                return None
+            return (
+                (replacement_container, replacement_pid)
+                if replacement_pid != "0" and replacement_pid != before_pid
+                else None
+            )
+
+        await _wait_for(replacement_process)
 
         async def replacement_ready() -> bool:
             logs = await asyncio.to_thread(

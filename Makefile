@@ -77,7 +77,7 @@ reindex-policies:
 	uv run python -c 'from agents_should_survive_failure.persistence.cli import reindex_main; reindex_main()'
 
 validate-evaluation-dataset:
-	uv run python -c 'from agents_should_survive_failure.evaluation_scenarios import validate_packaged_evaluation_suite; count, digest = validate_packaged_evaluation_suite(); print(f"Validated {count} Phase B cases: {digest}")'
+	uv run python -c 'from agents_should_survive_failure.evaluation_scenarios import validate_packaged_evaluation_suite; count, digest = validate_packaged_evaluation_suite(); print(f"Validated {count} production-workflow cases: {digest}")'
 
 evaluate:
 	@test -n "$(EVALUATION_IDEMPOTENCY_KEY)" || (echo 'Set EVALUATION_IDEMPOTENCY_KEY to run evaluations.' >&2; exit 2)

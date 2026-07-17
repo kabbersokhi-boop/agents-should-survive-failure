@@ -24,9 +24,9 @@ tables, enums, constraints, and indexes. Its downgrade removes every table and a
 an immediate re-upgrade succeeds. API startup upgrades to head before loading deterministic,
 conflict-safe development seeds and before serving traffic.
 
-Policy chunks use pgvector with an HNSW cosine index. Phase 2 uses eight-dimensional deterministic
-embeddings solely to test the storage and query contract without an external API. Phase 5 will add
-a migration to the selected production embedding provider's documented dimension.
+Policy chunks use pgvector with an HNSW cosine index. Local development uses eight-dimensional
+deterministic embeddings to test the storage and query contract without an external API. A
+configured provider can use its documented embedding dimension through a migration.
 
 Repositories accept a caller-owned `AsyncSession`; the service or activity boundary owns commit
 and rollback. This permits a business operation and its audit event to commit atomically.

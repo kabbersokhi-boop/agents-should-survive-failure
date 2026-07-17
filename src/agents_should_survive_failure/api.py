@@ -21,6 +21,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from temporalio.client import WorkflowUpdateFailedError, WorkflowUpdateRPCTimeoutOrCancelledError
 
+from agents_should_survive_failure import __version__
 from agents_should_survive_failure.agent_discovery import AgentDiscoveryError, discovered_agents
 from agents_should_survive_failure.agent_registry import (
     AgentManifestError,
@@ -1862,7 +1863,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title="Agents Should Survive Failure",
         description="Control plane for durable, observable, permission-controlled AI agents.",
-        version="0.1.0",
+        version=__version__,
         lifespan=lifespan,
     )
     app.state.settings = app_settings

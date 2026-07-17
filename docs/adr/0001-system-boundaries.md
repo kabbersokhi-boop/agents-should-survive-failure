@@ -13,9 +13,9 @@ difficult to verify.
 
 Use a typed Python monorepo. Temporal will own durable execution history; PostgreSQL will own
 business entities and queryable audit records. Provider, workflow, persistence, tool-gateway,
-and policy boundaries will remain explicit. Phase 0 intentionally contains only a minimal
-liveness component while it establishes the quality and delivery controls required by later
-phases. Frontend work is prohibited until the backend release gate is proven and tagged.
+and policy boundaries will remain explicit. The initial implementation contains only a minimal
+liveness component while it establishes the quality and delivery controls required by the release.
+Frontend work is outside this reference project.
 
 Python 3.12 is pinned because it is mature and supported across the planned FastAPI, SQLAlchemy,
 Temporal, OpenTelemetry, MCP, and testing stack.

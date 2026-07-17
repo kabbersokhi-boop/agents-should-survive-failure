@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message
 
+from agents_should_survive_failure import __version__
 from agents_should_survive_failure import api as api_module
 from agents_should_survive_failure.api import (
     RequestBodyLimitMiddleware,
@@ -58,6 +59,7 @@ async def test_liveness_contract() -> None:
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
     assert response.headers["x-request-id"] == "request-123"
+    assert create_app().openapi()["info"]["version"] == __version__
 
 
 @pytest.mark.asyncio

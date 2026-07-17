@@ -66,7 +66,7 @@ available for attached agent code. These are release blockers, not production-re
 The runtime is vendor-onboarding-specific and lacks authenticated, versioned list/detail/event
 contracts, generic agent registration, policy-owned tool invocation, checkpoints, artifacts,
 budgets, cancellation contracts, capability negotiation, and a generic execution boundary. An SDK
-must not be started until the Phase A backend release gate is satisfied.
+must not be started until the backend release gate is satisfied.
 
 ## Baseline Commands
 

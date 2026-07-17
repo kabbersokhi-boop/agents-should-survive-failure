@@ -8,8 +8,8 @@ trap 'rm -rf "$test_dir"' EXIT
 
 test -n "$sdk_wheel"
 test -n "$agent_wheel"
-uv venv --offline "$test_dir" --python 3.12 >/dev/null
-uv pip install --offline --python "$test_dir/bin/python" "$sdk_wheel" "$agent_wheel" >/dev/null
+uv venv "$test_dir" --python 3.12 >/dev/null
+uv pip install --python "$test_dir/bin/python" "$sdk_wheel" "$agent_wheel" >/dev/null
 "$test_dir/bin/python" -c '
 import asyncio
 from importlib.metadata import entry_points

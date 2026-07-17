@@ -7,8 +7,8 @@ test_dir="$(mktemp -d)"
 trap 'rm -rf "$test_dir"' EXIT
 
 test -n "$wheel"
-uv venv --offline "$test_dir" --python 3.12 >/dev/null
-uv pip install --offline --python "$test_dir/bin/python" "$wheel" >/dev/null
+uv venv "$test_dir" --python 3.12 >/dev/null
+uv pip install --python "$test_dir/bin/python" "$wheel" >/dev/null
 "$test_dir/bin/python" -c '
 from agents_should_survive_failure_sdk import AgentMetadata, AgentResult, AgentTask, ManagedAgent
 

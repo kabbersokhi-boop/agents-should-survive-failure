@@ -157,7 +157,16 @@ async def main() -> None:
         )
         assert after_pid.strip() != before_pid
         assert time.monotonic() - delay_started < 5
-        await asyncio.sleep(10)
+
+        async def replacement_ready() -> bool:
+            logs = await asyncio.to_thread(
+                subprocess.check_output,
+                ["docker", "compose", "logs", "--no-color", "worker"],
+                text=True,
+            )
+            return logs.count('"event": "worker_ready"') >= 2
+
+        await _wait_for(replacement_ready, deadline_seconds=45)
 
         async def completed() -> bool:
             async with database.session() as session:

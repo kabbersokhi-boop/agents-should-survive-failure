@@ -1,102 +1,90 @@
-# Durable execution and governance for AI workflows
+# Agents Should Survive Failure
 
-Agents Should Survive Failure is a production-style reference implementation for governed,
-durable AI workflows. It demonstrates how Temporal, PostgreSQL, idempotent effects, and bounded
-model and tool interfaces keep consequential workflows correct across retries and worker loss.
-It is not a hosted platform or a compliance product.
+**A durable execution and governance layer for AI-assisted business workflows that survives
+worker crashes, waits safely for human approval, and prevents duplicate business effects.**
 
-> **Core invariant:** execution may happen more than once; business effect commits once.
+[![CI](https://github.com/kabbersokhi-boop/agents-should-survive-failure/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kabbersokhi-boop/agents-should-survive-failure/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/kabbersokhi-boop/agents-should-survive-failure)](https://github.com/kabbersokhi-boop/agents-should-survive-failure/releases/latest)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![License](https://img.shields.io/github/license/kabbersokhi-boop/agents-should-survive-failure)](LICENSE)
 
-## Why this project exists
+> **Core invariant:** execution may happen more than once; the business effect commits once.
 
-AI workflow demonstrations usually stop at model output. Consequential workflows also need to
-survive process loss, delayed approvals, repeated messages, network timeouts, and ambiguous
-acknowledgements without duplicating business effects.
+## The failure this project proves
 
-This repository makes those boundaries executable. Temporal owns workflow history and redelivery.
-PostgreSQL owns business state, audit evidence, and idempotency constraints. Deterministic code
-and an authorized human own decisions. Models provide bounded explanations but do not authorize
-writes.
+A worker commits an approval, an approved-vendor projection, and a synthetic notification. Before
+it can acknowledge completion to Temporal, the process receives `SIGKILL`.
 
-## Verified release evidence
+Temporal starts a replacement worker and redelivers the activity. Stable idempotency keys,
+transactions, and PostgreSQL uniqueness constraints make that replay converge on the effects that
+already committed:
 
-- 171 unit tests, 21 integration tests, and 7 dedicated security tests.
-- 24/24 reviewed production-workflow evaluation cases passed.
-- Two reference workflows are proven on the same engine: vendor onboarding and high-value refund.
-- `make test-worker-crash` kills a real Docker worker with `SIGKILL` and verifies one business
-  projection and one synthetic notification after Temporal redelivery.
-- Migration upgrade, downgrade, and re-upgrade are covered by the integration gate.
-- Gitleaks, dependency audit, and backend, SDK, and container SBOM targets are included.
+```text
+Worker crash proof passed: run=<uuid> decisions=1 projections=1 emails=1
+retry=temporal-redelivery
+```
 
-The integration gate writes bounded JSON and Markdown evidence to
-[`artifacts/evaluations/`](artifacts/evaluations/). Historical release material is available in
-the [v0.2.0 evidence summary](docs/evidence/v0.2.0.md), the [v0.2.0 release](https://github.com/kabbersokhi-boop/agents-should-survive-failure/releases/tag/v0.2.0),
-and [GitHub Actions run 29545587083](https://github.com/kabbersokhi-boop/agents-should-survive-failure/actions/runs/29545587083).
+Run the real proof locally:
 
-## What the project is
+```bash
+make demo
+```
 
-The control plane is a FastAPI application backed by Temporal and PostgreSQL. It now has two
-reference workflows that exercise the same start, approval, tool, persistence, and observability
-contracts. The examples differ in domain data, evidence retrieval, risk rules, and projections;
-the engine guarantees remain the same.
+This is at-least-once execution with exactly-once **business effects** for the tested workflow. It
+does not claim exactly-once distributed execution.
 
-The public SDK and managed-agent runtime are separate preview surfaces. They demonstrate how a
-trusted, operator-installed package can run in a Temporal activity with persisted checkpoints,
-artifacts, budgets, events, and governed tools.
+## Why this is different
 
-## Reference workflows
+Most agent demos prove that a model can complete a task when every dependency works. This
+repository exercises the harder boundaries around consequential workflows:
 
-### Example 1: Vendor onboarding
+- a worker disappears after its database commit but before its acknowledgement;
+- a workflow start times out after intent has been persisted;
+- approvals arrive twice, conflict, or refer to a stale request version;
+- model and governed-tool calls fail or are retried;
+- an agent requests a tool or tool version outside its immutable run grant;
+- a long-running workflow waits for an authenticated human without keeping progress in memory.
 
-The existing mature workflow reviews a supplier, retrieves policy evidence, calculates a
-deterministic jurisdiction risk score, requests human approval, and persists an approved-vendor
-projection and synthetic email. Tool grants are scoped to the run and tool versions are pinned.
+Models interpret bounded evidence. They do not grant themselves authority, calculate the final
+policy decision, or commit business effects.
 
-### Example 2: High-value refund
+## System guarantees
 
-The new refund workflow retrieves order and refund-policy evidence through governed tools,
-calculates a deterministic refund risk score, records a bounded model explanation, waits for
-human approval through the API, and commits an idempotent refund projection and notification.
-
-| Engine guarantee | Vendor | Refund |
+| Guarantee | Mechanism | Evidence |
 | --- | --- | --- |
-| Durable Temporal execution and approval wait | Supplier review | Refund review |
-| Deterministic risk calculation | Jurisdiction score | Amount and order-state score |
-| Governed, version-pinned evidence tools | Vendor and policy lookup | Order details and refund policy |
-| Human approval through the API | Approve or reject vendor | Approve or reject refund |
-| Idempotent PostgreSQL effect and audit | Approved-vendor projection and email | Refund projection and notification |
+| Durable execution | Temporal workflow history, retries, updates, and replacement workers | [Worker-crash proof](scripts/worker_crash_proof.py) |
+| Duplicate-safe effects | Stable idempotency keys, SQL transactions, and uniqueness constraints | [Integration tests](tests/integration/test_vendor_onboarding_workflow.py) |
+| Recoverable starts | Persisted start intent reconciled against a stable Temporal workflow ID | [Start coordinator](src/agents_should_survive_failure/workflow_starts.py) |
+| Human authority | Scoped API keys, versioned approval requests, and idempotent decisions | [Approval tests](tests/unit/test_approval_updates_api.py) |
+| Governed tools | Run-scoped grants, pinned versions, schema validation, and invocation audit | [Tool gateway](src/agents_should_survive_failure/tool_gateway.py) |
+| Bounded model role | Deterministic risk policy and advisory-only model explanations | [Model evidence service](src/agents_should_survive_failure/model_evidence.py) |
+| Auditable operation | Ordered events, traces, metrics, evaluation reports, and SBOMs | [Release evidence](docs/evidence/v0.2.0.md) |
 
-## Authority model
-
-- Temporal coordinates retries, updates, timers, and workflow state.
-- PostgreSQL is the source of truth for domain state, approvals, effects, audit, and idempotency.
-- The governed gateway enforces run-scoped grants, pinned versions, input schemas, and invocation
-  idempotency.
-- Deterministic policy calculates risk and owns authorization boundaries.
-- The model provider explains supplied evidence within a bounded output; it cannot approve or
-  commit an effect.
-- An authenticated human or authorized service approves the consequential decision through the
-  control-plane API.
-
-## Architecture and crash-recovery path
+## Architecture
 
 ```mermaid
 flowchart LR
-    Client[Authenticated client] --> API[FastAPI control plane]
-    API --> DB[(PostgreSQL\nbusiness state + evidence)]
-    API --> T[Temporal\nworkflow history]
-    T --> W[Worker]
-    W --> G[Governed tools / MCP\nrun- and version-pinned]
-    W --> M[Model provider\nadvisory only]
-    W --> H[Human approval]
-    G --> DB
-    H --> T
-    DB --> E[Evaluation and release evidence]
+    C[Authenticated client] --> A[FastAPI control plane]
+    A -->|persist start intent| P[(PostgreSQL)]
+    A -->|start / update| T[Temporal]
+    T --> W[Workflow worker]
+    W --> G[Governed tool gateway]
+    W --> M[Model provider<br/>advisory only]
+    W --> H[Human approval boundary]
+    G -->|idempotent effects| P
+    H -->|authenticated decision| A
+    P --> E[Audit and evaluation evidence]
 ```
 
-The start coordinator persists workflow intent before handing it to Temporal. Activities may be
-redelivered. Each business effect uses a stable idempotency key and a PostgreSQL uniqueness
-constraint, so a repeated activity observes or converges on the existing effect.
+The system deliberately separates five kinds of authority:
+
+1. **Temporal** owns durable coordination and redelivery.
+2. **PostgreSQL** owns business truth, audit evidence, and idempotency constraints.
+3. **Deterministic policy** owns risk calculation and authorization boundaries.
+4. **The model provider** explains supplied evidence within an output budget.
+5. **An authenticated human or service** approves consequential decisions.
+
+### Post-commit recovery
 
 ```mermaid
 sequenceDiagram
@@ -104,110 +92,133 @@ sequenceDiagram
     participant W as Worker
     participant P as PostgreSQL
     T->>W: Deliver activity
-    W->>P: Commit effect with idempotency key
-    P-->>W: Commit acknowledged
-    W-xT: Worker receives SIGKILL
-    T->>W: Redeliver activity
-    W->>P: Replay same idempotency key
-    P-->>W: Existing effect; no duplicate
+    W->>P: Commit effect with stable idempotency key
+    P-->>W: Commit succeeds
+    W-xT: SIGKILL before completion acknowledgement
+    T->>W: Redeliver to replacement worker
+    W->>P: Replay the same idempotency key
+    P-->>W: Return the existing effect
+    W-->>T: Activity completes
 ```
 
-## The failure this project proves
+## Reference workflows
 
-`make test-worker-crash` waits for the approved-vendor projection and synthetic email to commit,
-kills the real Docker worker during the post-commit acknowledgement window, starts a replacement
-worker, and verifies one approval decision, one projection, one email, unique workflow events,
-and stable tool idempotency.
+Both examples use the same start, approval, governed-tool, persistence, and observability
+contracts. They differ only in domain evidence, risk rules, and final projections.
 
-This is at-least-once execution with exactly-once business effects for the tested workflows. It
-does not claim exactly-once distributed execution.
+| Engine capability | Vendor onboarding | High-value refund |
+| --- | --- | --- |
+| Evidence retrieval | Vendor and policy lookup | Order details and refund policy |
+| Deterministic policy | Jurisdiction risk | Amount and order-state risk |
+| Human decision | Approve or reject supplier | Approve or reject refund |
+| Idempotent result | Approved vendor and email | Refund projection and notification |
+| Current maturity | Release-proven reference workflow | Implemented on `main`; next release candidate |
 
-## How to use
+The vendor-onboarding workflow is the mature release proof. The refund workflow demonstrates that
+the engine contracts generalize to a second domain; it will not be described as release-proven
+until its evaluation evidence ships with the next release.
 
-Run the complete local verification set with:
+## Verified evidence
 
-```bash
-make validate-evaluation-dataset
-make test-worker-crash
-make test-refund-workflow
-make test-integration
-```
+The [`v0.2.0` release](https://github.com/kabbersokhi-boop/agents-should-survive-failure/releases/tag/v0.2.0)
+is tied to commit `b28e3cf4` and includes machine-readable evaluation reports, Python and container
+SBOMs, and independently installable SDK/example-agent distributions.
 
-The managed-agent preview and Operations Investigation Agent can be checked separately:
+| Release check | Result |
+| --- | --- |
+| Reviewed production-workflow scenarios | 24/24 passed against real Temporal and PostgreSQL execution |
+| Worker loss | Real Docker worker killed with `SIGKILL` and replaced |
+| Effects after redelivery | Exactly one approval, projection, and synthetic email |
+| Schema lifecycle | Upgrade, downgrade, re-upgrade, and reseed verified |
+| Supply chain | Gitleaks, locked dependency audit, and three CycloneDX SBOMs |
+| CI | [Successful release run 29545587083](https://github.com/kabbersokhi-boop/agents-should-survive-failure/actions/runs/29545587083) |
 
-```bash
-make sdk-build test-sdk-install
-make external-agent-build test-external-agent
-make test-managed-agent
-```
+Read the committed [release evidence summary](docs/evidence/v0.2.0.md) and
+[evaluation methodology](docs/evaluation-methodology.md) for the exact contract and limitations.
 
 ## Quickstart
 
 Prerequisites: Python 3.12, [uv](https://docs.astral.sh/uv/), Docker, and Docker Compose.
 
 ```bash
-uv python install 3.12
-uv sync --frozen --all-groups
+make setup
 make up
-curl http://127.0.0.1:8000/health/ready
+curl --fail http://127.0.0.1:8000/health/ready
 ```
 
-The API is available on port 8000, Temporal UI on port 8080, and Grafana on port 3000. `make down`
-stops the local stack. Authenticated workflow calls use scoped API keys; the local development
-[runbook](docs/runbooks/local-development.md) describes setup and request details.
+| Interface | URL | Purpose |
+| --- | --- | --- |
+| FastAPI / OpenAPI | `http://127.0.0.1:8000/docs` | Start workflows and submit approvals |
+| Temporal UI | `http://127.0.0.1:8080` | Inspect history, waits, retries, and recovery |
+| Grafana | `http://127.0.0.1:3000` | Inspect API, worker, workflow, tool, model, and cost signals |
+| Prometheus | `http://127.0.0.1:9090` | Query bounded operational metrics |
+
+`make down` stops the stack without deleting its volumes. The
+[local runbook](docs/runbooks/local-development.md) contains the authenticated API sequence and
+database lifecycle commands.
+
+## Verification
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/v1/vendors ...
-curl -X POST http://127.0.0.1:8000/api/v1/vendors/$VENDOR_ID/onboarding ...
-curl -X POST http://127.0.0.1:8000/api/v1/workflows/refund/start ...
-curl -X POST http://127.0.0.1:8000/api/v1/workflow-runs/$RUN_ID/approval ...
+make lint typecheck test test-security
+make test-integration
+make demo
 ```
 
-## Tech Stack
+`make test-integration` creates an isolated Compose project, runs reversible migrations, executes
+the reviewed evaluation suite, proves worker-crash recovery, verifies the separately packaged
+managed agent, generates evaluation reports and SBOMs, and removes the isolated environment.
 
-| Layer | Technology | Role |
-| --- | --- | --- |
-| Durable orchestration | Temporal | Durable workflow execution, retries, and updates |
-| Truth and audit | PostgreSQL | Business state, audit records, and uniqueness constraints |
-| Control plane | FastAPI | Authenticated API and workflow coordination |
-| Tool execution | Governed gateway and MCP adapter | Grants, schema validation, version pinning, and idempotency |
-| Observability | Prometheus, Grafana, and Tempo | Metrics, dashboards, and distributed traces |
+CI has three independent jobs:
+
+- **Quality:** formatting, strict Pyright, unit/security tests, dependency audit, package install
+  proofs, secret scanning, and backend/SDK SBOMs.
+- **Docker:** reproducible image build and container SBOM.
+- **Integration:** Temporal/PostgreSQL execution, migrations, evaluation, crash recovery, managed
+  agent, and observability provisioning.
+
+## Implementation tour
+
+| Area | Start here |
+| --- | --- |
+| Durable workflows | [`workflows/vendor_onboarding.py`](src/agents_should_survive_failure/workflows/vendor_onboarding.py), [`workflows/refund/`](src/agents_should_survive_failure/workflows/refund/) |
+| Recoverable workflow starts | [`workflow_starts.py`](src/agents_should_survive_failure/workflow_starts.py) |
+| Governed tools and MCP | [`tool_gateway.py`](src/agents_should_survive_failure/tool_gateway.py), [`mcp_adapter.py`](src/agents_should_survive_failure/mcp_adapter.py) |
+| Persistence and idempotency | [`persistence/models.py`](src/agents_should_survive_failure/persistence/models.py), [`migrations/`](migrations/) |
+| Evaluation system | [`evaluation_scenarios.py`](src/agents_should_survive_failure/evaluation_scenarios.py), [`evaluation.py`](src/agents_should_survive_failure/evaluation.py) |
+| Security boundaries | [`docs/threat-model.md`](docs/threat-model.md), [`tests/security/`](tests/security/) |
+| External agent contract | [`packages/agents-should-survive-failure-sdk/`](packages/agents-should-survive-failure-sdk/), [`packages/example-operations-agent/`](packages/example-operations-agent/) |
+| Observability | [`metrics.py`](src/agents_should_survive_failure/metrics.py), [`deployment/`](deployment/) |
+
+Thirteen [architecture decision records](docs/adr/) document why the system assigns ownership this
+way instead of hiding the tradeoffs behind framework defaults.
 
 ## Maturity and scope
 
-| Surface | Status | Evidence |
-| --- | --- | --- |
-| Vendor onboarding | Mature reference workflow | Evaluation suite, integration tests, worker-crash proof |
-| High-value refund | Mature reference workflow | Unit tests, governed tools, migration lifecycle, shared approval path |
-| Managed-agent SDK and runtime | Preview | Separate package and production-stack proof |
-| Delegation | Experimental | Implemented but not release-proven |
-| NVIDIA NIM providers | Manual | Credential-gated smoke tests only |
-
-## What it does not claim
-
-- It is not a hosted production platform or a compliance product.
-- It does not replace business policy, human accountability, or database review.
-- It does not treat model output as authorization.
-- External packages are trusted, operator-installed code; Docker is not a complete hostile-code
-  isolation boundary.
-- NVIDIA NIM live testing requires operator credentials and is not part of public CI.
-
-See the [limitations](docs/limitations.md) and [threat model](docs/threat-model.md).
-
-## Repository map
-
-| Path | Contents |
+| Surface | Status |
 | --- | --- |
-| `src/agents_should_survive_failure/` | FastAPI control plane, persistence, tools, policy, and evaluation |
-| `src/agents_should_survive_failure/workflows/vendor_onboarding.py` | Vendor onboarding reference workflow |
-| `src/agents_should_survive_failure/workflows/refund/` | High-value refund reference workflow |
-| `packages/agents-should-survive-failure-sdk/` | Standalone public SDK preview |
-| `packages/example-operations-agent/` | Independently packaged managed-agent example |
-| `migrations/` | PostgreSQL schema history |
-| `deployment/` | Temporal, PostgreSQL, Prometheus, Tempo, and Grafana configuration |
-| `scripts/` | Compose, crash-recovery, SDK, and operational proof scripts |
-| `tests/` | Unit, integration, and security tests |
-| `docs/` | Architecture, runbooks, evidence, security, and limitations |
+| Vendor onboarding and crash-recovery proof | Release-proven reference implementation |
+| High-value refund | Implemented on `main`; pending next release evidence |
+| Managed-agent SDK/runtime | Preview |
+| Delegation | Experimental and not release-proven |
+| NVIDIA NIM providers | Credential-gated manual smoke tests |
+
+This repository is a production-style reference implementation, not a hosted platform, compliance
+product, or claim of production readiness. It does not claim multi-tenancy, high availability,
+enterprise identity, Kubernetes operation, billing, or hostile-code isolation. External agent
+packages are trusted, operator-installed code.
+
+See the full [limitations](docs/limitations.md), [failure cases](docs/failure-cases.md), and
+[threat model](docs/threat-model.md).
+
+## Documentation
+
+- [Five-to-ten-minute technical demonstration](docs/demo.md)
+- [Plain-English system guide](docs/plain-english-guide.md)
+- [Local development runbook](docs/runbooks/local-development.md)
+- [Evaluation methodology](docs/evaluation-methodology.md)
+- [Tool and agent trust model](docs/security/tool-and-agent-trust.md)
+- [Architecture decisions](docs/adr/)
 
 ## License
 

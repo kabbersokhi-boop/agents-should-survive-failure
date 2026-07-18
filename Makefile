@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup format lint typecheck test test-unit test-refund-workflow test-security test-integration test-worker-crash test-managed-agent dependency-audit sbom-backend sbom-sdk sbom-container sbom sdk-build test-sdk-install external-agent-build test-external-agent verify validate-evaluation-dataset dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate evaluation-report nim-smoke-test nim-embedding-smoke-test bootstrap-api-key revoke-api-key disable-principal recover-workflow-starts sandbox-demo
+.PHONY: help setup format lint typecheck test test-unit test-refund-workflow test-security test-integration test-worker-crash test-managed-agent demo dependency-audit sbom-backend sbom-sdk sbom-container sbom sdk-build test-sdk-install external-agent-build test-external-agent verify validate-evaluation-dataset dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate evaluation-report nim-smoke-test nim-embedding-smoke-test bootstrap-api-key revoke-api-key disable-principal recover-workflow-starts sandbox-demo
 
 help:
 	@printf '%s\n' 'setup         Install locked development dependencies' \
@@ -34,6 +34,7 @@ help:
 	  'external-agent-build Build the independent operations-agent wheel and source distribution' \
 	  'test-external-agent Prove clean external-wheel installation and entry-point discovery' \
 	  'test-worker-crash Prove OS-level worker termination preserves exactly-once effects' \
+	  'demo          Run the isolated worker-crash demonstration end to end' \
 	  'test-managed-agent Prove the external Operations Agent on the production stack' \
 	  'verify        Run the complete release quality gate'
 
@@ -156,6 +157,8 @@ test-external-agent: sdk-build external-agent-build
 
 test-worker-crash:
 	RELEASE_PROOF=worker bash scripts/compose_smoke.sh
+
+demo: test-worker-crash
 
 test-managed-agent:
 	RELEASE_PROOF=managed-agent bash scripts/compose_smoke.sh

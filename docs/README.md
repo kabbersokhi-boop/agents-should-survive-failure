@@ -33,7 +33,9 @@
 - [Operations Investigation Agent](../packages/example-operations-agent/README.md)
 - [Tool and agent trust model](security/tool-and-agent-trust.md)
 
-The SDK and managed-agent runtime are preview surfaces. The mature, release-proven reference workflow is vendor onboarding.
+The SDK and managed-agent runtime are preview surfaces. Vendor onboarding is the mature,
+release-proven workflow. The high-value refund workflow is implemented on `main` and is awaiting
+the next release evidence bundle.
 
 ## Operate and secure it
 

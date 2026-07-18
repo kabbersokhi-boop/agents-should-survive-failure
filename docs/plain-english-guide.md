@@ -44,7 +44,8 @@ The repository implements and proves that one scenario deeply instead of pretend
 
 ## How could the same pattern apply elsewhere?
 
-Consider an AI-assisted refund workflow:
+The repository includes a second reference implementation: an AI-assisted high-value refund
+workflow.
 
 1. An agent gathers the order, payment, and support history.
 2. Deterministic rules calculate whether the request is low or high risk.
@@ -54,9 +55,13 @@ Consider an AI-assisted refund workflow:
 6. If the worker crashes, the workflow resumes.
 7. A stable idempotency key prevents the payment from happening twice.
 
-This repository does not contain a refund product. The example shows how the same architectural pattern could be adapted.
+It retrieves synthetic order and policy evidence through governed tools, calculates deterministic
+risk, waits for an authenticated decision, and writes an idempotent refund projection and
+notification. It demonstrates that the platform contracts extend beyond vendor onboarding; it is
+implemented on `main` and is awaiting the next release evidence bundle.
 
-Other possible adaptations include incident response, insurance case review, account changes, procurement, and internal IT operations.
+Other possible adaptations include incident response, insurance case review, account changes,
+procurement, and internal IT operations.
 
 ## What does the built-in workflow do?
 
@@ -125,7 +130,7 @@ A real product built from these patterns would normally place a simpler business
 
 ## What is proven, and what is not?
 
-### Release-proven
+### Release-proven in `v0.2.0`
 
 - the vendor-onboarding workflow;
 - durable approval waiting;
@@ -138,6 +143,7 @@ A real product built from these patterns would normally place a simpler business
 
 ### Preview or experimental
 
+- the high-value refund workflow until its next release evidence ships;
 - the generic external-agent SDK/runtime;
 - long-running generic-agent approval behavior;
 - agent delegation;

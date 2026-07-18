@@ -1,0 +1,35 @@
+name: Bug report
+description: Report a reproducible defect in the reference implementation.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Do not include credentials, real customer data, or private model inputs.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Provide the smallest synthetic-data example that reproduces the behavior.
+    validations:
+      required: true
+  - type: input
+    id: revision
+    attributes:
+      label: Revision
+      description: Commit SHA or release tag.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Bounded evidence
+      description: Include sanitized logs, failing test output, or workflow state. Remove secrets and private data.

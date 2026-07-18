@@ -4,6 +4,7 @@ import uuid
 from decimal import Decimal
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from temporalio import activity
 
 from agents_should_survive_failure.mcp_adapter import GovernedMCPAdapter, MCPExecutionContext
@@ -20,6 +21,7 @@ from agents_should_survive_failure.persistence.models import (
 )
 from agents_should_survive_failure.persistence.session import Database
 from agents_should_survive_failure.providers import DeterministicModelProvider, ModelProvider
+from agents_should_survive_failure.tool_gateway import ToolResult
 from agents_should_survive_failure.workflows.contracts import (
     ApprovalDecisionInput,
     ApprovalDecisionType,
@@ -43,8 +45,13 @@ class RefundActivities:
         return uuid.UUID(value)
 
     async def _call(
-        self, session, input: RefundWorkflowInput, name: str, arguments: dict[str, object], key: str
-    ):
+        self,
+        session: AsyncSession,
+        input: RefundWorkflowInput,
+        name: str,
+        arguments: dict[str, object],
+        key: str,
+    ) -> ToolResult:
         if self._mcp is None:
             raise RuntimeError("governed tool gateway is required")
         run = await session.get(WorkflowRun, self._id(input.run_id))
@@ -184,6 +191,9 @@ class RefundActivities:
                 )
             )
             request.status = decision_status
+            risk_score = risk.get("score")
+            if not isinstance(risk_score, int):
+                raise ValueError("refund risk score must be an integer")
             session.add(
                 RefundDecision(
                     workflow_run_id=run_id,
@@ -191,7 +201,7 @@ class RefundActivities:
                     order_id=input.order_id,
                     amount=Decimal(input.amount),
                     decision=decision.decision.value,
-                    risk_score=int(risk["score"]),
+                    risk_score=risk_score,
                     rationale=decision.rationale or explanation,
                     idempotency_key=decision.idempotency_key,
                 )

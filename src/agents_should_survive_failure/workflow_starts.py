@@ -451,10 +451,10 @@ class WorkflowStartCoordinator:
                 span.set_attribute("temporal.workflow.type", claim.run.workflow_type)
                 if claim.run.workflow_type == "vendor_onboarding":
                     workflow_method = VendorOnboardingWorkflow.run
-                    workflow_input: VendorOnboardingInput | ManagedAgentInput = (
-                        VendorOnboardingInput(
-                            run_id=str(claim.run.id), vendor_id=str(claim.run.vendor_id)
-                        )
+                    workflow_input: (
+                        VendorOnboardingInput | ManagedAgentInput | RefundWorkflowInput
+                    ) = VendorOnboardingInput(
+                        run_id=str(claim.run.id), vendor_id=str(claim.run.vendor_id)
                     )
                 elif claim.run.workflow_type == "managed_agent":
                     workflow_method = ManagedAgentWorkflow.run

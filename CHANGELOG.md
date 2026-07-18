@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Added the high-value refund reference workflow on the shared durable execution engine.
+- Added a Grafana cost dashboard and cost-reporting helper.
+- Restored strict type-checking for the refund workflow and tool activities.
+- Reframed the public documentation around executable crash-recovery evidence and explicit
+  maturity levels.
+
 ## v0.2.0
 
 This release presents the durable vendor-onboarding workflow as a verified reference project.

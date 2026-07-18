@@ -92,6 +92,7 @@ from agents_should_survive_failure.workflow_starts import (
 from agents_should_survive_failure.workflows.contracts import (
     ApprovalDecisionInput,
     ApprovalDecisionType,
+    RefundWorkflowInput,
     WorkflowStatus,
 )
 from agents_should_survive_failure.workflows.managed_agent import ManagedAgentWorkflow
@@ -244,6 +245,15 @@ class VendorResponse(BaseModel):
 
 class StartOnboardingRequest(StrictRequestModel):
     idempotency_key: str = Field(min_length=1, max_length=240, pattern=r"^[A-Za-z0-9._:-]+$")
+
+
+class StartRefundRequest(StrictRequestModel):
+    idempotency_key: str = Field(min_length=1, max_length=240, pattern=r"^[A-Za-z0-9._:-]+$")
+    refund_id: str = Field(min_length=1, max_length=120)
+    order_id: str = Field(min_length=1, max_length=120)
+    amount: str = Field(pattern=r"^\d{1,12}(\.\d{1,2})?$")
+    reason: str = Field(min_length=1, max_length=500)
+    customer_id: str = Field(min_length=1, max_length=120)
 
 
 class StartManagedAgentRequest(StrictRequestModel):
@@ -742,6 +752,45 @@ async def start_onboarding(
     except WorkflowStartUnavailable as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="workflow start is pending recovery",
+            headers={"Retry-After": "1"},
+        ) from error
+    return WorkflowRunResponse(
+        id=run.id, status=run.status, temporal_workflow_id=run.temporal_workflow_id
+    )
+
+
+async def start_refund(
+    payload: StartRefundRequest,
+    request: Request,
+    database: Annotated[Database, Depends(get_database)],
+    principal: Annotated[AuthenticatedPrincipal, Depends(get_authenticated_principal)],
+) -> WorkflowRunResponse:
+    resources: RuntimeResources = request.app.state.resources
+    coordinator = WorkflowStartCoordinator(database, resources.temporal_client)
+    refund = RefundWorkflowInput(
+        run_id="pending",
+        refund_id=payload.refund_id,
+        order_id=payload.order_id,
+        amount=payload.amount,
+        reason=payload.reason,
+        customer_id=payload.customer_id,
+    )
+    try:
+        run = await coordinator.create_or_get_refund(
+            refund=refund,
+            requested_by_id=principal.id,
+            agent_id=seed_id("agent:refund:v1"),
+            idempotency_key=payload.idempotency_key,
+        )
+        await coordinator.start(run.id)
+    except RequestFingerprintConflict:
+        raise HTTPException(
+            status_code=409, detail="idempotency key was reused for a different refund request"
+        ) from None
+    except WorkflowStartUnavailable as error:
+        raise HTTPException(
+            status_code=503,
             detail="workflow start is pending recovery",
             headers={"Retry-After": "1"},
         ) from error
@@ -1922,6 +1971,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     add_v1_route(
         "/vendors/{vendor_id}/onboarding",
         start_onboarding,
+        methods=["POST"],
+        scopes=("runs:write",),
+        response_model=WorkflowRunResponse,
+    )
+    add_v1_route(
+        "/workflows/refund/start",
+        start_refund,
         methods=["POST"],
         scopes=("runs:write",),
         response_model=WorkflowRunResponse,

@@ -33,9 +33,11 @@ from agents_should_survive_failure.runtime_state import consume_budget
 from agents_should_survive_failure.workflows.contracts import (
     TASK_QUEUE,
     ManagedAgentInput,
+    RefundWorkflowInput,
     VendorOnboardingInput,
 )
 from agents_should_survive_failure.workflows.managed_agent import ManagedAgentWorkflow
+from agents_should_survive_failure.workflows.refund.workflow import RefundWorkflow
 from agents_should_survive_failure.workflows.vendor_onboarding import VendorOnboardingWorkflow
 
 START_LEASE = timedelta(seconds=30)
@@ -84,6 +86,29 @@ def onboarding_request_fingerprint(*, vendor_id: uuid.UUID, agent_id: uuid.UUID)
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def refund_request_fingerprint(
+    *,
+    refund_id: str,
+    order_id: str,
+    amount: str,
+    reason: str,
+    customer_id: str,
+    agent_id: uuid.UUID,
+) -> str:
+    payload = {
+        "refund_id": refund_id,
+        "order_id": order_id,
+        "amount": amount,
+        "reason": reason,
+        "customer_id": customer_id,
+        "agent_id": str(agent_id),
+        "workflow_type": "refund",
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 def managed_agent_request_fingerprint(*, agent_id: uuid.UUID, task: dict[str, object]) -> str:
@@ -207,6 +232,83 @@ class WorkflowStartCoordinator:
             if run is None:
                 raise RuntimeError("workflow idempotency conflict could not be reloaded")
             if run.request_fingerprint != fingerprint:
+                raise RequestFingerprintConflict
+            return run
+
+    async def create_or_get_refund(
+        self,
+        *,
+        refund: RefundWorkflowInput,
+        requested_by_id: uuid.UUID,
+        agent_id: uuid.UUID,
+        idempotency_key: str,
+    ) -> WorkflowRun:
+        fingerprint = refund_request_fingerprint(
+            refund_id=refund.refund_id,
+            order_id=refund.order_id,
+            amount=refund.amount,
+            reason=refund.reason,
+            customer_id=refund.customer_id,
+            agent_id=agent_id,
+        )
+        run_id = uuid.uuid4()
+        statement = (
+            insert(WorkflowRun)
+            .values(
+                id=run_id,
+                agent_id=agent_id,
+                parent_workflow_run_id=None,
+                root_workflow_run_id=run_id,
+                delegation_depth=0,
+                vendor_id=None,
+                requested_by_id=requested_by_id,
+                workflow_type="refund",
+                temporal_workflow_id=f"refund-{run_id}",
+                idempotency_key=idempotency_key,
+                request_fingerprint=fingerprint,
+                status=RunStatus.PENDING,
+                input_summary={
+                    "refund_id": refund.refund_id,
+                    "order_id": refund.order_id,
+                    "amount": refund.amount,
+                    "reason": refund.reason,
+                    "customer_id": refund.customer_id,
+                },
+                version=1,
+            )
+            .on_conflict_do_nothing(constraint="uq_workflow_run_principal_idempotency_key")
+            .returning(WorkflowRun.id)
+        )
+        async with self._database.session() as session:
+            inserted = (await session.execute(statement)).scalar_one_or_none()
+            if inserted is not None:
+                session.add(
+                    WorkflowStartAttempt(workflow_run_id=run_id, status=WorkflowStartStatus.PENDING)
+                )
+                grants = (
+                    await session.scalars(
+                        select(AgentToolGrant).where(AgentToolGrant.agent_id == agent_id)
+                    )
+                ).all()
+                for grant in grants:
+                    session.add(
+                        RunToolGrantSnapshot(
+                            workflow_run_id=run_id,
+                            tool_definition_id=grant.tool_definition_id,
+                            policy_version=grant.policy_version,
+                            policy_hash=grant.policy_hash,
+                        )
+                    )
+                run = await session.get(WorkflowRun, run_id)
+                assert run is not None
+                return run
+            run = await session.scalar(
+                select(WorkflowRun).where(
+                    WorkflowRun.requested_by_id == requested_by_id,
+                    WorkflowRun.idempotency_key == idempotency_key,
+                )
+            )
+            if run is None or run.request_fingerprint != fingerprint:
                 raise RequestFingerprintConflict
             return run
 
@@ -357,6 +459,17 @@ class WorkflowStartCoordinator:
                 elif claim.run.workflow_type == "managed_agent":
                     workflow_method = ManagedAgentWorkflow.run
                     workflow_input = ManagedAgentInput(run_id=str(claim.run.id))
+                elif claim.run.workflow_type == "refund":
+                    workflow_method = RefundWorkflow.run
+                    summary = claim.run.input_summary
+                    workflow_input = RefundWorkflowInput(
+                        run_id=str(claim.run.id),
+                        refund_id=str(summary["refund_id"]),
+                        order_id=str(summary["order_id"]),
+                        amount=str(summary["amount"]),
+                        reason=str(summary["reason"]),
+                        customer_id=str(summary["customer_id"]),
+                    )
                 else:
                     raise ValueError("workflow run has an unsupported workflow type")
                 await self._temporal_client.start_workflow(

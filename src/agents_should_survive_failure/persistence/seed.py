@@ -122,6 +122,24 @@ def seed_rows() -> Sequence[
             },
         ),
         (
+            Agent,
+            {
+                "id": seed_id("agent:refund:v1"),
+                "name": "refund",
+                "version": "1",
+                "workflow_type": "refund",
+                "package_name": "agents-should-survive-failure",
+                "entry_point": "agents_should_survive_failure.workflows.refund:RefundWorkflow",
+                "manifest": {},
+                "input_schema": {},
+                "output_schema": {},
+                "compatibility": ">=1.0.0,<2.0.0",
+                "integrity_digest": "0" * 64,
+                "status": AgentStatus.ACTIVE,
+                "configuration": {"model_provider": "deterministic_mock"},
+            },
+        ),
+        (
             ToolDefinition,
             {
                 "id": seed_id("tool:vendor-database-query:v1"),
@@ -160,6 +178,63 @@ def seed_rows() -> Sequence[
                 "policy_version": "1",
                 "policy_hash": "d6a183a8ad68d8aafdfced0f5b1d14de51ae91de2c9da1fd99989f3182a64cd0",
             },
+        ),
+        *(
+            (
+                ToolDefinition,
+                {
+                    "id": seed_id(f"tool:{name}:v1"),
+                    "name": name,
+                    "version": "1",
+                    "description": description,
+                    "input_schema": schema,
+                    "output_schema": output,
+                    "permissions": [permission],
+                    "risk_class": ToolRiskClass.READ_ONLY,
+                    "timeout_seconds": 10,
+                    "approval_required": False,
+                    "enabled": True,
+                },
+            )
+            for name, description, schema, output, permission in (
+                (
+                    "order_details",
+                    "Read synthetic order details.",
+                    {
+                        "type": "object",
+                        "properties": {"order_id": {"type": "string"}},
+                        "required": ["order_id"],
+                    },
+                    {"type": "object"},
+                    "orders:read",
+                ),
+                (
+                    "refund_policy",
+                    "Read synthetic refund policy.",
+                    {
+                        "type": "object",
+                        "properties": {"reason": {"type": "string"}},
+                        "required": ["reason"],
+                    },
+                    {"type": "object"},
+                    "policy:read",
+                ),
+            )
+        ),
+        *(
+            (
+                AgentToolGrant,
+                {
+                    "id": seed_id(f"agent-tool-grant:refund:{name}"),
+                    "agent_id": seed_id("agent:refund:v1"),
+                    "tool_definition_id": seed_id(f"tool:{name}:v1"),
+                    "policy_version": "1",
+                    "policy_hash": (
+                        "d6a183a8ad68d8aafdfced0f5b1d14de51ae91de2c9da1fd99989f3182a64cd0"
+                    ),
+                },
+            )
+            for name in ("order_details", "refund_policy")
         ),
         (
             ToolDefinition,

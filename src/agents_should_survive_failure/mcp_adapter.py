@@ -38,6 +38,8 @@ class GovernedMCPAdapter:
         "vendor.lookup": (GovernedToolName.VENDOR_DATABASE_QUERY.value, "1"),
         "policy.search": (GovernedToolName.INTERNAL_POLICY_SEARCH.value, "1"),
         "email.send": (GovernedToolName.SYNTHETIC_EMAIL_SEND.value, "1"),
+        "order.details": ("order_details", "1"),
+        "refund.policy": ("refund_policy", "1"),
     }
 
     def __init__(self, gateway: ToolGateway | None = None) -> None:

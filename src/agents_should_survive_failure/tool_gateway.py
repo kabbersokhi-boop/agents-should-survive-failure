@@ -123,6 +123,29 @@ class SyntheticEmailOutput(BaseModel):
     status: str
 
 
+class OrderDetailsInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    order_id: str = Field(min_length=1, max_length=120)
+
+
+class OrderDetailsOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    order_id: str
+    status: str
+    total: float
+
+
+class RefundPolicyInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class RefundPolicyOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    policy: str
+    citations: list[str]
+
+
 ToolHandler = Callable[[AsyncSession, BaseModel, ToolInvocation], Awaitable[dict[str, Any]]]
 
 
@@ -159,6 +182,12 @@ class ToolGateway:
                 input_model=SyntheticEmailInput,
                 output_model=SyntheticEmailOutput,
                 handler=self._synthetic_email_send,
+            ),
+            "order_details": RegisteredTool(
+                OrderDetailsInput, OrderDetailsOutput, self._order_details
+            ),
+            "refund_policy": RegisteredTool(
+                RefundPolicyInput, RefundPolicyOutput, self._refund_policy
             ),
         }
 
@@ -664,6 +693,24 @@ class ToolGateway:
             session.add(message)
             await session.flush()
         return {"message_id": str(message.id), "status": message.status}
+
+    @staticmethod
+    async def _order_details(
+        session: AsyncSession, input: BaseModel, invocation: ToolInvocation
+    ) -> dict[str, Any]:
+        del session, invocation
+        request = cast(OrderDetailsInput, input)
+        return {"order_id": request.order_id, "status": "delivered", "total": 1000.0}
+
+    @staticmethod
+    async def _refund_policy(
+        session: AsyncSession, input: BaseModel, invocation: ToolInvocation
+    ) -> dict[str, Any]:
+        del session, invocation
+        return {
+            "policy": "High-value refunds require evidence and authorized human approval.",
+            "citations": ["policy://refund/high-value"],
+        }
 
     async def _has_approved_decision(self, session: AsyncSession, workflow_run_id: str) -> bool:
         decision = await session.scalar(

@@ -5,6 +5,7 @@ from enum import StrEnum
 
 WORKFLOW_TYPE = "vendor_onboarding"
 TASK_QUEUE = "vendor-onboarding"
+REFUND_WORKFLOW_TYPE = "refund"
 
 
 class WorkflowEventType(StrEnum):
@@ -36,6 +37,16 @@ class ApprovalDecisionType(StrEnum):
 class VendorOnboardingInput:
     run_id: str
     vendor_id: str
+
+
+@dataclass(frozen=True)
+class RefundWorkflowInput:
+    run_id: str
+    refund_id: str
+    order_id: str
+    amount: str
+    reason: str
+    customer_id: str
 
 
 @dataclass(frozen=True)

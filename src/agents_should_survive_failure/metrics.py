@@ -83,3 +83,15 @@ SANDBOX_EXECUTIONS = Counter(
 SANDBOX_DURATION = Histogram(
     "agents_sandbox_duration_seconds", "Sandbox execution duration.", ("outcome",)
 )
+WORKFLOW_DURATION = Histogram(
+    "workflow_duration_seconds", "End-to-end workflow duration.", ("workflow_type", "status")
+)
+WORKFLOW_TOKEN_COST = Counter(
+    "workflow_token_cost_usd_total", "Estimated model token cost by workflow.", ("workflow_type",)
+)
+WORKFLOW_TOOL_RETRIES = Counter(
+    "workflow_tool_retries_total", "Governed tool retries by workflow.", ("workflow_type", "tool")
+)
+WORKFLOW_APPROVAL_WAIT = Histogram(
+    "workflow_approval_wait_seconds", "Human approval wait time.", ("workflow_type",)
+)

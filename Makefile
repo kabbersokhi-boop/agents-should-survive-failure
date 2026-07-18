@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help setup format lint typecheck test test-unit test-security test-integration test-worker-crash test-managed-agent dependency-audit sbom-backend sbom-sdk sbom-container sbom sdk-build test-sdk-install external-agent-build test-external-agent verify validate-evaluation-dataset dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate evaluation-report nim-smoke-test nim-embedding-smoke-test bootstrap-api-key revoke-api-key disable-principal recover-workflow-starts sandbox-demo
+.PHONY: help setup format lint typecheck test test-unit test-refund-workflow test-security test-integration test-worker-crash test-managed-agent dependency-audit sbom-backend sbom-sdk sbom-container sbom sdk-build test-sdk-install external-agent-build test-external-agent verify validate-evaluation-dataset dev up down compose-check secret-scan migrate downgrade seed reindex-policies evaluate evaluation-report nim-smoke-test nim-embedding-smoke-test bootstrap-api-key revoke-api-key disable-principal recover-workflow-starts sandbox-demo
 
 help:
 	@printf '%s\n' 'setup         Install locked development dependencies' \
@@ -57,6 +57,9 @@ typecheck:
 test test-unit:
 	uv run coverage run -m pytest tests/unit
 	uv run coverage report
+
+test-refund-workflow:
+	uv run pytest tests/unit/test_refund_workflow.py
 
 test-security:
 	uv run pytest -m security tests/security

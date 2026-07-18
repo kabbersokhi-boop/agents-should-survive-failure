@@ -381,6 +381,53 @@ class ApprovedVendor(IdMixin, Base):
     )
 
 
+class RefundDecision(IdMixin, TimestampMixin, Base):
+    __tablename__ = "refund_decisions"
+    __table_args__ = (
+        UniqueConstraint("workflow_run_id", "idempotency_key", name="uq_refund_decision_key"),
+    )
+
+    workflow_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="CASCADE")
+    )
+    refund_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    order_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    decision: Mapped[str] = mapped_column(String(40), nullable=False)
+    risk_score: Mapped[int] = mapped_column(Integer, nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(240), nullable=False)
+
+
+class RefundProjection(IdMixin, TimestampMixin, Base):
+    __tablename__ = "refund_projections"
+    __table_args__ = (UniqueConstraint("refund_id", name="uq_refund_projection_refund"),)
+
+    workflow_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="CASCADE")
+    )
+    refund_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    order_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    customer_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(240), nullable=False, unique=True)
+
+
+class RefundEmail(IdMixin, TimestampMixin, Base):
+    __tablename__ = "refund_emails"
+    __table_args__ = (
+        UniqueConstraint("workflow_run_id", "idempotency_key", name="uq_refund_email_key"),
+    )
+
+    workflow_run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workflow_runs.id", ondelete="CASCADE")
+    )
+    customer_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(240), nullable=False)
+    status: Mapped[str] = mapped_column(String(40), nullable=False, default="simulated")
+
+
 class ApprovalRequest(IdMixin, TimestampMixin, Base):
     __tablename__ = "approval_requests"
     __table_args__ = (

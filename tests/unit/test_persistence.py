@@ -62,6 +62,9 @@ def test_model_metadata_and_seeds_cover_required_schema() -> None:
         "evaluation_runs",
         "evaluation_cases",
         "evaluation_results",
+        "refund_decisions",
+        "refund_projections",
+        "refund_emails",
     }
 
     assert set(Base.metadata.tables) == expected_tables
@@ -94,7 +97,7 @@ def test_model_metadata_and_seeds_cover_required_schema() -> None:
     }.issubset(set(Base.metadata.tables["evaluation_runs"].columns.keys()))
     rows = seed_rows()
     evaluation_rows = [values for model, values in rows if model.__name__ == "EvaluationCase"]
-    assert len(rows) == 34
+    assert len(rows) == 39
     assert len(evaluation_rows) == 24
     assert {row["suite_version"] for row in evaluation_rows} == {"1.0.0"}
     assert {row["schema_version"] for row in evaluation_rows} == {"1"}

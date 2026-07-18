@@ -1,0 +1,14 @@
+{
+  "title": "Workflow Cost and Reliability",
+  "uid": "workflow-cost",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "panels": [
+    {"id": 1, "type": "timeseries", "title": "Cost per workflow type (24h)", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}, "targets": [{"expr": "sum by (workflow_type) (increase(workflow_token_cost_usd_total[24h]))", "legendFormat": "{{workflow_type}}"}]},
+    {"id": 2, "type": "timeseries", "title": "P95 duration by workflow type", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}, "targets": [{"expr": "histogram_quantile(0.95, sum by (workflow_type, le) (rate(workflow_duration_seconds_bucket[5m])))", "legendFormat": "{{workflow_type}}"}]},
+    {"id": 3, "type": "timeseries", "title": "Tool retry rate", "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}, "targets": [{"expr": "sum by (workflow_type, tool) (rate(workflow_tool_retries_total[5m]))", "legendFormat": "{{workflow_type}} / {{tool}}"}]},
+    {"id": 4, "type": "timeseries", "title": "Approval wait time", "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}, "targets": [{"expr": "histogram_quantile(0.95, sum by (workflow_type, le) (rate(workflow_approval_wait_seconds_bucket[5m])))", "legendFormat": "{{workflow_type}}"}]},
+    {"id": 5, "type": "stat", "title": "Duplicate-prevention hits", "gridPos": {"h": 6, "w": 12, "x": 0, "y": 16}, "targets": [{"expr": "sum(agents_duplicate_side_effect_prevented_total)"}]}
+  ]
+}

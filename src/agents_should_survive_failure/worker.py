@@ -27,6 +27,8 @@ from agents_should_survive_failure.workflows.activities import VendorOnboardingA
 from agents_should_survive_failure.workflows.contracts import TASK_QUEUE
 from agents_should_survive_failure.workflows.managed_activities import ManagedAgentActivities
 from agents_should_survive_failure.workflows.managed_agent import ManagedAgentWorkflow
+from agents_should_survive_failure.workflows.refund.activities import RefundActivities
+from agents_should_survive_failure.workflows.refund.workflow import RefundWorkflow
 from agents_should_survive_failure.workflows.vendor_onboarding import VendorOnboardingWorkflow
 
 
@@ -57,11 +59,16 @@ async def run_worker() -> None:
             build_model_provider(settings),
             resources.temporal_client,
         )
+        refund_activities = RefundActivities(
+            Database(resources.engine),
+            build_model_provider(settings),
+            GovernedMCPAdapter(ToolGateway(Database(resources.engine))),
+        )
         worker = Worker(
             resources.temporal_client,
             task_queue=TASK_QUEUE,
             interceptors=[TracingInterceptor(always_create_workflow_spans=True)],
-            workflows=[VendorOnboardingWorkflow, ManagedAgentWorkflow],
+            workflows=[VendorOnboardingWorkflow, ManagedAgentWorkflow, RefundWorkflow],
             activities=[
                 activities.begin_review,
                 activities.assess_risk,
@@ -69,6 +76,13 @@ async def run_worker() -> None:
                 activities.record_decision,
                 activities.cancel_review,
                 managed_activities.execute,
+                refund_activities.retrieve_order_evidence,
+                refund_activities.retrieve_policy_evidence,
+                refund_activities.calculate_refund_risk,
+                refund_activities.explain_refund_risk,
+                refund_activities.request_approval,
+                refund_activities.commit_refund_decision,
+                refund_activities.send_refund_notification,
             ],
         )
         stop = asyncio.Event()

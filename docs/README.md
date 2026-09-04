@@ -2,8 +2,8 @@
 
 ## Start here
 
-- [Plain-English guide: who uses this, why vendor onboarding exists, and what the SDK does](plain-english-guide.md)
-- [Five-to-ten-minute employer demonstration guide](demo.md)
+- [System overview: users, workflow purpose, and SDK boundary](system-overview.md)
+- [Technical walkthrough](technical-walkthrough.md)
 - [Local development runbook](runbooks/local-development.md)
 - [`v0.2.0` release evidence](evidence/v0.2.0.md)
 
@@ -17,8 +17,8 @@
 ## Run and demonstrate the system
 
 - [Local development runbook](runbooks/local-development.md)
-- [Employer demonstration guide](demo.md)
-- [Plain-English public story](plain-english-guide.md)
+- [Technical walkthrough](technical-walkthrough.md)
+- [System overview](system-overview.md)
 
 ## Review evidence
 
@@ -30,7 +30,7 @@
 ## Build an external agent
 
 - [SDK package](../packages/agents-should-survive-failure-sdk/README.md)
-- [Operations Investigation Agent](../packages/example-operations-agent/README.md)
+- [Reference Operations Agent](../packages/reference-operations-agent/README.md)
 - [Tool and agent trust model](security/tool-and-agent-trust.md)
 
 The SDK and managed-agent runtime are preview surfaces. Vendor onboarding is the mature,
@@ -46,5 +46,4 @@ the next release evidence bundle.
 
 ## Historical material
 
-- [Archived development log](archive/development-log.md)
 - [Architecture decision records](adr/)

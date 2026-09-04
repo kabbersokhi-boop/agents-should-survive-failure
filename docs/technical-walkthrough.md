@@ -45,7 +45,7 @@ A valid synthetic vendor request uses the API fields:
 }
 ```
 
-## Seven-minute employer demonstration
+## Seven-minute technical walkthrough
 
 ### 1. Open with the problem — 45 seconds
 

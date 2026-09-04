@@ -102,7 +102,7 @@ _FAULT_ACTIONS: dict[FaultCategory, FaultAction] = {
 
 
 def evaluation_request_fingerprint(suite: EvaluationSuiteDefinition) -> str:
-    """Hash the complete logical B1 request independently of caller and replay key."""
+    """Hash the complete logical evaluation request independently of caller and replay key."""
 
     payload = {
         "dataset_sha256": suite.content_sha256(),
@@ -117,11 +117,11 @@ def evaluation_request_fingerprint(suite: EvaluationSuiteDefinition) -> str:
 
 
 class EvaluationRunner:
-    """Run the explicitly limited B1 catalog-persistence integrity checks.
+    """Run catalog-integrity checks and production workflow evaluations.
 
-    This runner does not execute the production workflow and does not score business behavior.
-    Phase B2 will replace it with real Temporal execution while preserving the reviewed suite
-    contracts and immutable result snapshots introduced in B1.
+    `run_vendor_onboarding` verifies catalog persistence without executing the workflow.
+    `run_production_vendor_onboarding` executes the reviewed suite against Temporal and records
+    immutable result snapshots.
     """
 
     async def run_vendor_onboarding(
@@ -1008,7 +1008,7 @@ class EvaluationRunner:
                 EvaluationResult(
                     evaluation_run_id=evaluation_run_id,
                     evaluation_case_id=seed_id(
-                        f"evaluation:vendor-onboarding-phase-b:1.0.0:{definition.slug}:"
+                        f"evaluation:vendor-onboarding-reference-v1:1.0.0:{definition.slug}:"
                         f"v{definition.case_version}"
                     ),
                     case_slug=definition.slug,

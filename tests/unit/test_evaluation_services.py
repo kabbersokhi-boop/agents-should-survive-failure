@@ -85,7 +85,7 @@ class FakeSession:
             if self._evaluation_run is None:
                 self._evaluation_run = SimpleNamespace(
                     id=identifier,
-                    suite_slug="vendor-onboarding-phase-b",
+                    suite_slug="vendor-onboarding-reference-v1",
                     suite_version="1.0.0",
                     suite_schema_version="1",
                     dataset_sha256="",

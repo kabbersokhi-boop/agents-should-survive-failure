@@ -49,7 +49,7 @@ async def main() -> None:
             "/app/.venv/bin/python",
             "-c",
             "from importlib.metadata import version; "
-            "assert version('example-operations-agent') == '0.1.0'",
+            "assert version('reference-operations-agent') == '0.1.0'",
         ],
         check=True,
     )

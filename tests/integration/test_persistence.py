@@ -118,14 +118,14 @@ async def test_migration_created_complete_schema_and_seed_data(engine: AsyncEngi
         evaluation_case_count = await connection.scalar(
             text(
                 "SELECT count(*) FROM evaluation_cases "
-                "WHERE suite_slug = 'vendor-onboarding-phase-b' "
+                "WHERE suite_slug = 'vendor-onboarding-reference-v1' "
                 "AND suite_version = '1.0.0' AND schema_version = '1'"
             )
         )
         evaluation_digest_count = await connection.scalar(
             text(
                 "SELECT count(DISTINCT content_sha256) FROM evaluation_cases "
-                "WHERE suite_slug = 'vendor-onboarding-phase-b' "
+                "WHERE suite_slug = 'vendor-onboarding-reference-v1' "
                 "AND suite_version = '1.0.0' AND schema_version = '1'"
             )
         )
@@ -348,7 +348,7 @@ async def test_reviewed_evaluation_contracts_are_immutable_but_enablement_is_ope
         case_id = await connection.scalar(
             text(
                 "SELECT id FROM evaluation_cases "
-                "WHERE suite_slug = 'vendor-onboarding-phase-b' ORDER BY slug LIMIT 1"
+                "WHERE suite_slug = 'vendor-onboarding-reference-v1' ORDER BY slug LIMIT 1"
             )
         )
     assert case_id is not None

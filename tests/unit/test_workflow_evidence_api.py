@@ -130,11 +130,11 @@ async def test_execute_evaluation_preserves_uuid_principal_and_suite_provenance(
             assert isinstance(database, FakeDatabase)
             assert temporal_client == "temporal-client"
             assert requested_by_id == principal.id
-            assert idempotency_key == "phase-b1-unit"
+            assert idempotency_key == "evaluation-unit"
             assert fault_injection_enabled is True
             return SimpleNamespace(
                 id=RUN_ID,
-                suite_slug="vendor-onboarding-phase-b",
+                suite_slug="vendor-onboarding-reference-v1",
                 suite_version="1.0.0",
                 suite_schema_version="1",
                 dataset_sha256="a" * 64,
@@ -155,14 +155,14 @@ async def test_execute_evaluation_preserves_uuid_principal_and_suite_provenance(
         )
     )
     response = await api.execute_evaluation(
-        api.EvaluationExecuteRequest(idempotency_key="phase-b1-unit"),
+        api.EvaluationExecuteRequest(idempotency_key="evaluation-unit"),
         cast(Request, request),
         cast(Database, FakeDatabase(FakeSession([]))),
         principal,
     )
 
     assert response.id == RUN_ID
-    assert response.suite_slug == "vendor-onboarding-phase-b"
+    assert response.suite_slug == "vendor-onboarding-reference-v1"
     assert response.configuration["workflow_executed"] is True
 
 
@@ -170,7 +170,7 @@ async def test_execute_evaluation_preserves_uuid_principal_and_suite_provenance(
 async def test_evaluation_report_returns_bounded_results(monkeypatch: pytest.MonkeyPatch) -> None:
     del monkeypatch
     run = SimpleNamespace(
-        suite_slug="vendor-onboarding-phase-b",
+        suite_slug="vendor-onboarding-reference-v1",
         suite_version="1.0.0",
         suite_schema_version="1",
         dataset_sha256="a" * 64,

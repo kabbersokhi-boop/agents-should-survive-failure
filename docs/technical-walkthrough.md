@@ -45,7 +45,7 @@ A valid synthetic vendor request uses the API fields:
 }
 ```
 
-## Seven-minute employer demonstration
+## Seven-minute technical walkthrough
 
 ### 1. Open with the problem — 45 seconds
 
@@ -160,11 +160,11 @@ Present the committed [`v0.2.0` evidence summary](evidence/v0.2.0.md) and the ev
 
 Explain that the evaluator runs real Temporal workflows and scores persisted PostgreSQL evidence across approval, rejection, cancellation, stale and conflicting decisions, model and tool failures, authorization denial, ambiguous starts, duplicate-effect prevention, and worker interruption.
 
-## Recruiter-friendly 30-second script
+## 30-second system overview
 
 > I built a reliability and governance layer for AI-assisted business workflows. The reference example onboards a sensitive supplier: AI gathers and explains evidence, but a human must approve the final action. The workflow survives crashes and retries, records an audit trail, and prevents duplicate business effects. I proved it with 24 real workflow scenarios and a test that deliberately kills the worker after the database commit and recovers with exactly one approval, one approved record, and one notification.
 
-## Hiring-manager two-minute script
+## Two-minute technical overview
 
 > The project separates orchestration, business truth, model advice, human authority, and external effects. Temporal owns durable workflow history and redelivery. PostgreSQL owns business state, audit evidence, uniqueness, and idempotency. The model produces a bounded explanation of deterministic risk and cannot approve the case. Tool calls are checked against a run-specific grant snapshot, exact version, input schema, approval requirements, and idempotency key. The strongest proof kills the real Docker worker after consequential effects commit but before Temporal receives the acknowledgement. A replacement worker receives the activity again, the workflow completes, and database constraints plus stable idempotency keys preserve exactly one business outcome.
 

@@ -1,4 +1,4 @@
-# ADR 0001: System boundaries and phased delivery
+# ADR 0001: System Boundaries and Incremental Delivery
 
 - Status: Accepted
 - Date: 2026-07-11
@@ -23,4 +23,5 @@ Temporal, OpenTelemetry, MCP, and testing stack.
 ## Consequences
 
 Cross-boundary operations require explicit contracts and idempotency. The initial repository is
-small, but later phases can add cohesive packages without changing the governing ownership model.
+small, while later capabilities can add cohesive packages without changing the governing ownership
+model.

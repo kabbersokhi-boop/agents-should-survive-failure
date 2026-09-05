@@ -150,7 +150,7 @@ test-sdk-install: sdk-build
 	bash scripts/test_sdk_install.sh
 
 external-agent-build:
-	uv build --offline --clear packages/example-operations-agent
+	uv build --offline --clear packages/reference-operations-agent
 
 test-external-agent: sdk-build external-agent-build
 	bash scripts/test_external_agent.sh

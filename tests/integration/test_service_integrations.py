@@ -46,14 +46,14 @@ async def test_policy_tool_and_evaluation_services_persist_evidence() -> None:
         )
     )
     sessions = async_sessionmaker(engine, expire_on_commit=False)
-    reference = f"phase4-{uuid.uuid4()}"
+    reference = f"service-integration-{uuid.uuid4()}"
     try:
         async with sessions.begin() as session:
             vendor = Vendor(
                 external_reference=reference,
-                legal_name="Phase Four Vendor",
+                legal_name="Service Integration Vendor",
                 jurisdiction="US",
-                contact_email="phase4@example.invalid",
+                contact_email="service-integration@example.invalid",
                 status=VendorStatus.SUBMITTED,
             )
             session.add(vendor)
@@ -67,8 +67,8 @@ async def test_policy_tool_and_evaluation_services_persist_evidence() -> None:
                 vendor_id=vendor.id,
                 requested_by_id=seed_id("user:demo-operator"),
                 workflow_type="vendor_onboarding",
-                temporal_workflow_id=f"phase4-{uuid.uuid4()}",
-                idempotency_key=f"phase4-{uuid.uuid4()}",
+                temporal_workflow_id=f"service-integration-{uuid.uuid4()}",
+                idempotency_key=f"service-integration-{uuid.uuid4()}",
                 status=RunStatus.PENDING,
                 input_summary={},
             )

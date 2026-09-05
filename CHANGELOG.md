@@ -22,4 +22,6 @@ This release presents the durable vendor-onboarding workflow as a verified refer
 
 ## Earlier backend baseline
 
-Earlier releases established the FastAPI control plane, PostgreSQL persistence, Temporal workflows, authenticated API contracts, governed tools, policy retrieval, approval updates, observability, local sandbox controls, and migration lifecycle checks. Historical implementation notes remain in the [archived development log](docs/archive/development-log.md).
+Earlier releases established the FastAPI control plane, PostgreSQL persistence, Temporal
+workflows, authenticated API contracts, governed tools, policy retrieval, approval updates,
+observability, local sandbox controls, and migration lifecycle checks.

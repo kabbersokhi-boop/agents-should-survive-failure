@@ -1,5 +1,5 @@
 [project]
-name = "example-operations-agent"
+name = "reference-operations-agent"
 version = "0.1.0"
 description = "Reference operations investigation managed agent for Agents Should Survive Failure."
 readme = "README.md"
@@ -11,11 +11,11 @@ dependencies = ["agents-should-survive-failure-sdk>=0.1.0,<0.2.0"]
 agents-should-survive-failure-sdk = { path = "../agents-should-survive-failure-sdk" }
 
 [project.entry-points."agents_should_survive_failure.agents"]
-operations-investigation = "example_operations_agent.agent:OperationsInvestigationAgent"
+operations-investigation = "reference_operations_agent.agent:OperationsInvestigationAgent"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/example_operations_agent"]
+packages = ["src/reference_operations_agent"]

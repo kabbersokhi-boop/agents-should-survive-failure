@@ -1,4 +1,4 @@
-# Plain-English Guide
+# System Overview
 
 ## One-sentence explanation
 

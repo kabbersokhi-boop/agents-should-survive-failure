@@ -2502,11 +2502,11 @@
       "title": "Unauthorized Sensitive Operation Rejected"
     }
   ],
-  "description": "Reviewed Phase B contracts for real Temporal vendor-onboarding execution, governance, retry classification, worker failure, adversarial probes, and duplicate-effect prevention.",
+  "description": "Reviewed evaluation contracts for real Temporal vendor-onboarding execution, governance, retry classification, worker failure, adversarial probes, and duplicate-effect prevention.",
   "reviewed_at": "2026-07-16T00:00:00+05:30",
-  "reviewed_by": "Phase B1 contract review; independent Codex review pending",
+  "reviewed_by": "Maintainer contract review",
   "schema_version": "1",
-  "suite_slug": "vendor-onboarding-phase-b",
+  "suite_slug": "vendor-onboarding-reference-v1",
   "suite_version": "1.0.0",
   "workflow_type": "vendor_onboarding"
 }

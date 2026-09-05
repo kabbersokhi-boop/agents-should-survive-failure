@@ -2,7 +2,7 @@
 set -euo pipefail
 
 sdk_wheel="$(find packages/agents-should-survive-failure-sdk/dist -maxdepth 1 -name '*.whl' -print -quit)"
-agent_wheel="$(find packages/example-operations-agent/dist -maxdepth 1 -name '*.whl' -print -quit)"
+agent_wheel="$(find packages/reference-operations-agent/dist -maxdepth 1 -name '*.whl' -print -quit)"
 test_dir="$(mktemp -d)"
 trap 'rm -rf "$test_dir"' EXIT
 

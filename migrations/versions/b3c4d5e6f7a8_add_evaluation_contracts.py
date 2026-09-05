@@ -1,4 +1,4 @@
-"""add Phase B evaluation contracts
+"""add evaluation contracts
 
 Revision ID: b3c4d5e6f7a8
 Revises: f1a2b3c4d5e6
@@ -126,7 +126,7 @@ def upgrade() -> None:
         "UPDATE evaluation_cases SET "
         "suite_slug = 'legacy-static-evaluation', suite_version = version, "
         "schema_version = '0', title = slug, "
-        "description = 'Legacy pre-Phase-B static evaluation case.', "
+        "description = 'Legacy static evaluation case.', "
         "scenario_type = 'legacy_static', setup = '{}'::jsonb, driver = '{}'::jsonb, "
         "evidence_requirements = '[]'::jsonb, content_sha256 = repeat('0', 64), "
         "reviewed_by = 'legacy migration', reviewed_at = created_at"
@@ -293,9 +293,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Phase A cannot represent reviewed B1 provenance. Remove only B1 evaluation artifacts before
-    # flattening the schema so a later re-upgrade can safely reseed the immutable reviewed catalog.
-    # Legacy pre-B1 rows and runs remain intact.
+    # The earlier schema cannot represent reviewed evaluation provenance. Remove only evaluation
+    # artifacts before flattening the schema so a later re-upgrade can safely reseed the immutable
+    # reviewed catalog. Legacy rows and runs remain intact.
     op.execute("DROP TRIGGER evaluation_results_immutable_snapshot ON evaluation_results")
     op.execute("DROP FUNCTION reject_evaluation_result_mutation()")
     op.execute("DROP TRIGGER evaluation_cases_immutable_contract ON evaluation_cases")

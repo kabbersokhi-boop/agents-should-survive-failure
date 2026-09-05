@@ -24,7 +24,7 @@ def manifest() -> dict[str, object]:
 def test_registration_digest_is_stable_and_binds_installation_metadata() -> None:
     registration = parse_registration(
         manifest=manifest(),
-        package_name="example-operations-agent",
+        package_name="reference-operations-agent",
         entry_point="example_operations.agent:OperationsAgent",
     )
     changed_package = parse_registration(

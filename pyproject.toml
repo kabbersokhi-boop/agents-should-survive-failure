@@ -1,7 +1,7 @@
 [project]
 name = "agents-should-survive-failure"
 version = "0.2.0"
-description = "A durable, observable and secure control plane for long-running AI agents."
+description = "A durable execution and governance reference for AI-assisted workflows."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = "Apache-2.0"

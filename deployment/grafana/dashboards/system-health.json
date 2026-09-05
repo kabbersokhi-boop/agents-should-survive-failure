@@ -136,7 +136,7 @@
     }
   ],
   "schemaVersion": 41,
-  "tags": ["agents", "phase-1"],
+  "tags": ["agents", "workflow-health"],
   "templating": {"list": []},
   "time": {"from": "now-1h", "to": "now"},
   "timezone": "browser",

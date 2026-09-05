@@ -306,7 +306,7 @@ class FaultPlan(StrictContract):
         if self.category is FaultCategory.PERMANENT and self.expected_retry_count_min != 0:
             raise ValueError("permanent faults cannot require retries")
         if not self.consume_once:
-            raise ValueError("reviewed Phase B faults must use consume-once semantics")
+            raise ValueError("reviewed evaluation faults must use consume-once semantics")
         return self
 
 

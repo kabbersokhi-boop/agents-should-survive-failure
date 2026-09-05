@@ -21,8 +21,8 @@ def test_packaged_suite_is_reviewed_complete_and_stable() -> None:
     count, digest = validate_packaged_evaluation_suite()
 
     assert count == 24
-    assert digest == "f8a11accd7b167224c445213218bba7eb324cc457eb0269c3002cdd89f498904"
-    assert suite.suite_slug == "vendor-onboarding-phase-b"
+    assert digest == "ca9224ad421ec7695ee453a10d3717c9eaef6ca03d26fb32b593f91ee255931a"
+    assert suite.suite_slug == "vendor-onboarding-reference-v1"
     assert suite.suite_version == "1.0.0"
     assert suite.schema_version == "1"
     assert {case.scenario_type for case in suite.cases} == set(ScenarioType)

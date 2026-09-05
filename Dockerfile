@@ -5,10 +5,10 @@ WORKDIR /app
 RUN pip install --no-cache-dir uv==0.11.16
 COPY pyproject.toml uv.lock README.md ./
 COPY packages/agents-should-survive-failure-sdk ./packages/agents-should-survive-failure-sdk
-COPY packages/example-operations-agent ./packages/example-operations-agent
+COPY packages/reference-operations-agent ./packages/reference-operations-agent
 COPY src ./src
 RUN uv sync --frozen --no-dev
-RUN uv build --offline --wheel --out-dir /tmp/agent-dist packages/example-operations-agent && \
+RUN uv build --offline --wheel --out-dir /tmp/agent-dist packages/reference-operations-agent && \
     uv pip install --python /app/.venv/bin/python /tmp/agent-dist/*.whl
 COPY alembic.ini ./
 COPY migrations ./migrations

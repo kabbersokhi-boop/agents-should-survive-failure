@@ -5,9 +5,9 @@
     {
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}, "unit": "none"}, "overrides": []},
-      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
       "id": 1,
-      "options": {"colorMode": "background_solid", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value"},
+      "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value"},
       "targets": [{"expr": "sum(agents_activity_retries_total)", "refId": "A"}],
       "title": "Temporal activity redelivery",
       "type": "stat"
@@ -15,9 +15,9 @@
     {
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}, "unit": "none"}, "overrides": []},
-      "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
       "id": 2,
-      "options": {"colorMode": "background_solid", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value"},
+      "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value"},
       "targets": [{"expr": "sum(agents_duplicate_side_effect_prevented_total)", "refId": "A"}],
       "title": "Duplicate business effect prevented",
       "type": "stat"
@@ -25,9 +25,9 @@
     {
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}, "unit": "none"}, "overrides": []},
-      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
       "id": 3,
-      "options": {"colorMode": "background_solid", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value"},
+      "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value"},
       "targets": [{"expr": "up{job=\"agents-api\"}", "refId": "A"}],
       "title": "API scrape health",
       "type": "stat"
@@ -35,9 +35,9 @@
     {
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "green", "value": 1}]}, "unit": "none"}, "overrides": []},
-      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
       "id": 4,
-      "options": {"colorMode": "background_solid", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value"},
+      "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "center", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "value"},
       "targets": [{"expr": "up{job=\"agents-worker\"}", "refId": "A"}],
       "title": "Replacement worker scrape health",
       "type": "stat"
@@ -45,7 +45,7 @@
     {
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "fieldConfig": {"defaults": {"unit": "none"}, "overrides": []},
-      "gridPos": {"h": 11, "w": 12, "x": 0, "y": 8},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
       "id": 5,
       "targets": [
         {"expr": "sum by (activity) (agents_activity_retries_total)", "legendFormat": "redelivery {{activity}}", "refId": "A"},
@@ -57,7 +57,7 @@
     {
       "datasource": {"type": "prometheus", "uid": "prometheus"},
       "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
-      "gridPos": {"h": 11, "w": 12, "x": 12, "y": 8},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
       "id": 6,
       "targets": [{"expr": "sum by (method, path, status) (agents_http_requests_total)", "legendFormat": "{{method}} {{path}} · {{status}}", "refId": "A"}],
       "title": "API control-plane activity",
@@ -67,7 +67,7 @@
   "schemaVersion": 41,
   "tags": ["agents", "recovery", "reliability"],
   "templating": {"list": []},
-  "time": {"from": "now-1h", "to": "now"},
+  "time": {"from": "now-15m", "to": "now"},
   "timezone": "browser",
   "title": "Crash Recovery Operations",
   "uid": "agents-crash-recovery",

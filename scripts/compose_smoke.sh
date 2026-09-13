@@ -4,6 +4,7 @@ set -euo pipefail
 export COMPOSE_PROJECT_NAME=agents-verify
 export COMPOSE_PROGRESS=plain
 export GIT_COMMIT_SHA="$(git rev-parse HEAD)"
+export DATABASE_URL="postgresql+asyncpg://agents:local-development-only@127.0.0.1:${POSTGRES_HOST_PORT:-5432}/agents"
 
 cleanup() {
   status=$?
@@ -11,7 +12,9 @@ cleanup() {
     docker compose ps || true
     docker compose logs --no-color --tail=200 || true
   fi
-  docker compose down --volumes --remove-orphans
+  if [[ "${KEEP_COMPOSE_STACK:-false}" != "true" ]]; then
+    docker compose down --volumes --remove-orphans
+  fi
   return "$status"
 }
 trap cleanup EXIT
@@ -21,7 +24,6 @@ docker compose up --detach postgres
 until docker compose exec -T postgres pg_isready -U temporal -d temporal >/dev/null 2>&1; do
   sleep 1
 done
-export DATABASE_URL=postgresql+asyncpg://agents:local-development-only@127.0.0.1:5432/agents
 uv run alembic upgrade head
 uv run alembic downgrade base
 uv run alembic upgrade head

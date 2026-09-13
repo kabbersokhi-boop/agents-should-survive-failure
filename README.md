@@ -31,6 +31,23 @@ make demo
 This is at-least-once execution with exactly-once business effects for the tested workflow. It is
 not a claim of exactly-once distributed execution.
 
+## Visual crash-recovery proof
+
+![Temporal crash recovery](docs/evidence/portfolio/01-temporal-crash-recovery.png)
+
+1. Temporal redelivers the decision activity after the worker dies, then completes the workflow.
+
+![Grafana operations evidence](docs/evidence/portfolio/02-grafana-operations.png)
+
+2. Observability shows the recovery path, duplicate-effect prevention, and healthy replacement worker.
+
+![Executable crash-proof result](docs/evidence/portfolio/03-crash-proof-result.png)
+
+3. Database and idempotency assertions prove the approval decision, vendor projection, and synthetic email each occurred once.
+
+These images demonstrate at-least-once execution with exactly-once business effects for the tested
+workflow, not exactly-once distributed execution.
+
 ## Engineering guarantees
 
 | Guarantee | Mechanism | Executable evidence |

@@ -43,7 +43,9 @@ async def main() -> None:
     engine = create_async_engine(get_settings().database_url)
     database = Database(engine)
     headers = {"Authorization": f"Bearer {api_key}"}
-    async with httpx.AsyncClient(base_url="http://127.0.0.1:8000", headers=headers) as client:
+    async with httpx.AsyncClient(
+        base_url=os.environ.get("API_BASE_URL", "http://127.0.0.1:8000"), headers=headers
+    ) as client:
         vendor = (
             (
                 await client.post(

@@ -20,6 +20,10 @@ jobs:
           enable-cache: true
       - run: uv python install 3.12
       - run: uv sync --frozen --all-groups
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm run check
       - run: make lint typecheck validate-evaluation-dataset test test-security dependency-audit sdk-build test-sdk-install external-agent-build test-external-agent sbom-backend sbom-sdk
       - uses: gitleaks/gitleaks-action@v2
         env:

@@ -1,0 +1,66 @@
+{
+  "run_id": "d587e091-7cf7-4aea-b34e-da5502ad64f6",
+  "project": "agents-portfolio",
+  "stages": [
+    {
+      "stage": "waiting_for_operator_approval",
+      "at": "2026-10-03T11:21:52.154683+00:00"
+    },
+    {
+      "stage": "effects_committed_before_ack",
+      "at": "2026-10-03T11:21:56.773062+00:00",
+      "evidence": {
+        "run_id": "d587e091-7cf7-4aea-b34e-da5502ad64f6",
+        "supplier_name": "Orion Payments",
+        "jurisdiction": "IN",
+        "risk_score": 65,
+        "business_status": "succeeded",
+        "temporal_workflow_id": "vendor-onboarding-d587e091-7cf7-4aea-b34e-da5502ad64f6",
+        "temporal_namespace": "default",
+        "temporal_status": "RUNNING",
+        "temporal_observed": true,
+        "decision_activity_attempt": 1,
+        "effects": {
+          "approval_decisions": 1,
+          "approved_suppliers": 1,
+          "synthetic_notifications": 1
+        },
+        "observed_at": "2026-10-03T11:21:55.198559Z"
+      }
+    },
+    {
+      "stage": "worker_sigkill_observed",
+      "at": "2026-10-03T11:21:57.447820+00:00",
+      "exit_code": 137,
+      "prior_pid": 108825
+    },
+    {
+      "stage": "replacement_worker_started",
+      "at": "2026-10-03T11:22:18.448935+00:00",
+      "replacement_pid": 132503
+    },
+    {
+      "stage": "recovery_verified",
+      "at": "2026-10-03T11:22:38.533698+00:00",
+      "evidence": {
+        "run_id": "d587e091-7cf7-4aea-b34e-da5502ad64f6",
+        "supplier_name": "Orion Payments",
+        "jurisdiction": "IN",
+        "risk_score": 65,
+        "business_status": "succeeded",
+        "temporal_workflow_id": "vendor-onboarding-d587e091-7cf7-4aea-b34e-da5502ad64f6",
+        "temporal_namespace": "default",
+        "temporal_status": "COMPLETED",
+        "temporal_observed": true,
+        "decision_activity_attempt": 2,
+        "effects": {
+          "approval_decisions": 1,
+          "approved_suppliers": 1,
+          "synthetic_notifications": 1
+        },
+        "observed_at": "2026-10-03T11:22:38.511686Z"
+      }
+    }
+  ],
+  "verified": true
+}

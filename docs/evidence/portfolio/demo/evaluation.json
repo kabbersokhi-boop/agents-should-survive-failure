@@ -1,0 +1,3471 @@
+{
+  "evaluation_run_id": "a46ffbd1-6995-4c6d-b758-1e7c8c98fc89",
+  "suite_slug": "vendor-onboarding-reference-v1",
+  "suite_version": "1.0.0",
+  "suite_schema_version": "1",
+  "dataset_sha256": "ca9224ad421ec7695ee453a10d3717c9eaef6ca03d26fb32b593f91ee255931a",
+  "status": "succeeded",
+  "configuration": {
+    "workflow_type": "vendor_onboarding",
+    "execution_mode": "production_temporal_workflow",
+    "workflow_executed": true,
+    "dataset_case_count": 24
+  },
+  "results": [
+    {
+      "case_slug": "ambiguous-workflow-start-recovery",
+      "case_version": "1",
+      "case_content_sha256": "7b2ca7219ddf9ccee3a0c4dda799a16d828a8dd87752eded13c8230a57b29694",
+      "workflow_run_id": "73f20839-197c-4f69-9f5a-58cacbbd185d",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 0,
+        "workflow_start_attempt_count_min": 2
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": {
+          "synthetic_email_send": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 1,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 1,
+        "workflow_start_attempts": 2,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 544,
+      "metrics": {
+        "activity_retry_count": 1,
+        "tool_invocation_count": 3,
+        "workflow_start_attempts": 2
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "73f20839-197c-4f69-9f5a-58cacbbd185d",
+        "audit_event_count": 5,
+        "fault_consumption_count": 1
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "approval-idempotency-conflict",
+      "case_version": "1",
+      "case_content_sha256": "990904efebcd95c14ae6f9d2f1b29879bf032e1e6944e0165aa0f181f100bc40",
+      "workflow_run_id": "b20d46ae-5061-45c5-896b-73530fa4f9c8",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 0,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": {
+          "synthetic_email_send": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 0,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 0,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 480,
+      "metrics": {
+        "activity_retry_count": 0,
+        "tool_invocation_count": 3,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "b20d46ae-5061-45c5-896b-73530fa4f9c8",
+        "audit_event_count": 5,
+        "fault_consumption_count": 0
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "cancel-before-approval",
+      "case_version": "1",
+      "case_content_sha256": "efe619f9756d5de22f0c0499dda9822adb9a167cc4b572a6b0d17b757bb38a30",
+      "workflow_run_id": "b0c29924-0d96-4dd7-953f-d85873f9be11",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "cancelled",
+        "vendor_status": "under_review",
+        "approval_status": "cancelled",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 0,
+            "minimum_count": 0,
+            "required_statuses": [],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "review.cancelled"
+        ],
+        "approved_vendor_count": 0,
+        "synthetic_email_count": 0,
+        "approval_request_count": 1,
+        "approval_decision_count": 0,
+        "activity_retry_count_min": 0,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "cancelled",
+        "vendor_status": "under_review",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "cancelled",
+        "failure_category": null,
+        "tool_invocations": {
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 0,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "review.cancelled"
+        ],
+        "approved_vendor_count": 0,
+        "synthetic_email_count": 0,
+        "approval_request_count": 1,
+        "approval_decision_count": 0,
+        "fault_consumption_count": 0,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          50
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 491,
+      "metrics": {
+        "activity_retry_count": 0,
+        "tool_invocation_count": 2,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "review.cancelled"
+        ],
+        "workflow_run_id": "b0c29924-0d96-4dd7-953f-d85873f9be11",
+        "audit_event_count": 5,
+        "fault_consumption_count": 0
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "cancel-waiting-for-approval",
+      "case_version": "1",
+      "case_content_sha256": "ff60f5d134f66cd546a068161a13d9df523f37881433bd9e71a450a371bfc542",
+      "workflow_run_id": "25487dfe-fdcd-49d3-a2e0-c2083f745dfc",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "cancelled",
+        "vendor_status": "under_review",
+        "approval_status": "cancelled",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 0,
+            "minimum_count": 0,
+            "required_statuses": [],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "review.cancelled"
+        ],
+        "approved_vendor_count": 0,
+        "synthetic_email_count": 0,
+        "approval_request_count": 1,
+        "approval_decision_count": 0,
+        "activity_retry_count_min": 0,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "cancelled",
+        "vendor_status": "under_review",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "cancelled",
+        "failure_category": null,
+        "tool_invocations": {
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 0,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "review.cancelled"
+        ],
+        "approved_vendor_count": 0,
+        "synthetic_email_count": 0,
+        "approval_request_count": 1,
+        "approval_decision_count": 0,
+        "fault_consumption_count": 0,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          50
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 491,
+      "metrics": {
+        "activity_retry_count": 0,
+        "tool_invocation_count": 2,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "review.cancelled"
+        ],
+        "workflow_run_id": "25487dfe-fdcd-49d3-a2e0-c2083f745dfc",
+        "audit_event_count": 5,
+        "fault_consumption_count": 0
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "conflicting-approval-rejected",
+      "case_version": "1",
+      "case_content_sha256": "26ef510ce848807faa4222e2ce250be028b2aeeeefe6a415479ae4b185e85a21",
+      "workflow_run_id": "80f666dc-5ac8-4c5c-bfe8-48052728881e",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 0,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": {
+          "synthetic_email_send": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 0,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 0,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 506,
+      "metrics": {
+        "activity_retry_count": 0,
+        "tool_invocation_count": 3,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "80f666dc-5ac8-4c5c-bfe8-48052728881e",
+        "audit_event_count": 5,
+        "fault_consumption_count": 0
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "database-transient-failure",
+      "case_version": "1",
+      "case_content_sha256": "2045a88d97262d17b85ad0cd57bf3a35c411c4dc8c1a0000a5c94a758b7c83ae",
+      "workflow_run_id": "5def2bf3-1828-4406-8ca7-7361d00589d0",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 1,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": {
+          "synthetic_email_send": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 1,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 1,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 1498,
+      "metrics": {
+        "activity_retry_count": 1,
+        "tool_invocation_count": 3,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "5def2bf3-1828-4406-8ca7-7361d00589d0",
+        "audit_event_count": 5,
+        "fault_consumption_count": 1
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "duplicate-email-prevented",
+      "case_version": "1",
+      "case_content_sha256": "602a3b739923979da55c1e4b95e3f36b3500488f0be2e227f0c19c0e2d508efe",
+      "workflow_run_id": "5da8cfd1-7ab5-4d95-8ede-28567171db44",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 1,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": {
+          "synthetic_email_send": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 1,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 1,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 491,
+      "metrics": {
+        "activity_retry_count": 1,
+        "tool_invocation_count": 3,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "5da8cfd1-7ab5-4d95-8ede-28567171db44",
+        "audit_event_count": 5,
+        "fault_consumption_count": 1
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "duplicate-projection-prevented",
+      "case_version": "1",
+      "case_content_sha256": "b130ab56a7c3594fd3e44e086e7c556f0da5bc7d51672d67a8fee1ce9cee0a66",
+      "workflow_run_id": "afae5058-c891-4b9c-8bbe-f0ab187ea8d1",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 1,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": {
+          "synthetic_email_send": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 1,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 1,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 484,
+      "metrics": {
+        "activity_retry_count": 1,
+        "tool_invocation_count": 3,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "afae5058-c891-4b9c-8bbe-f0ab187ea8d1",
+        "audit_event_count": 5,
+        "fault_consumption_count": 1
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "early-approval-rejected",
+      "case_version": "1",
+      "case_content_sha256": "76176eeb2d89ff5cf3a38a4116f07d20fb5fceb7a87eb18830a5ccf80f2774da",
+      "workflow_run_id": "b0e8c3ec-54f0-4dae-bff7-de7e5cb68263",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 0,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": {
+          "synthetic_email_send": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 0,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 0,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 546,
+      "metrics": {
+        "activity_retry_count": 0,
+        "tool_invocation_count": 3,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "b0e8c3ec-54f0-4dae-bff7-de7e5cb68263",
+        "audit_event_count": 5,
+        "fault_consumption_count": 0
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "high-risk-approved",
+      "case_version": "1",
+      "case_content_sha256": "82a94ff7a78d3a97656fc2a8b2ccd6c2bcad20daf7479f4b300d22452a3af8aa",
+      "workflow_run_id": "e6768ace-7a5d-453f-b913-22cd9b215550",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 65,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 0,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 65,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": {
+          "synthetic_email_send": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 0,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 0,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 891,
+      "metrics": {
+        "activity_retry_count": 0,
+        "tool_invocation_count": 3,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "e6768ace-7a5d-453f-b913-22cd9b215550",
+        "audit_event_count": 5,
+        "fault_consumption_count": 0
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "high-risk-rejected",
+      "case_version": "1",
+      "case_content_sha256": "90c989933a9219012dd09fbd46f7ad75dc23714eb28b0c1feb5e210df3a60b34",
+      "workflow_run_id": "e5184bb1-dd0a-417e-920e-21b29ef710f0",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 65,
+        "run_status": "rejected",
+        "vendor_status": "rejected",
+        "approval_status": "rejected",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 0,
+            "minimum_count": 0,
+            "required_statuses": [],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 0,
+        "synthetic_email_count": 0,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 0,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 65,
+        "run_status": "rejected",
+        "vendor_status": "rejected",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "rejected",
+        "failure_category": null,
+        "tool_invocations": {
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 0,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 0,
+        "synthetic_email_count": 0,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 0,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 696,
+      "metrics": {
+        "activity_retry_count": 0,
+        "tool_invocation_count": 2,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "e5184bb1-dd0a-417e-920e-21b29ef710f0",
+        "audit_event_count": 5,
+        "fault_consumption_count": 0
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "idempotent-approval-replay",
+      "case_version": "1",
+      "case_content_sha256": "437bc7226157fdd694d4c9445fa2b35996c6c5ab0139eb5286892c5249712dc1",
+      "workflow_run_id": "cdf66347-13f2-47ca-bb32-d51fee3fe807",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 0,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": {
+          "synthetic_email_send": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 0,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 0,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 479,
+      "metrics": {
+        "activity_retry_count": 0,
+        "tool_invocation_count": 3,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "cdf66347-13f2-47ca-bb32-d51fee3fe807",
+        "audit_event_count": 5,
+        "fault_consumption_count": 0
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "low-risk-approved",
+      "case_version": "1",
+      "case_content_sha256": "40b3efac235af4f82b6cfe3c31193b65a1ce059d44de131939bab6b77ff5311d",
+      "workflow_run_id": "e861c76a-ebeb-48f5-a665-36c7abad8a29",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 0,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": {
+          "synthetic_email_send": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 0,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 0,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 1962,
+      "metrics": {
+        "activity_retry_count": 0,
+        "tool_invocation_count": 3,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "e861c76a-ebeb-48f5-a665-36c7abad8a29",
+        "audit_event_count": 5,
+        "fault_consumption_count": 0
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "low-risk-rejected",
+      "case_version": "1",
+      "case_content_sha256": "45d4a88affe34bbf96be598037c6a2758f451fa56ee1b4c61c11f2b600757f7e",
+      "workflow_run_id": "c9268924-5022-49cb-a121-0c43a9b2ddc9",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "rejected",
+        "vendor_status": "rejected",
+        "approval_status": "rejected",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 0,
+            "minimum_count": 0,
+            "required_statuses": [],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 0,
+        "synthetic_email_count": 0,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 0,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "rejected",
+        "vendor_status": "rejected",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "rejected",
+        "failure_category": null,
+        "tool_invocations": {
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 0,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 0,
+        "synthetic_email_count": 0,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 0,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 645,
+      "metrics": {
+        "activity_retry_count": 0,
+        "tool_invocation_count": 2,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "c9268924-5022-49cb-a121-0c43a9b2ddc9",
+        "audit_event_count": 5,
+        "fault_consumption_count": 0
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "malformed-tool-input-rejected",
+      "case_version": "1",
+      "case_content_sha256": "a7ae0a3bdca90c936b942d4d3b09d724a18d47915cdfbb6b78b122b29fbf4396",
+      "workflow_run_id": "c445641c-1523-4799-b68b-ad71d12676c7",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 2,
+            "minimum_count": 2,
+            "required_statuses": [
+              "failed",
+              "succeeded"
+            ],
+            "required_error_categories": [
+              "invalid_arguments"
+            ]
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 0,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": {
+          "synthetic_email_send": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            },
+            {
+              "status": "failed",
+              "error_category": "invalid_arguments"
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 0,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 0,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 592,
+      "metrics": {
+        "activity_retry_count": 0,
+        "tool_invocation_count": 4,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "c445641c-1523-4799-b68b-ad71d12676c7",
+        "audit_event_count": 5,
+        "fault_consumption_count": 0
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "model-provider-failure-safe",
+      "case_version": "1",
+      "case_content_sha256": "505c3bc04f7c709bd8d73bf92b50ed77db9db32ef83ea99751f4379adc285f97",
+      "workflow_run_id": "63c1c7b7-f12a-49ae-9603-6e541da29b48",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "failed",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 0,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "model_metadata": [
+          {
+            "model": "unknown",
+            "status": "failed",
+            "provider": "unknown"
+          }
+        ],
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": {
+          "synthetic_email_send": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "failed",
+        "activity_retry_count": 1,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 1,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 486,
+      "metrics": {
+        "activity_retry_count": 1,
+        "tool_invocation_count": 3,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "unknown",
+            "status": "failed",
+            "provider": "unknown"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "63c1c7b7-f12a-49ae-9603-6e541da29b48",
+        "audit_event_count": 5,
+        "fault_consumption_count": 1
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "policy-retrieval-failure-safe",
+      "case_version": "1",
+      "case_content_sha256": "f01ff8609440e2115c244ca04ae2b5804155460210c3899d444fd7431c1caceb",
+      "workflow_run_id": "2ef0f12a-edcc-4d28-97ce-f5f103268804",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "failed",
+        "vendor_status": "under_review",
+        "approval_status": "absent",
+        "failure_category": "policy_retrieval_failed",
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "failed"
+            ],
+            "required_error_categories": [
+              "execution_failed"
+            ]
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 0,
+            "minimum_count": 0,
+            "required_statuses": [],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "absent",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "review.failed"
+        ],
+        "approved_vendor_count": 0,
+        "synthetic_email_count": 0,
+        "approval_request_count": 0,
+        "approval_decision_count": 0,
+        "activity_retry_count_min": 0,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "failed",
+        "vendor_status": "under_review",
+        "model_metadata": [],
+        "approval_status": "absent",
+        "failure_category": "policy_retrieval_failed",
+        "tool_invocations": {
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "failed",
+              "error_category": "execution_failed"
+            }
+          ]
+        },
+        "audit_event_count": 3,
+        "model_call_status": "absent",
+        "activity_retry_count": 1,
+        "workflow_event_types": [
+          "review.started",
+          "review.failed"
+        ],
+        "approved_vendor_count": 0,
+        "synthetic_email_count": 0,
+        "approval_request_count": 0,
+        "approval_decision_count": 0,
+        "fault_consumption_count": 1,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          25
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 251,
+      "metrics": {
+        "activity_retry_count": 1,
+        "tool_invocation_count": 2,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [],
+        "workflow_events": [
+          "review.started",
+          "review.failed"
+        ],
+        "workflow_run_id": "2ef0f12a-edcc-4d28-97ce-f5f103268804",
+        "audit_event_count": 3,
+        "fault_consumption_count": 1
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "required-tool-permission-denied",
+      "case_version": "1",
+      "case_content_sha256": "aa441027a7baa10b66e7040f20307b17c45a4eb1879350f9ebe4f8262f1a77af",
+      "workflow_run_id": "150a7bcb-998c-473d-8d90-5b4bf8423a6f",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": null,
+        "run_status": "failed",
+        "vendor_status": "under_review",
+        "approval_status": "absent",
+        "failure_category": "tool_permission_denied",
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "denied"
+            ],
+            "required_error_categories": [
+              "policy_denied"
+            ]
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 0,
+            "minimum_count": 0,
+            "required_statuses": [],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 0,
+            "minimum_count": 0,
+            "required_statuses": [],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "absent",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.failed"
+        ],
+        "approved_vendor_count": 0,
+        "synthetic_email_count": 0,
+        "approval_request_count": 0,
+        "approval_decision_count": 0,
+        "activity_retry_count_min": 0,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": null,
+        "run_status": "failed",
+        "vendor_status": "under_review",
+        "model_metadata": [],
+        "approval_status": "absent",
+        "failure_category": "tool_permission_denied",
+        "tool_invocations": {
+          "vendor_database_query": [
+            {
+              "status": "denied",
+              "error_category": "policy_denied"
+            }
+          ]
+        },
+        "audit_event_count": 2,
+        "model_call_status": "absent",
+        "activity_retry_count": 0,
+        "workflow_event_types": [
+          "review.failed"
+        ],
+        "approved_vendor_count": 0,
+        "synthetic_email_count": 0,
+        "approval_request_count": 0,
+        "approval_decision_count": 0,
+        "fault_consumption_count": 0,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          15
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 261,
+      "metrics": {
+        "activity_retry_count": 0,
+        "tool_invocation_count": 1,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [],
+        "workflow_events": [
+          "review.failed"
+        ],
+        "workflow_run_id": "150a7bcb-998c-473d-8d90-5b4bf8423a6f",
+        "audit_event_count": 2,
+        "fault_consumption_count": 0
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "required-tool-timeout-retry",
+      "case_version": "1",
+      "case_content_sha256": "dbf99790e4e5484263e5c6970bdb02be3e172f45b6ed71fa790af3ae31f014a8",
+      "workflow_run_id": "ec083148-cb26-4be2-9a3d-6de2f3173fd7",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 1,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": {
+          "synthetic_email_send": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 6,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 1,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 1,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 1497,
+      "metrics": {
+        "activity_retry_count": 1,
+        "tool_invocation_count": 3,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "ec083148-cb26-4be2-9a3d-6de2f3173fd7",
+        "audit_event_count": 6,
+        "fault_consumption_count": 1
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "stale-approval-version-rejected",
+      "case_version": "1",
+      "case_content_sha256": "f89b1874a429e2e4e953db945b1fe80d65107c4d11dc874a1056f46fad8bcff9",
+      "workflow_run_id": "564d3e94-74f8-4684-861b-685d71b9829e",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 0,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": {
+          "synthetic_email_send": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 0,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 0,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 529,
+      "metrics": {
+        "activity_retry_count": 0,
+        "tool_invocation_count": 3,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "564d3e94-74f8-4684-861b-685d71b9829e",
+        "audit_event_count": 5,
+        "fault_consumption_count": 0
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "unauthorized-sensitive-operation",
+      "case_version": "1",
+      "case_content_sha256": "7cfb25cd25af46e5aae79d1bd82546857788f123f5b3f0f1d935e6afbaaa2042",
+      "workflow_run_id": "e1792445-3f48-4554-a158-9042360a63f7",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 0,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": {
+          "synthetic_email_send": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 0,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 0,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 476,
+      "metrics": {
+        "activity_retry_count": 0,
+        "tool_invocation_count": 3,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "e1792445-3f48-4554-a158-9042360a63f7",
+        "audit_event_count": 5,
+        "fault_consumption_count": 0
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "worker-crash-after-effect-commit",
+      "case_version": "1",
+      "case_content_sha256": "c27655c30277380797c90789abf475a05155ea87914800710c8c26182ccd0bcb",
+      "workflow_run_id": "78a3f17b-2520-43fc-8776-16d0614ebe8e",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 1,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": {
+          "synthetic_email_send": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 1,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 1,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 501,
+      "metrics": {
+        "activity_retry_count": 1,
+        "tool_invocation_count": 3,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "78a3f17b-2520-43fc-8776-16d0614ebe8e",
+        "audit_event_count": 5,
+        "fault_consumption_count": 1
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "worker-restart-active-activity",
+      "case_version": "1",
+      "case_content_sha256": "1dfca3033179a0742b1213d49492f3143e254c887dc9778a386495e949149477",
+      "workflow_run_id": "61e8fade-87f8-424b-9934-8cff6863f121",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 1,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": {
+          "synthetic_email_send": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 1,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 1,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 1488,
+      "metrics": {
+        "activity_retry_count": 1,
+        "tool_invocation_count": 3,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "61e8fade-87f8-424b-9934-8cff6863f121",
+        "audit_event_count": 5,
+        "fault_consumption_count": 1
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    },
+    {
+      "case_slug": "worker-restart-waiting-approval",
+      "case_version": "1",
+      "case_content_sha256": "b908d70cd6bd9b5bf81ba6178a8610daf9d2506afb2e777a226063a8184c9dab",
+      "workflow_run_id": "b8a388fb-8c03-4bb4-8418-3338c010b350",
+      "status": "passed",
+      "score": 1,
+      "expected_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": [
+          {
+            "tool_name": "vendor_database_query",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "internal_policy_search",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          },
+          {
+            "tool_name": "synthetic_email_send",
+            "maximum_count": 1,
+            "minimum_count": 1,
+            "required_statuses": [
+              "succeeded"
+            ],
+            "required_error_categories": []
+          }
+        ],
+        "model_call_status": "succeeded",
+        "duplicate_prevention": {
+          "approval_decisions_max": 1,
+          "approved_vendor_rows_max": 1,
+          "synthetic_email_rows_max": 1,
+          "workflow_event_sequences_unique": true
+        },
+        "expected_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "activity_retry_count_min": 0,
+        "workflow_start_attempt_count_min": 1
+      },
+      "actual_outcome": {
+        "risk_score": 25,
+        "run_status": "succeeded",
+        "vendor_status": "approved",
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "approval_status": "approved",
+        "failure_category": null,
+        "tool_invocations": {
+          "synthetic_email_send": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "vendor_database_query": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ],
+          "internal_policy_search": [
+            {
+              "status": "succeeded",
+              "error_category": null
+            }
+          ]
+        },
+        "audit_event_count": 5,
+        "model_call_status": "succeeded",
+        "activity_retry_count": 1,
+        "workflow_event_types": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "approved_vendor_count": 1,
+        "synthetic_email_count": 1,
+        "approval_request_count": 1,
+        "approval_decision_count": 1,
+        "fault_consumption_count": 1,
+        "workflow_start_attempts": 1,
+        "workflow_event_sequences": [
+          10,
+          20,
+          25,
+          30,
+          40
+        ]
+      },
+      "failure_category": null,
+      "duration_ms": 1613,
+      "metrics": {
+        "activity_retry_count": 1,
+        "tool_invocation_count": 3,
+        "workflow_start_attempts": 1
+      },
+      "evidence_summary": {
+        "model_metadata": [
+          {
+            "model": "deterministic-explainer-v1",
+            "status": "succeeded",
+            "provider": "deterministic_mock"
+          }
+        ],
+        "workflow_events": [
+          "review.started",
+          "risk.assessed",
+          "risk.policy_context",
+          "approval.requested",
+          "approval.decided"
+        ],
+        "workflow_run_id": "b8a388fb-8c03-4bb4-8418-3338c010b350",
+        "audit_event_count": 5,
+        "fault_consumption_count": 1
+      },
+      "summary": "Production workflow evidence matched the reviewed contract."
+    }
+  ]
+}

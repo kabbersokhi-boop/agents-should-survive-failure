@@ -1,6 +1,10 @@
 .git
 .venv
 .env
+.env.*
+artifacts
+docs/evidence/portfolio/demo
+.coverage
 __pycache__
 .pytest_cache
 .ruff_cache

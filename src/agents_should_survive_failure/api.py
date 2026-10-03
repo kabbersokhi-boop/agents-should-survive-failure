@@ -6,6 +6,7 @@ import json
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 from typing import Annotated, Any, cast
 from uuid import UUID, uuid4
 
@@ -18,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, OperationalError
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.staticfiles import StaticFiles
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from temporalio.client import WorkflowUpdateFailedError, WorkflowUpdateRPCTimeoutOrCancelledError
 
@@ -53,6 +55,7 @@ from agents_should_survive_failure.fault_injection import (
     FaultPoint,
 )
 from agents_should_survive_failure.observability import configure_logging, configure_tracing
+from agents_should_survive_failure.operator_console import CaseSummary, case_summary
 from agents_should_survive_failure.persistence.models import (
     Agent,
     AgentStatus,
@@ -132,6 +135,17 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
             response.headers["x-request-id"] = request_id
+            if request.url.path.startswith("/console"):
+                response.headers["Content-Security-Policy"] = (
+                    "default-src 'self'; script-src 'self'; style-src 'self'; "
+                    "connect-src 'self'; img-src 'self'; frame-ancestors 'none'; "
+                    "base-uri 'none'; form-action 'self'"
+                )
+                response.headers["X-Content-Type-Options"] = "nosniff"
+                response.headers["Referrer-Policy"] = "no-referrer"
+                response.headers["Cache-Control"] = "no-store"
+            elif request.url.path.endswith("/business-evidence"):
+                response.headers["Cache-Control"] = "private, no-store"
             route = request.scope.get("route")
             route_path = getattr(route, "path", "unmatched")
             REQUESTS.labels(request.method, route_path, str(response.status_code)).inc()
@@ -659,6 +673,7 @@ async def http_error(request: Request, error: HTTPException) -> JSONResponse:
     }
     return JSONResponse(
         status_code=error.status_code,
+        headers=error.headers,
         content=ApiErrorResponse(
             code=codes.get(error.status_code, "request_failed"),
             message=str(error.detail),
@@ -1129,12 +1144,19 @@ async def list_workflow_runs(
     database: Annotated[Database, Depends(get_database)],
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0, le=10_000)] = 0,
+    exclude_evaluations: bool = False,
 ) -> WorkflowRunPage:
+    statement = select(WorkflowRun)
+    if exclude_evaluations:
+        statement = statement.where(
+            ~select(EvaluationResult.id)
+            .where(EvaluationResult.workflow_run_id == WorkflowRun.id)
+            .exists()
+        )
     async with database.session() as session:
         runs = (
             await session.scalars(
-                select(WorkflowRun)
-                .order_by(WorkflowRun.created_at.desc(), WorkflowRun.id.desc())
+                statement.order_by(WorkflowRun.created_at.desc(), WorkflowRun.id.desc())
                 .limit(limit)
                 .offset(offset)
             )
@@ -1961,6 +1983,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         tags=["health"],
     )
     app.add_api_route("/metrics", metrics, methods=["GET"], include_in_schema=False)
+    app.mount(
+        "/console",
+        StaticFiles(directory=Path(__file__).parent / "static", html=True),
+        name="operator-console",
+    )
+    app.add_api_route(
+        "/api/v1/workflow-runs/{run_id}/business-evidence",
+        case_summary,
+        methods=["GET"],
+        response_model=CaseSummary,
+        dependencies=[Depends(require_scopes("runs:read"))],
+    )
     add_v1_route(
         "/vendors",
         create_vendor,

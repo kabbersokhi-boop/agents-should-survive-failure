@@ -1,0 +1,76 @@
+{
+  "duration": 176.76666699999998,
+  "run_id": "d587e091-7cf7-4aea-b34e-da5502ad64f6",
+  "chapters": [
+    {
+      "at": 0,
+      "title": "A business approval must survive a worker failure",
+      "duration": 9
+    },
+    {
+      "at": 9,
+      "title": "Submit a supplier through the authenticated control plane",
+      "duration": 10.033333
+    },
+    {
+      "at": 19.033333,
+      "title": "The case persists and enters a human approval wait",
+      "duration": 10.766667
+    },
+    {
+      "at": 29.799999999999997,
+      "title": "Policy evidence informs the decision; the model has no approval authority",
+      "duration": 14.533333
+    },
+    {
+      "at": 44.333332999999996,
+      "title": "Temporal preserves the case while it waits for an authorized human",
+      "duration": 12
+    },
+    {
+      "at": 56.333332999999996,
+      "title": "A versioned human approval authorizes the business action",
+      "duration": 10.266667
+    },
+    {
+      "at": 66.6,
+      "title": "Business effects are committed while Temporal is still running",
+      "duration": 14
+    },
+    {
+      "at": 80.6,
+      "title": "SIGKILL is observed after the effects commit, before acknowledgement",
+      "duration": 14
+    },
+    {
+      "at": 94.6,
+      "title": "Durable orchestration retains the activity during worker interruption",
+      "duration": 14
+    },
+    {
+      "at": 108.6,
+      "title": "A replacement worker completes recovery with one of each effect",
+      "duration": 13
+    },
+    {
+      "at": 121.6,
+      "title": "Temporal history shows the redelivered decision activity and completion",
+      "duration": 14
+    },
+    {
+      "at": 135.6,
+      "title": "Operational metrics corroborate redelivery and duplicate prevention",
+      "duration": 14
+    },
+    {
+      "at": 149.6,
+      "title": "Final case evidence: one approval, one supplier record, one notification",
+      "duration": 17.166667
+    },
+    {
+      "at": 166.76666699999998,
+      "title": "Verified redelivery without duplicate business effects",
+      "duration": 10
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "run_id": "d587e091-7cf7-4aea-b34e-da5502ad64f6",
+  "media": {
+    "file": "supplier-crash-recovery.mp4",
+    "duration_seconds": 176.766992,
+    "width": 1920,
+    "height": 1080,
+    "codec": "h264",
+    "frames_per_second": 30,
+    "audio": false,
+    "chapter_count": 14
+  },
+  "scope": {
+    "supplier": "synthetic",
+    "model_provider": "deterministic",
+    "notification": "local database record; not delivered email",
+    "interfaces": [
+      "authenticated operator console",
+      "native Temporal UI",
+      "native Grafana dashboard",
+      "read-only local harness monitor"
+    ],
+    "recording": "isolated browser pages only; no desktop or browser chrome",
+    "editing": "chapter titles, trimmed waits and freeze holds; recovery observations remain real"
+  },
+  "evaluation": {
+    "run_id": "a46ffbd1-6995-4c6d-b758-1e7c8c98fc89",
+    "cases": 24,
+    "passed": 24,
+    "dataset_sha256": "ca9224ad421ec7695ee453a10d3717c9eaef6ca03d26fb32b593f91ee255931a"
+  },
+  "assets": [
+    {
+      "name": "01-operator-review.png",
+      "bytes": 603423,
+      "sha256": "f4687b3072c314553f1792e7a69a17353733127b3b3c5733b8227de5b2f47807"
+    },
+    {
+      "name": "02-committed-before-ack.png",
+      "bytes": 449899,
+      "sha256": "4bf38aa77e267a06d51edb9f2f69e4b668d047f85749ee73ba69ade6e5e103bf"
+    },
+    {
+      "name": "03-observed-worker-crash.png",
+      "bytes": 475046,
+      "sha256": "746b7c885fb93ac07ad226cf74c0dda46ac89f42132ff5a709c4285b6bd9980c"
+    },
+    {
+      "name": "04-temporal-redelivery.png",
+      "bytes": 795291,
+      "sha256": "9dd11edc41f7af85693955ce0b0f8815cb3cea31a3403f30218096a057b0dcf2"
+    },
+    {
+      "name": "05-grafana-operations.png",
+      "bytes": 323670,
+      "sha256": "c538841ded841d01f6679b722a0b7198ce921cd14141572b6edbcaa108ac64e0"
+    },
+    {
+      "name": "06-recovered-case.png",
+      "bytes": 450153,
+      "sha256": "76ebde847bc84c3d189be85b63a0664b3156f2cbd45efdfe98e56244d99eacc1"
+    },
+    {
+      "name": "chapters.json",
+      "bytes": 2074,
+      "sha256": "fcf13a6178d6df210a7bbccfafa77edce5389fbbbf963a71cb8a43611a3ac5b4"
+    },
+    {
+      "name": "evaluation.json",
+      "bytes": 102999,
+      "sha256": "870c02a5a115d575c01da962d7d0990a0b315f22ec50afbead7fec2a73e3c5a1"
+    },
+    {
+      "name": "poster.png",
+      "bytes": 163904,
+      "sha256": "0aa761290f5ecb750c74ede2cdfe17d5f7c34867f422be50abc0cbf90e1541df"
+    },
+    {
+      "name": "preview.gif",
+      "bytes": 745976,
+      "sha256": "de7c4250fbbd03501001b6b34a6c36479359a7d2cefe21474e2d35b791576b54"
+    },
+    {
+      "name": "recovery-proof.json",
+      "bytes": 2058,
+      "sha256": "b850f2b084f57ea47daee9a7e62580787c067e5cf9440f7fed7fa8029464ad06"
+    },
+    {
+      "name": "supplier-crash-recovery.mp4",
+      "bytes": 6942630,
+      "sha256": "f0d7fd73119942346543ad2710a370d14c6dbebf3402a54471a6c2dcf9727054"
+    }
+  ]
+}

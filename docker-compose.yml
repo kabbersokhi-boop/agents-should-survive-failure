@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: temporal
       POSTGRES_PASSWORD: temporal-local-only
     ports:
-      - "${POSTGRES_HOST_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./deployment/postgres/init:/docker-entrypoint-initdb.d:ro
@@ -32,7 +32,7 @@ services:
       POSTGRES_SEEDS: postgres
       DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
     ports:
-      - "${TEMPORAL_HOST_PORT:-7233}:7233"
+      - "127.0.0.1:${TEMPORAL_HOST_PORT:-7233}:7233"
     volumes:
       - ./deployment/temporal/dynamicconfig:/etc/temporal/config/dynamicconfig:ro
     healthcheck:
@@ -51,7 +51,7 @@ services:
       TEMPORAL_ADDRESS: temporal:7233
       TEMPORAL_CORS_ORIGINS: http://localhost:3000
     ports:
-      - "${TEMPORAL_UI_HOST_PORT:-8080}:8080"
+      - "127.0.0.1:${TEMPORAL_UI_HOST_PORT:-8080}:8080"
     restart: unless-stopped
 
   api:
@@ -89,7 +89,7 @@ services:
       FAULT_INJECTION_ENABLED: ${FAULT_INJECTION_ENABLED:-false}
       GIT_COMMIT_SHA: ${GIT_COMMIT_SHA:-unknown}
     ports:
-      - "${API_HOST_PORT:-8000}:8000"
+      - "127.0.0.1:${API_HOST_PORT:-8000}:8000"
     healthcheck:
       test:
         [
@@ -129,7 +129,7 @@ services:
       api:
         condition: service_healthy
     ports:
-      - "${PROMETHEUS_HOST_PORT:-9090}:9090"
+      - "127.0.0.1:${PROMETHEUS_HOST_PORT:-9090}:9090"
     volumes:
       - ./deployment/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus-data:/prometheus
@@ -139,9 +139,9 @@ services:
     image: grafana/tempo:3.0.2
     command: ["-config.file=/etc/tempo.yml"]
     ports:
-      - "${TEMPO_HOST_PORT:-3200}:3200"
-      - "${OTLP_GRPC_HOST_PORT:-4317}:4317"
-      - "${OTLP_HTTP_HOST_PORT:-4318}:4318"
+      - "127.0.0.1:${TEMPO_HOST_PORT:-3200}:3200"
+      - "127.0.0.1:${OTLP_GRPC_HOST_PORT:-4317}:4317"
+      - "127.0.0.1:${OTLP_HTTP_HOST_PORT:-4318}:4318"
     volumes:
       - ./deployment/tempo/tempo.yml:/etc/tempo.yml:ro
       - tempo-data:/var/tempo
@@ -157,7 +157,7 @@ services:
       GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
       GF_AUTH_DISABLE_LOGIN_FORM: "true"
     ports:
-      - "${GRAFANA_HOST_PORT:-3000}:3000"
+      - "127.0.0.1:${GRAFANA_HOST_PORT:-3000}:3000"
     volumes:
       - ./deployment/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./deployment/grafana/dashboards:/var/lib/grafana/dashboards:ro

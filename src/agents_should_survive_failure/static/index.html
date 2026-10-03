@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Survive — Supplier Operations</title>
+  <link rel="stylesheet" href="./console.css"><script type="module" src="./console.js"></script>
+</head>
+<body>
+  <aside class="rail"><a class="brand" href="./">S<span>Survive</span></a>
+    <p class="rail-label">WORKFLOW CONTROL</p><div class="nav active">Supplier operations</div>
+    <div class="rail-bottom"><span class="dot"></span> Local reference environment<br><small>Synthetic suppliers · no external email</small></div>
+  </aside>
+  <main>
+    <header><div><p class="eyebrow">DURABLE BUSINESS WORKFLOWS</p><h1>Supplier operations</h1>
+      <p class="subtitle">A worker can fail. Your approval should not disappear—or happen twice.</p></div>
+      <div class="session"><span id="session-label">Disconnected</span><button id="disconnect" class="quiet" hidden>Disconnect</button></div></header>
+    <section id="connection" class="panel connection"><div><h2>Connect an operator</h2><p>Use a scoped local API key. It stays in this page’s memory and is cleared on disconnect.</p></div>
+      <form id="connect-form"><label for="api-key">API key</label><input id="api-key" type="password" autocomplete="off" required placeholder="Scoped operator key"><button>Connect</button></form></section>
+    <div id="message" role="status" aria-live="polite"></div>
+    <div id="workspace" hidden>
+      <section class="intro-strip"><div><span class="dot"></span> Policy checks → human authority → durable execution</div><span class="pill">REFERENCE WORKFLOW</span></section>
+      <div class="work-grid">
+        <section class="panel intake"><p class="eyebrow">01 / INTAKE</p><h2>Onboard a supplier</h2><p>Create a case, review its evidence and authorize the final decision.</p>
+          <form id="supplier-form"><label for="supplier-name">Legal name</label><input id="supplier-name" value="Orion Payments" maxlength="240" required>
+            <div class="field-row"><div><label for="jurisdiction">Jurisdiction</label><select id="jurisdiction"><option value="IN">India</option><option value="US">United States</option><option value="GB">United Kingdom</option></select></div>
+            <div><label for="reference">Reference</label><input id="reference" placeholder="orion-payments" maxlength="100" required></div></div>
+            <label for="supplier-email">Synthetic contact email</label><input id="supplier-email" type="email" value="orion@example.invalid" required>
+            <button id="start-case">Start onboarding</button></form>
+          <div class="boundary"><strong>Authority boundary</strong><p>The model explains evidence. It cannot approve a supplier or bypass deterministic policy.</p></div>
+        </section>
+        <section class="panel case-list"><div class="section-heading"><div><p class="eyebrow">02 / CASES</p><h2>Review queue</h2></div><button id="refresh" class="quiet">Refresh</button></div>
+          <div id="case-list"><p class="empty">No cases loaded.</p></div><p class="hint">Select a supplier case to inspect its persisted evidence.</p></section>
+      </div>
+      <section id="case-detail" hidden>
+        <div class="case-heading"><div><p class="eyebrow">03 / CASE EVIDENCE</p><h2 id="case-title"></h2><p id="case-identity" class="mono"></p></div><span id="case-status" class="pill"></span></div>
+        <div class="stats"><article><p>Approval decisions</p><strong id="decision-count">—</strong><small>Persisted for this case</small></article>
+          <article><p>Approved supplier records</p><strong id="supplier-count">—</strong><small>Persisted for this case</small></article>
+          <article><p>Synthetic notifications</p><strong id="notification-count">—</strong><small>Stored locally · not delivered email</small></article>
+          <article><p>Decision activity attempt</p><strong id="attempt-count">—</strong><small>Observed from Temporal</small></article></div>
+        <div class="execution-strip"><div><span class="label">BUSINESS STATE</span><strong id="business-state">—</strong></div><div><span class="label">TEMPORAL EXECUTION</span><strong id="execution-state">—</strong></div><p id="execution-note"></p></div>
+        <div class="evidence-grid"><section class="panel"><div class="section-heading"><div><p class="eyebrow">HUMAN AUTHORITY</p><h2>Approval control</h2></div><span id="risk-score" class="pill"></span></div>
+          <p id="approval-summary">Waiting for approval evidence.</p><form id="approval-form" hidden><label for="rationale">Decision rationale</label><textarea id="rationale" rows="2" required maxlength="1000">Reviewed the policy evidence and approved this synthetic supplier.</textarea>
+            <div class="approval-actions"><button id="approve" value="approved">Approve supplier</button><button id="reject" class="danger" value="rejected">Reject</button></div></form>
+          <p class="hint">Bound to this approval request and its exact version. Only an authorized human or service can decide.</p>
+          <div class="model"><p class="eyebrow">ADVISORY EXPLANATION</p><p id="model-explanation">Awaiting assessment.</p><small id="model-provider"></small></div></section>
+          <section class="panel"><div class="section-heading"><div><p class="eyebrow">PERSISTED PROVENANCE</p><h2>Case timeline</h2></div><span id="evidence-freshness" class="hint"></span></div><ol id="timeline"></ol><p class="hint">Ordered database events. Orchestration status is observed separately from Temporal.</p></section></div>
+      </section>
+      <footer>At-least-once execution. Duplicate-safe effects for the tested workflow. No claim of exactly-once distributed execution.</footer>
+    </div>
+  </main>
+</body></html>

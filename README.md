@@ -10,6 +10,16 @@ crashes, waits for human approval, and prevents duplicate business effects.**
 
 > **Core invariant:** execution can occur more than once; each business effect commits once.
 
+## The business problem
+
+A supplier approval is consequential work, not just a model response. A process can crash
+after saving the decision but before acknowledging success. Blindly retrying can repeat the
+action; abandoning the case can leave an approved supplier stranded in an unfinished workflow.
+
+This project separates model advice, operator authority, durable coordination and committed
+business effects. The reference supplier journey makes the difficult moment visible:
+**the decision is saved, the worker dies, and recovery must preserve the same single outcome.**
+
 ## Failure proof
 
 The reference workflow commits an approval, a vendor projection, and a synthetic notification.
@@ -103,6 +113,7 @@ curl --fail http://127.0.0.1:8000/health/ready
 
 | Interface | Local URL | Purpose |
 | --- | --- | --- |
+| Operator console | `http://127.0.0.1:8000/console/` | Supplier intake, versioned approval and case-specific evidence |
 | FastAPI / OpenAPI | `http://127.0.0.1:8000/docs` | Start workflows and submit approvals |
 | Temporal UI | `http://127.0.0.1:8080` | Inspect history, waits, retries, and recovery |
 | Grafana | `http://127.0.0.1:3000` | Inspect API, workflow, tool, model, and cost signals |
@@ -111,6 +122,10 @@ curl --fail http://127.0.0.1:8000/health/ready
 Use `make down` to stop the stack without deleting its volumes. The
 [local runbook](docs/runbooks/local-development.md) contains the authenticated API sequence and
 database lifecycle commands.
+
+For the isolated operator-console demonstration, use `make operator-demo-up` and
+`make operator-demo-session`. Its console is at `http://127.0.0.1:18100/console/`;
+the [demo guide](docs/operator-demo.md) documents approval and the controlled crash.
 
 ## Verify the system
 

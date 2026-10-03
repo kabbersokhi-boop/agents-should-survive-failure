@@ -160,6 +160,27 @@ test-worker-crash:
 
 demo: test-worker-crash
 
+# A persistent, loopback-only demonstration stack; existing application volumes are untouched.
+OPERATOR_DEMO_ENV = COMPOSE_PROJECT_NAME=agents-portfolio POSTGRES_HOST_PORT=15432 API_HOST_PORT=18100 TEMPORAL_HOST_PORT=17233 TEMPORAL_UI_HOST_PORT=18088 GRAFANA_HOST_PORT=13000 PROMETHEUS_HOST_PORT=19090 TEMPO_HOST_PORT=13200 OTLP_GRPC_HOST_PORT=14317 OTLP_HTTP_HOST_PORT=14318 FAULT_INJECTION_ENABLED=true
+
+.PHONY: operator-demo-up operator-demo-session operator-demo-arm operator-demo-recover check-console
+operator-demo-up:
+	$(OPERATOR_DEMO_ENV) docker compose up --build --detach
+
+operator-demo-session:
+	DATABASE_URL=postgresql+asyncpg://agents:local-development-only@127.0.0.1:15432/agents uv run python scripts/operator_crash_demo.py session
+
+operator-demo-arm:
+	@test -n "$(RUN_ID)" || (echo 'Set RUN_ID to the selected synthetic case.' >&2; exit 2)
+	uv run python scripts/operator_crash_demo.py arm --run-id "$(RUN_ID)"
+
+operator-demo-recover:
+	@test -n "$(RUN_ID)" || (echo 'Set RUN_ID to the selected synthetic case.' >&2; exit 2)
+	uv run python scripts/operator_crash_demo.py recover --run-id "$(RUN_ID)"
+
+check-console:
+	npm run check
+
 test-managed-agent:
 	RELEASE_PROOF=managed-agent bash scripts/compose_smoke.sh
 

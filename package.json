@@ -1,0 +1,8 @@
+{
+  "name": "survive-operator-console-checks",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "node --check src/agents_should_survive_failure/static/console.js && node --test tests/presentation.test.mjs"
+  }
+}

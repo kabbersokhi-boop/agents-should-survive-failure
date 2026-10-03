@@ -1,0 +1,38 @@
+// Requires a disposable local stack and Playwright or an explicitly supplied module path.
+const {chromium} = require(process.env.PLAYWRIGHT_MODULE_PATH || 'playwright');
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const session = JSON.parse(fs.readFileSync(process.env.OPERATOR_SESSION || 'artifacts/operator-session.json'));
+if (!['127.0.0.1','localhost'].includes(new URL(session.api_url).hostname)) throw Error('Loopback only');
+(async () => {
+  const browser = await chromium.launch({headless:true, executablePath:process.env.CHROMIUM_PATH});
+  const context = await browser.newContext({viewport:{width:1600,height:900}});
+  const page = await context.newPage();
+  const errors=[]; page.on('pageerror',error=>errors.push(error.message));
+  await page.goto(session.api_url + '/console/');
+  await page.locator('#api-key').fill(session.api_key);
+  await page.locator('#connect-form button').click();
+  await page.waitForFunction(()=>!document.getElementById('workspace').hidden);
+  assert.equal(await page.locator('#api-key').inputValue(),'');
+  const storage = await page.evaluate(()=>({local:localStorage.length,session:sessionStorage.length}));
+  assert.deepEqual(storage,{local:0,session:0});
+  const unique='browser-' + Date.now();
+  await page.locator('#supplier-name').fill('Northstar Logistics');
+  await page.locator('#reference').fill(unique);
+  await page.locator('#start-case').click();
+  await page.waitForFunction(()=>!document.getElementById('approval-form').hidden, null, {timeout:45000});
+  assert.equal(await page.locator('#decision-count').textContent(),'0');
+  assert.equal(await page.locator('#supplier-count').textContent(),'0');
+  assert.match(await page.locator('#model-provider').textContent(),/deterministic.*advisory only/);
+  await page.locator('#approve').click();
+  await page.waitForFunction(()=>document.getElementById('execution-state').textContent === 'COMPLETED', null, {timeout:45000});
+  for (const id of ['decision-count','supplier-count','notification-count']) assert.equal(await page.locator('#'+id).textContent(),'1');
+  await page.setViewportSize({width:390,height:844});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth),true);
+  await page.locator('#disconnect').click();
+  assert.equal(await page.locator('#workspace').isVisible(),false);
+  assert.equal(await page.locator('#case-detail').isVisible(),false);
+  assert.deepEqual(errors,[]);
+  await browser.close();
+  console.log('Browser checks passed: actual intake/approval/completion, one-of-each effects, token cleared, no browser storage, mobile layout, no script errors.');
+})().catch(error=>{console.error(error.message);process.exit(1)});

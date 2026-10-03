@@ -20,13 +20,17 @@ A local demonstration uses one terminal and a few browser tabs:
 
 | Interface | Local address | What to show |
 | --- | --- | --- |
+| Operator console | `http://127.0.0.1:8000/console/` | Supplier intake, exact approval version, persisted counts and timeline |
 | FastAPI/OpenAPI | `http://127.0.0.1:8000/docs` | Create the vendor, start onboarding, inspect approvals, and submit a decision |
 | Temporal UI | `http://127.0.0.1:8080` | Workflow history, current phase, approval wait, retries, and completion |
 | Grafana | `http://127.0.0.1:3000` | API, worker, workflow, model, tool, and approval health |
 | Terminal | local shell | Start the stack and run the worker-crash proof |
 | Evidence API or PostgreSQL | API/SQL | Ordered events, model metadata, tool calls, approval, projection, and synthetic email |
 
-There is no custom customer-facing dashboard in this reference repository. A real product would normally put a simpler business UI in front of these services.
+The operator console presents the supplier journey through the authenticated API.
+It distinguishes committed business effects from Temporal completion. The
+[isolated console demo](operator-demo.md) provides separate ports and a
+case-scoped crash harness; the native dashboards remain available for deeper inspection.
 
 ## Example story
 

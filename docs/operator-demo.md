@@ -41,7 +41,7 @@ the password field after connection, and clears its state on disconnect.
    persisted effect counts are zero, and Temporal remains `RUNNING`.
 4. Copy the case UUID into the commands below. Arm the selected case before
    submitting approval. Start the recovery harness in a separate terminal,
-   then approve the supplier through the console.
+   then approve the supplier through the console with your decision rationale.
 
 ```bash
 make operator-demo-arm RUN_ID=<selected-case-uuid>

@@ -24,6 +24,8 @@ if (!['127.0.0.1','localhost'].includes(new URL(session.api_url).hostname)) thro
   assert.equal(await page.locator('#decision-count').textContent(),'0');
   assert.equal(await page.locator('#supplier-count').textContent(),'0');
   assert.match(await page.locator('#model-provider').textContent(),/deterministic.*advisory only/);
+  assert.equal(await page.locator('#rationale').inputValue(),'');
+  await page.locator('#rationale').fill('Reviewed the policy evidence and approved this synthetic supplier.');
   await page.locator('#approve').click();
   await page.waitForFunction(()=>document.getElementById('execution-state').textContent === 'COMPLETED', null, {timeout:45000});
   for (const id of ['decision-count','supplier-count','notification-count']) assert.equal(await page.locator('#'+id).textContent(),'1');

@@ -1,21 +1,21 @@
 # Agents Should Survive Failure
 
-**A supplier approval survives a worker crash without creating a second approval, supplier record, or notification.**
+**An AI-assisted system for reviewing and approving new suppliers, with human control and recovery when execution fails.**
 
 [![CI](https://github.com/kabbersokhi-boop/agents-should-survive-failure/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kabbersokhi-boop/agents-should-survive-failure/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/kabbersokhi-boop/agents-should-survive-failure)](https://github.com/kabbersokhi-boop/agents-should-survive-failure/releases/latest)
 [![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![License](https://img.shields.io/github/license/kabbersokhi-boop/agents-should-survive-failure)](LICENSE)
 
-> Activities can retry. The recorded business outcome remains one.
+> Review a supplier. Approve once. Recover safely.
 
-## See the failure and recovery
+## See supplier review and recovery
 
-[![The worker dies after saving an approval; recovery preserves one business outcome](docs/evidence/portfolio/demo/overview-preview.gif)](https://raw.githubusercontent.com/kabbersokhi-boop/agents-should-survive-failure/main/docs/evidence/portfolio/demo/overview.mp4)
+[![Review and approve a supplier, then recover the work after a crash](docs/evidence/portfolio/demo/overview-preview.gif)](https://raw.githubusercontent.com/kabbersokhi-boop/agents-should-survive-failure/main/docs/evidence/portfolio/demo/overview.mp4)
 
-**[Watch the project in action — 1:33](https://raw.githubusercontent.com/kabbersokhi-boop/agents-should-survive-failure/main/docs/evidence/portfolio/demo/overview.mp4)**
+**[Watch the project in action — 1:39](https://raw.githubusercontent.com/kabbersokhi-boop/agents-should-survive-failure/main/docs/evidence/portfolio/demo/overview.mp4)**
 
-A human approves one supplier. The worker saves the records, then dies before acknowledging completion. A replacement worker resumes the same workflow, and the records remain one of each.
+Follow a fictional supplier through review and approval. AI supports the review; a person makes the decision. After approval, the demonstration stops the process carrying out the task, restarts it, and checks that recovery preserves the decision without creating duplicate records.
 
 | What changes | What stays intact |
 | --- | --- |

@@ -2,7 +2,7 @@
 
 ## Project overview
 
-[Watch the 1:33 overview](demo/overview.mp4) · [Subtitles](demo/overview.en.srt) · [Transcript](demo/overview-transcript.txt)
+[Watch the 1:39 overview](demo/overview.mp4) · [Subtitles](demo/overview.en.srt) · [Transcript](demo/overview-transcript.txt)
 
 The overview is an edit of the same October 3 supplier recording. It uses enlarged original UI details, narration, one caption band, and editorial diagrams. Its [inventory](demo/overview-verification.json) and [production review](../../demo-production/README.md) identify the output and source recordings. The detailed walkthrough and original recovery proof below are preserved.
 

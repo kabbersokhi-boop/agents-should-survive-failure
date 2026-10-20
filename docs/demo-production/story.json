@@ -4,40 +4,13 @@
   "run_id": "d587e091-7cf7-4aea-b34e-da5502ad64f6",
   "scenes": [
     {
-      "id": "hook",
-      "duration": 7,
-      "title": "The worker died.\nApproval survived.",
-      "eyebrow": "CRASH AFTER COMMIT",
-      "support": [
-        "Real process termination.",
-        "One recorded business outcome."
-      ],
-      "shots": [
-        {
-          "file": "page@07fb306411d7ae8515e51a76b394b06a.webm",
-          "start": 9.893,
-          "available": 8,
-          "crop": [
-            870,
-            275,
-            620,
-            510
-          ]
-        }
-      ],
-      "lines": [
-        "The worker died after saving an approval.",
-        "The business outcome still happened only once."
-      ]
-    },
-    {
-      "id": "problem",
+      "id": "intro",
       "duration": 8,
-      "title": "An approval\nmust survive.",
-      "eyebrow": "THE BUSINESS PROBLEM",
+      "title": "A new supplier.\nA human decision.",
+      "eyebrow": "AI-ASSISTED SUPPLIER ONBOARDING",
       "support": [
-        "Do not lose the decision.",
-        "Do not apply it twice."
+        "AI supports the review.",
+        "A person controls approval."
       ],
       "shots": [
         {
@@ -53,41 +26,41 @@
         }
       ],
       "lines": [
-        "A supplier approval cannot disappear, or be applied twice.",
-        "This project keeps that decision intact when execution fails."
+        "This project helps a company review and approve new suppliers.",
+        "AI supports the review. A person makes the decision."
       ]
     },
     {
       "id": "review",
       "duration": 8,
-      "title": "Evidence informs.\nA human decides.",
-      "eyebrow": "REVIEW ONE SUPPLIER",
+      "title": "Review evidence.\nMake the decision.",
+      "eyebrow": "1 / REVIEW A SUPPLIER",
       "shots": [
         {
           "file": "page@8344ccf2152edcc788039aab29bf1528.webm",
           "start": 23.501,
           "available": 8,
           "crop": [
-            265,
+            875,
             350,
-            640,
-            515
+            680,
+            490
           ]
         }
       ],
       "lines": [
-        "Start with one supplier. Policy evidence informs the review.",
-        "An authenticated person decides whether to approve."
+        "Here is one fictional supplier, Orion Payments.",
+        "The reviewer checks policy evidence before deciding whether to approve it."
       ]
     },
     {
       "id": "approval",
       "duration": 9,
-      "title": "Approve the\nexact request.",
-      "eyebrow": "HUMAN AUTHORITY",
+      "title": "Approve once.\nSave the decision.",
+      "eyebrow": "2 / APPROVE THE REQUEST",
       "support": [
-        "Versioned approval.",
-        "Bounded model advice."
+        "One approval.",
+        "One supplier record."
       ],
       "shots": [
         {
@@ -103,15 +76,15 @@
         }
       ],
       "lines": [
-        "The operator approves the exact request version.",
-        "That authority stays separate from model advice and workflow retries."
+        "The reviewer approves this request.",
+        "The system saves the approval, the supplier record, and a local notification."
       ]
     },
     {
       "id": "boundary",
       "duration": 9,
-      "title": "Saved in the database.\nNot yet acknowledged.",
-      "eyebrow": "THE FAILURE BOUNDARY",
+      "title": "The records are saved.\nWhat if execution stops now?",
+      "eyebrow": "3 / INTERRUPT THE WORK",
       "kind": "wide",
       "shots": [
         {
@@ -127,15 +100,42 @@
         }
       ],
       "lines": [
-        "The records are saved, but completion is not acknowledged.",
-        "A crash here must never repeat the business action."
+        "The records are saved, but the workflow has not confirmed completion.",
+        "A restart could repeat work unless recovery handles this safely."
+      ]
+    },
+    {
+      "id": "crash",
+      "duration": 7,
+      "title": "Stop the process.\nKeep the decision.",
+      "eyebrow": "THE CRASH",
+      "support": [
+        "Worker: the executing process.",
+        "Saved records remain intact."
+      ],
+      "shots": [
+        {
+          "file": "page@07fb306411d7ae8515e51a76b394b06a.webm",
+          "start": 9.893,
+          "available": 8,
+          "crop": [
+            870,
+            275,
+            620,
+            510
+          ]
+        }
+      ],
+      "lines": [
+        "Now the demo forcibly stops the worker: the process carrying out the task.",
+        "The saved records remain in the database."
       ]
     },
     {
       "id": "recovery",
       "duration": 8,
-      "title": "Resume the work.\nKeep one outcome.",
-      "eyebrow": "REPLACE THE WORKER",
+      "title": "Restart.\nResume the work.",
+      "eyebrow": "4 / RECOVER THE WORKFLOW",
       "shots": [
         {
           "file": "page@07fb306411d7ae8515e51a76b394b06a.webm",
@@ -150,18 +150,18 @@
         }
       ],
       "lines": [
-        "A replacement worker resumes the same workflow.",
-        "Temporal retries the activity, without another human approval."
+        "A replacement process picks up the same workflow.",
+        "Temporal, the workflow engine, retries the interrupted step without asking for approval again."
       ]
     },
     {
       "id": "history",
       "duration": 9,
-      "title": "Inspect the retry.\nVerify completion.",
-      "eyebrow": "NATIVE TEMPORAL HISTORY",
+      "title": "Attempt two.\nWork completed.",
+      "eyebrow": "5 / CHECK THE EXECUTION HISTORY",
       "support": [
-        "Completed workflow.",
-        "Activity attempt 2."
+        "Attempt 2: the retried step.",
+        "Completed: the workflow finished."
       ],
       "shots": [
         {
@@ -177,15 +177,15 @@
         }
       ],
       "lines": [
-        "The history confirms a second activity attempt and a completed workflow.",
-        "Recovery is visible in the orchestration record."
+        "Here is the evidence: Temporal shows attempt two, followed by completed.",
+        "The interrupted workflow has recovered."
       ]
     },
     {
       "id": "outcome",
       "duration": 10,
-      "title": "Two attempts.\nOne committed outcome.",
-      "eyebrow": "VERIFY THE BUSINESS RECORDS",
+      "title": "One approval. One supplier.\nNo duplicate records.",
+      "eyebrow": "6 / CHECK THE BUSINESS RESULT",
       "kind": "wide",
       "shots": [
         {
@@ -201,19 +201,19 @@
         }
       ],
       "lines": [
-        "The database still holds one approval, one supplier record, and one local notification.",
-        "Two attempts produced one committed business outcome."
+        "Now check the business records: one approval, one supplier, and one local notification.",
+        "The retry created no duplicates for this case."
       ]
     },
     {
       "id": "architecture",
       "duration": 9,
-      "title": "Retry execution.\nProtect the outcome.",
-      "eyebrow": "DURABILITY + GOVERNANCE",
+      "title": "Why recovery\nworks here.",
+      "eyebrow": "HOW THE SYSTEM FITS TOGETHER",
       "kind": "architecture",
       "lines": [
-        "Temporal handles durable coordination. Postgres enforces business identity.",
-        "Model advice has no authority to approve the supplier."
+        "Temporal remembers the workflow's progress. PostgreSQL prevents the same business action from being saved twice.",
+        "AI advice cannot approve a supplier."
       ]
     },
     {
@@ -223,7 +223,7 @@
       "eyebrow": "AGENTS SHOULD SURVIVE FAILURE",
       "kind": "close",
       "lines": [
-        "Clone the repository to create a supplier and reproduce the crash locally.",
+        "Try it yourself: review a supplier, approve it, and reproduce the crash locally.",
         "The default demonstration needs no paid model credentials."
       ]
     }

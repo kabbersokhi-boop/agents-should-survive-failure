@@ -1,6 +1,6 @@
 # A supplier decision that survives failure
 
-[Watch the 1:33 project overview](https://raw.githubusercontent.com/kabbersokhi-boop/agents-should-survive-failure/main/docs/evidence/portfolio/demo/overview.mp4) for the business problem, observed crash, and recovery outcome. The chapter timings below refer to the detailed 2:57 walkthrough.
+[Watch the 1:39 project overview](https://raw.githubusercontent.com/kabbersokhi-boop/agents-should-survive-failure/main/docs/evidence/portfolio/demo/overview.mp4) for the business problem, observed crash, and recovery outcome. The chapter timings below refer to the detailed 2:57 walkthrough.
 
 An operations team has approved a supplier. Its worker saves the business outcome,
 then dies before the workflow engine receives acknowledgement. The team needs

@@ -1,56 +1,56 @@
 {
   "run_id": "d587e091-7cf7-4aea-b34e-da5502ad64f6",
-  "duration": 93.23333333333333,
+  "duration": 99.26666666666668,
   "chapters": [
     {
       "at": 0,
-      "title": "The worker died.\nApproval survived.",
-      "duration": 7.0
+      "title": "A new supplier.\nA human decision.",
+      "duration": 9.266666666666667
     },
     {
-      "at": 7.0,
-      "title": "An approval\nmust survive.",
-      "duration": 9.533333333333333
+      "at": 9.266666666666667,
+      "title": "Review evidence.\nMake the decision.",
+      "duration": 9.3
     },
     {
-      "at": 16.53333333333333,
-      "title": "Evidence informs.\nA human decides.",
-      "duration": 9.133333333333333
-    },
-    {
-      "at": 25.666666666666664,
-      "title": "Approve the\nexact request.",
+      "at": 18.56666666666667,
+      "title": "Approve once.\nSave the decision.",
       "duration": 9.0
     },
     {
-      "at": 34.666666666666664,
-      "title": "Saved in the database.\nNot yet acknowledged.",
+      "at": 27.56666666666667,
+      "title": "The records are saved.\nWhat if execution stops now?",
+      "duration": 10.0
+    },
+    {
+      "at": 37.56666666666667,
+      "title": "Stop the process.\nKeep the decision.",
+      "duration": 9.033333333333333
+    },
+    {
+      "at": 46.6,
+      "title": "Restart.\nResume the work.",
+      "duration": 10.733333333333333
+    },
+    {
+      "at": 57.333333333333336,
+      "title": "Attempt two.\nWork completed.",
       "duration": 9.0
     },
     {
-      "at": 43.666666666666664,
-      "title": "Resume the work.\nKeep one outcome.",
-      "duration": 8.733333333333333
+      "at": 66.33333333333334,
+      "title": "One approval. One supplier.\nNo duplicate records.",
+      "duration": 10.366666666666667
     },
     {
-      "at": 52.4,
-      "title": "Inspect the retry.\nVerify completion.",
-      "duration": 9.233333333333333
+      "at": 76.70000000000002,
+      "title": "Why recovery\nworks here.",
+      "duration": 11.966666666666667
     },
     {
-      "at": 61.63333333333333,
-      "title": "Two attempts.\nOne committed outcome.",
-      "duration": 10.533333333333333
-    },
-    {
-      "at": 72.16666666666667,
-      "title": "Retry execution.\nProtect the outcome.",
-      "duration": 10.766666666666667
-    },
-    {
-      "at": 82.93333333333334,
+      "at": 88.66666666666669,
       "title": "Try the workflow locally.",
-      "duration": 10.3
+      "duration": 10.6
     }
   ]
 }

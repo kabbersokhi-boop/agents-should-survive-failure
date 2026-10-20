@@ -1,80 +1,82 @@
 1
-00:00:00,300 --> 00:00:03,068
-The worker died after saving an approval.
+00:00:00,300 --> 00:00:04,604
+This project helps a company review and approve new suppliers.
 
 2
-00:00:03,168 --> 00:00:06,000
-The business outcome still happened only once.
+00:00:04,704 --> 00:00:08,752
+AI supports the review. A person makes the decision.
 
 3
-00:00:07,300 --> 00:00:11,540
-A supplier approval cannot disappear, or be applied twice.
+00:00:09,567 --> 00:00:13,060
+Here is one fictional supplier, Orion Payments.
 
 4
-00:00:11,640 --> 00:00:16,008
-This project keeps that decision intact when execution fails.
+00:00:13,160 --> 00:00:18,061
+The reviewer checks policy evidence before deciding whether to approve it.
 
 5
-00:00:16,833 --> 00:00:21,223
-Start with one supplier. Policy evidence informs the review.
+00:00:18,867 --> 00:00:21,293
+The reviewer approves this request.
 
 6
-00:00:21,323 --> 00:00:25,136
-An authenticated person decides whether to approve.
+00:00:21,393 --> 00:00:26,551
+The system saves the approval, the supplier record, and a local notification.
 
 7
-00:00:25,967 --> 00:00:29,396
-The operator approves the exact request version.
+00:00:27,867 --> 00:00:32,341
+The records are saved, but the workflow has not confirmed completion.
 
 8
-00:00:29,496 --> 00:00:34,056
-That authority stays separate from model advice and workflow retries.
+00:00:32,441 --> 00:00:37,065
+A restart could repeat work unless recovery handles this safely.
 
 9
-00:00:34,967 --> 00:00:38,716
-The records are saved, but completion is not acknowledged.
+00:00:37,867 --> 00:00:43,045
+Now the demo forcibly stops the worker: the process carrying out the task.
 
 10
-00:00:38,816 --> 00:00:42,267
-A crash here must never repeat the business action.
+00:00:43,145 --> 00:00:46,084
+The saved records remain in the database.
 
 11
-00:00:43,967 --> 00:00:47,460
-A replacement worker resumes the same workflow.
+00:00:46,900 --> 00:00:50,287
+A replacement process picks up the same workflow.
 
 12
-00:00:47,560 --> 00:00:51,885
-Temporal retries the activity, without another human approval.
+00:00:50,387 --> 00:00:56,824
+Temporal, the workflow engine, retries the interrupted step without asking for
+approval again.
 
 13
-00:00:52,700 --> 00:00:57,580
-The history confirms a second activity attempt and a completed workflow.
+00:00:57,633 --> 00:01:02,535
+Here is the evidence: Temporal shows attempt two, followed by completed.
 
 14
-00:00:57,680 --> 00:01:01,131
-Recovery is visible in the orchestration record.
+00:01:02,635 --> 00:01:05,275
+The interrupted workflow has recovered.
 
 15
-00:01:01,933 --> 00:01:08,136
-The database still holds one approval, one supplier record, and one local
+00:01:06,633 --> 00:01:12,537
+Now check the business records: one approval, one supplier, and one local
 notification.
 
 16
-00:01:08,236 --> 00:01:11,665
-Two attempts produced one committed business outcome.
+00:01:12,637 --> 00:01:16,173
+The retry created no duplicates for this case.
 
 17
-00:01:12,467 --> 00:01:18,349
-Temporal handles durable coordination. Postgres enforces business identity.
+00:01:17,000 --> 00:01:24,952
+Temporal remembers the workflow's progress. PostgreSQL prevents the same business
+action from being saved twice.
 
 18
-00:01:18,449 --> 00:01:22,433
-Model advice has no authority to approve the supplier.
+00:01:25,052 --> 00:01:28,140
+AI advice cannot approve a supplier.
 
 19
-00:01:23,233 --> 00:01:28,412
-Clone the repository to create a supplier and reproduce the crash locally.
+00:01:28,967 --> 00:01:34,465
+Try it yourself: review a supplier, approve it, and reproduce the crash locally.
 
 20
-00:01:28,512 --> 00:01:32,709
+00:01:34,565 --> 00:01:38,763
 The default demonstration needs no paid model credentials.

@@ -3,7 +3,7 @@
   "run_id": "d587e091-7cf7-4aea-b34e-da5502ad64f6",
   "media": {
     "file": "overview.mp4",
-    "duration_seconds": 93.233333,
+    "duration_seconds": 99.267,
     "width": 1920,
     "height": 1080,
     "codec": "h264",
@@ -24,33 +24,33 @@
   "assets": [
     {
       "name": "overview.mp4",
-      "bytes": 4908825,
-      "sha256": "fe212a83a5aaf81588a9b6c88ef665a52b995f9acc16fcf82b6898804d23a05d"
+      "bytes": 5136732,
+      "sha256": "b9942266066d14718166ef9a1d75f105a238f3070596d2775e46bc927dbd3a47"
     },
     {
       "name": "overview-preview.gif",
-      "bytes": 343769,
-      "sha256": "288e077b86de840606a4bf467d910bf7d69a5bbe1eaa52011a6f82d20bbb3156"
+      "bytes": 425209,
+      "sha256": "17eadcee12ce43738c79df5bcf27cf31dfcac52b6fddb0209d2943789ffd28a8"
     },
     {
       "name": "overview-poster.png",
-      "bytes": 297276,
-      "sha256": "6f878d8dcdcf01697cd5bf360e2116d871da7d8d165938d4a9fdc6420be6ae6d"
+      "bytes": 277335,
+      "sha256": "8839e1298df011e5239ad0cac694f1059136c38afaf1e79ac8edbefdb462310d"
     },
     {
       "name": "overview.en.srt",
-      "bytes": 1863,
-      "sha256": "89c8af57704afd58082d8879e581eb479bef8e6d37631c422e8c13259f750ace"
+      "bytes": 1958,
+      "sha256": "4cea70badf1ecd6481cf74e52e82249d9d800fe5c1b6c5f6acc6924911499541"
     },
     {
       "name": "overview-transcript.txt",
-      "bytes": 1701,
-      "sha256": "dc468a42ba924cdeeaf30ecfd497b7c3c904435d864cea1f0c100975985ce02d"
+      "bytes": 1801,
+      "sha256": "48405de05f8c65aab89f281f71f8fe9211b0403644985163222c93dd875ca080"
     },
     {
       "name": "overview-chapters.json",
-      "bytes": 1347,
-      "sha256": "5c9e78606a5abddf0ab94e7df8c98265490e05ed77dff34c06d679c63159b371"
+      "bytes": 1352,
+      "sha256": "bc45bfc788dc4f72370aadce115095fb1918a0246748348eeefbe7acf6a057d5"
     }
   ]
 }

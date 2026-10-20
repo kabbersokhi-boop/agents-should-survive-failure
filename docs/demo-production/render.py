@@ -73,7 +73,7 @@ def background(scene):
         for j, line in enumerate(scene.get("support", [])):
             text(d, (98, 460 + j * 54), line, 24, MUTED)
         d.line((98, 650, 242, 650), fill=TEAL, width=4)
-    if scene["id"] == "hook":
+    if scene["id"] in {"intro", "crash"}:
         text(d, (98, 758), "SIMULATED SUPPLIER", 16, MUTED)
     if kind == "architecture":
         nodes = [
@@ -270,7 +270,7 @@ def main():
                     f"Caption,,0,0,0,,{{\\fad(90,90)}}{txt}"
                 )
         # Editorial outlines point at actual recorded fields without replacing their values.
-        focus = {"hook": (838, 592, 1644, 662), "history": (1140, 620, 1250, 666)}.get(s["id"])
+        focus = {"crash": (838, 592, 1644, 662), "history": (1140, 620, 1250, 666)}.get(s["id"])
         if focus:
             x1, y1, x2, y2 = focus
             focus_end = d - 0.4

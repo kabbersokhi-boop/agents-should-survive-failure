@@ -1,9 +1,10 @@
 # Project overview production
 
-The 1:33 overview follows the same supplier case as the detailed 2:57 walkthrough:
+The 1:39 overview follows the same supplier case as the detailed 2:57 walkthrough:
 `d587e091-7cf7-4aea-b34e-da5502ad64f6`. Its source is the original October 3 browser
-recording. The new edit opens with the observed worker crash, then explains the
-approval, post-commit boundary, redelivery, and unchanged business records.
+recording. The edit first explains the project and follows a supplier through
+review and approval. It then introduces the interrupted process, shows its
+replacement, and checks execution history and unchanged business records.
 
 Recorded UI pixels are cropped and enlarged; the diagram, headings, animated
 outlines, and progress line are editorial graphics. The crash monitor is a local
@@ -21,8 +22,8 @@ inventory remain available.
 `story.json` supplies the recorded filenames, exact source offsets, crop rectangles,
 headlines, and spoken script. Scene lengths follow the generated speech; short
 recorded clips hold their final frame when narration continues. The approval click
-is retained at its original speed. The opening is a preview of the observed crash;
-the subsequent scenes explain the same recorded case.
+is retained at its original speed. The business context and user action precede
+the crash, and technical terms are introduced as they become relevant.
 
 Use Python 3.12, `kokoro-onnx==0.6.0`, NumPy, ONNX Runtime, SoundFile, and Pillow.
 FFmpeg needs libx264 and libass. DejaVu Sans must be installed. Media dependencies

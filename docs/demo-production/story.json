@@ -1,0 +1,231 @@
+{
+  "voice": "am_michael",
+  "speed": 1.0,
+  "run_id": "d587e091-7cf7-4aea-b34e-da5502ad64f6",
+  "scenes": [
+    {
+      "id": "hook",
+      "duration": 7,
+      "title": "The worker died.\nApproval survived.",
+      "eyebrow": "CRASH AFTER COMMIT",
+      "support": [
+        "Real process termination.",
+        "One recorded business outcome."
+      ],
+      "shots": [
+        {
+          "file": "page@07fb306411d7ae8515e51a76b394b06a.webm",
+          "start": 9.893,
+          "available": 8,
+          "crop": [
+            870,
+            275,
+            620,
+            510
+          ]
+        }
+      ],
+      "lines": [
+        "The worker died after saving an approval.",
+        "The business outcome still happened only once."
+      ]
+    },
+    {
+      "id": "problem",
+      "duration": 8,
+      "title": "An approval\nmust survive.",
+      "eyebrow": "THE BUSINESS PROBLEM",
+      "support": [
+        "Do not lose the decision.",
+        "Do not apply it twice."
+      ],
+      "shots": [
+        {
+          "file": "page@8344ccf2152edcc788039aab29bf1528.webm",
+          "start": 6.947,
+          "available": 6.042000000000001,
+          "crop": [
+            265,
+            230,
+            580,
+            650
+          ]
+        }
+      ],
+      "lines": [
+        "A supplier approval cannot disappear, or be applied twice.",
+        "This project keeps that decision intact when execution fails."
+      ]
+    },
+    {
+      "id": "review",
+      "duration": 8,
+      "title": "Evidence informs.\nA human decides.",
+      "eyebrow": "REVIEW ONE SUPPLIER",
+      "shots": [
+        {
+          "file": "page@8344ccf2152edcc788039aab29bf1528.webm",
+          "start": 23.501,
+          "available": 8,
+          "crop": [
+            265,
+            350,
+            640,
+            515
+          ]
+        }
+      ],
+      "lines": [
+        "Start with one supplier. Policy evidence informs the review.",
+        "An authenticated person decides whether to approve."
+      ]
+    },
+    {
+      "id": "approval",
+      "duration": 9,
+      "title": "Approve the\nexact request.",
+      "eyebrow": "HUMAN AUTHORITY",
+      "support": [
+        "Versioned approval.",
+        "Bounded model advice."
+      ],
+      "shots": [
+        {
+          "file": "page@8344ccf2152edcc788039aab29bf1528.webm",
+          "start": 47.644,
+          "available": 6.277999999999999,
+          "crop": [
+            265,
+            350,
+            640,
+            515
+          ]
+        }
+      ],
+      "lines": [
+        "The operator approves the exact request version.",
+        "That authority stays separate from model advice and workflow retries."
+      ]
+    },
+    {
+      "id": "boundary",
+      "duration": 9,
+      "title": "Saved in the database.\nNot yet acknowledged.",
+      "eyebrow": "THE FAILURE BOUNDARY",
+      "kind": "wide",
+      "shots": [
+        {
+          "file": "page@8344ccf2152edcc788039aab29bf1528.webm",
+          "start": 53.965,
+          "available": 8,
+          "crop": [
+            265,
+            25,
+            1290,
+            320
+          ]
+        }
+      ],
+      "lines": [
+        "The records are saved, but completion is not acknowledged.",
+        "A crash here must never repeat the business action."
+      ]
+    },
+    {
+      "id": "recovery",
+      "duration": 8,
+      "title": "Resume the work.\nKeep one outcome.",
+      "eyebrow": "REPLACE THE WORKER",
+      "shots": [
+        {
+          "file": "page@07fb306411d7ae8515e51a76b394b06a.webm",
+          "start": 50.036,
+          "available": 8,
+          "crop": [
+            870,
+            275,
+            620,
+            510
+          ]
+        }
+      ],
+      "lines": [
+        "A replacement worker resumes the same workflow.",
+        "Temporal retries the activity, without another human approval."
+      ]
+    },
+    {
+      "id": "history",
+      "duration": 9,
+      "title": "Inspect the retry.\nVerify completion.",
+      "eyebrow": "NATIVE TEMPORAL HISTORY",
+      "support": [
+        "Completed workflow.",
+        "Activity attempt 2."
+      ],
+      "shots": [
+        {
+          "file": "page@270826da00dbfa8544bb715b2eddbf91.webm",
+          "start": 87.652,
+          "available": 8,
+          "crop": [
+            640,
+            525,
+            900,
+            275
+          ]
+        }
+      ],
+      "lines": [
+        "The history confirms a second activity attempt and a completed workflow.",
+        "Recovery is visible in the orchestration record."
+      ]
+    },
+    {
+      "id": "outcome",
+      "duration": 10,
+      "title": "Two attempts.\nOne committed outcome.",
+      "eyebrow": "VERIFY THE BUSINESS RECORDS",
+      "kind": "wide",
+      "shots": [
+        {
+          "file": "page@8344ccf2152edcc788039aab29bf1528.webm",
+          "start": 135.971,
+          "available": 8,
+          "crop": [
+            265,
+            25,
+            1290,
+            320
+          ]
+        }
+      ],
+      "lines": [
+        "The database still holds one approval, one supplier record, and one local notification.",
+        "Two attempts produced one committed business outcome."
+      ]
+    },
+    {
+      "id": "architecture",
+      "duration": 9,
+      "title": "Retry execution.\nProtect the outcome.",
+      "eyebrow": "DURABILITY + GOVERNANCE",
+      "kind": "architecture",
+      "lines": [
+        "Temporal handles durable coordination. Postgres enforces business identity.",
+        "Model advice has no authority to approve the supplier."
+      ]
+    },
+    {
+      "id": "close",
+      "duration": 9,
+      "title": "Try the workflow locally.",
+      "eyebrow": "AGENTS SHOULD SURVIVE FAILURE",
+      "kind": "close",
+      "lines": [
+        "Clone the repository to create a supplier and reproduce the crash locally.",
+        "The default demonstration needs no paid model credentials."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+Agents Should Survive Failure — supplier approval and recovery
+
+0:00 — The worker died. Approval survived.
+The worker died after saving an approval. The business outcome still happened only once.
+
+0:07 — An approval must survive.
+A supplier approval cannot disappear, or be applied twice. This project keeps that decision intact when execution fails.
+
+0:16 — Evidence informs. A human decides.
+Start with one supplier. Policy evidence informs the review. An authenticated person decides whether to approve.
+
+0:25 — Approve the exact request.
+The operator approves the exact request version. That authority stays separate from model advice and workflow retries.
+
+0:34 — Saved in the database. Not yet acknowledged.
+The records are saved, but completion is not acknowledged. A crash here must never repeat the business action.
+
+0:43 — Resume the work. Keep one outcome.
+A replacement worker resumes the same workflow. Temporal retries the activity, without another human approval.
+
+0:52 — Inspect the retry. Verify completion.
+The history confirms a second activity attempt and a completed workflow. Recovery is visible in the orchestration record.
+
+1:01 — Two attempts. One committed outcome.
+The database still holds one approval, one supplier record, and one local notification. Two attempts produced one committed business outcome.
+
+1:12 — Retry execution. Protect the outcome.
+Temporal handles durable coordination. Postgres enforces business identity. Model advice has no authority to approve the supplier.
+
+1:22 — Try the workflow locally.
+Clone the repository to create a supplier and reproduce the crash locally. The default demonstration needs no paid model credentials.

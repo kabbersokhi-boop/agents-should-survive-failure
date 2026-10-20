@@ -112,3 +112,31 @@ data, reviewed-case immutability with operational enablement, relational constra
 CRUD, optimistic concurrency, pgvector similarity, dependency readiness, Prometheus scraping,
 Grafana provisioning, Tempo trace ingestion, and Temporal UI. It then removes only that project's
 containers and volumes. It can run independently of unit tests, but `make verify` includes it.
+
+## Running the proof alongside other local services
+
+`make demo` uses the isolated `agents-verify` Compose project and removes that
+project's test volumes after the run. If another application occupies the default
+ports, override both the published service ports and the host clients' addresses:
+
+```bash
+POSTGRES_HOST_PORT=25432 \
+API_HOST_PORT=28100 \
+TEMPORAL_HOST_PORT=27233 \
+TEMPORAL_UI_HOST_PORT=28088 \
+GRAFANA_HOST_PORT=23000 \
+PROMETHEUS_HOST_PORT=29090 \
+TEMPO_HOST_PORT=23200 \
+OTLP_GRPC_HOST_PORT=24317 \
+OTLP_HTTP_HOST_PORT=24318 \
+API_BASE_URL=http://127.0.0.1:28100 \
+TEMPORAL_ADDRESS=127.0.0.1:27233 \
+make demo
+```
+
+Choose unused ports on your machine. The host database URL follows
+`POSTGRES_HOST_PORT`; `API_BASE_URL` and `TEMPORAL_ADDRESS` direct the host-side
+proof client to the corresponding services. Container-to-container addresses
+remain internal to Compose. The interactive demo uses a different project,
+`agents-portfolio`, and its own ports as described in the
+[interactive guide](../operator-demo.md).

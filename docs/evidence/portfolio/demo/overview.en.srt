@@ -1,0 +1,80 @@
+1
+00:00:00,300 --> 00:00:03,068
+The worker died after saving an approval.
+
+2
+00:00:03,168 --> 00:00:06,000
+The business outcome still happened only once.
+
+3
+00:00:07,300 --> 00:00:11,540
+A supplier approval cannot disappear, or be applied twice.
+
+4
+00:00:11,640 --> 00:00:16,008
+This project keeps that decision intact when execution fails.
+
+5
+00:00:16,833 --> 00:00:21,223
+Start with one supplier. Policy evidence informs the review.
+
+6
+00:00:21,323 --> 00:00:25,136
+An authenticated person decides whether to approve.
+
+7
+00:00:25,967 --> 00:00:29,396
+The operator approves the exact request version.
+
+8
+00:00:29,496 --> 00:00:34,056
+That authority stays separate from model advice and workflow retries.
+
+9
+00:00:34,967 --> 00:00:38,716
+The records are saved, but completion is not acknowledged.
+
+10
+00:00:38,816 --> 00:00:42,267
+A crash here must never repeat the business action.
+
+11
+00:00:43,967 --> 00:00:47,460
+A replacement worker resumes the same workflow.
+
+12
+00:00:47,560 --> 00:00:51,885
+Temporal retries the activity, without another human approval.
+
+13
+00:00:52,700 --> 00:00:57,580
+The history confirms a second activity attempt and a completed workflow.
+
+14
+00:00:57,680 --> 00:01:01,131
+Recovery is visible in the orchestration record.
+
+15
+00:01:01,933 --> 00:01:08,136
+The database still holds one approval, one supplier record, and one local
+notification.
+
+16
+00:01:08,236 --> 00:01:11,665
+Two attempts produced one committed business outcome.
+
+17
+00:01:12,467 --> 00:01:18,349
+Temporal handles durable coordination. Postgres enforces business identity.
+
+18
+00:01:18,449 --> 00:01:22,433
+Model advice has no authority to approve the supplier.
+
+19
+00:01:23,233 --> 00:01:28,412
+Clone the repository to create a supplier and reproduce the crash locally.
+
+20
+00:01:28,512 --> 00:01:32,709
+The default demonstration needs no paid model credentials.

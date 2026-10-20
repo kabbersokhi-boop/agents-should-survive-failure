@@ -1,0 +1,45 @@
+{
+  "sha256": "fe212a83a5aaf81588a9b6c88ef665a52b995f9acc16fcf82b6898804d23a05d",
+  "duration": 93.233333,
+  "chapters": 10,
+  "resolution": "1920x1080",
+  "decode_errors": 0,
+  "caption_layers": 1,
+  "subtitle_streams": 0,
+  "subtitle_cues": 20,
+  "asr_word_match": 0.9884393063583815,
+  "audio_peak": 0.8434903621673584,
+  "minimum_audio_correlation": 0.9999942935779201,
+  "visual_review_frames": 30,
+  "spoken_end": 92.62933333333334,
+  "run_id": "d587e091-7cf7-4aea-b34e-da5502ad64f6",
+  "visual_review": "Inspected all ten chapter starts, middles, and ends, plus the full-size crash view. Original UI pixels are retained inside editorial framing.",
+  "browser_playback": {
+    "initial": {
+      "time": 1.95919,
+      "frames": 64,
+      "audioBytes": 50645,
+      "width": 1920,
+      "height": 1080,
+      "error": null
+    },
+    "seek_screenshots": [
+      3,
+      20,
+      28,
+      38,
+      47,
+      56,
+      65,
+      78,
+      87
+    ],
+    "end_playback": true
+  },
+  "source_recordings": {
+    "page@07fb306411d7ae8515e51a76b394b06a.webm": "89208997d3e8fdf0d6e0db5abe5c9816c6c4ca241771616723891e7a82b12818",
+    "page@8344ccf2152edcc788039aab29bf1528.webm": "b085a9709d591dcdb9ef3278bad12369eb0ab23acf6d11de31c87f4631ce2aa4",
+    "page@270826da00dbfa8544bb715b2eddbf91.webm": "d353bfc62f66554ddf5b4771023c1e68f2a7191bfd2fd5384a8a712337a0756e"
+  },
+  "speech_review": "Automatic transcription reviewed against the script. No claim of human listening."
+}

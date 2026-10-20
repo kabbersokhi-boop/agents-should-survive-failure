@@ -1,0 +1,56 @@
+{
+  "run_id": "d587e091-7cf7-4aea-b34e-da5502ad64f6",
+  "duration": 93.23333333333333,
+  "chapters": [
+    {
+      "at": 0,
+      "title": "The worker died.\nApproval survived.",
+      "duration": 7.0
+    },
+    {
+      "at": 7.0,
+      "title": "An approval\nmust survive.",
+      "duration": 9.533333333333333
+    },
+    {
+      "at": 16.53333333333333,
+      "title": "Evidence informs.\nA human decides.",
+      "duration": 9.133333333333333
+    },
+    {
+      "at": 25.666666666666664,
+      "title": "Approve the\nexact request.",
+      "duration": 9.0
+    },
+    {
+      "at": 34.666666666666664,
+      "title": "Saved in the database.\nNot yet acknowledged.",
+      "duration": 9.0
+    },
+    {
+      "at": 43.666666666666664,
+      "title": "Resume the work.\nKeep one outcome.",
+      "duration": 8.733333333333333
+    },
+    {
+      "at": 52.4,
+      "title": "Inspect the retry.\nVerify completion.",
+      "duration": 9.233333333333333
+    },
+    {
+      "at": 61.63333333333333,
+      "title": "Two attempts.\nOne committed outcome.",
+      "duration": 10.533333333333333
+    },
+    {
+      "at": 72.16666666666667,
+      "title": "Retry execution.\nProtect the outcome.",
+      "duration": 10.766666666666667
+    },
+    {
+      "at": 82.93333333333334,
+      "title": "Try the workflow locally.",
+      "duration": 10.3
+    }
+  ]
+}
